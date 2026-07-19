@@ -107,8 +107,8 @@ InitTestScene*.unity*
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
 
 # meta
-*/*.meta
+*.meta
 # idea
-*/*.idea
+*/.idea/*
 # temp textures
 */Textures/block/*
