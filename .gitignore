@@ -109,6 +109,6 @@ InitTestScene*.unity*
 # meta
 *.meta
 # idea
-*/.idea/*
+*.idea/*
 # temp textures
 */Textures/block/*
