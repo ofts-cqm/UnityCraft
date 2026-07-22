@@ -134,7 +134,7 @@ namespace World
 
         public override bool Equals(object obj)
         {
-            return obj is ChunkCoord other && Equals(other);
+            return obj is ChunkCoord other && x == other.x && z == other.z;
         }
 
         public override int GetHashCode() => x << 16 | z;
