@@ -7,8 +7,7 @@ namespace World
     public class Chunk
     {
         private readonly MeshFilter _meshFilter;
-        private readonly MeshRenderer meshRenderer;
-        private readonly GameObject chunkObject;
+        private readonly GameObject _chunkObject;
         private readonly World _world;
         private readonly ChunkCoord _chunkPosition;
         
@@ -21,7 +20,7 @@ namespace World
         public Chunk(ChunkCoord coord, World world)
         {
             _chunkPosition = coord;
-            chunkObject = new GameObject
+            _chunkObject = new GameObject
             {
                 transform =
                 {
@@ -29,18 +28,18 @@ namespace World
                 }
             };
             
-            meshRenderer = chunkObject.AddComponent<MeshRenderer>();
-            _meshFilter = chunkObject.AddComponent<MeshFilter>();
+            var meshRenderer1 = _chunkObject.AddComponent<MeshRenderer>();
+            _meshFilter = _chunkObject.AddComponent<MeshFilter>();
             _world = world;
-            chunkObject.transform.SetParent(world.transform);
-            meshRenderer.material = world.material;
+            _chunkObject.transform.SetParent(world.transform);
+            meshRenderer1.material = world.material;
             GenerateChunk();
         }
         
-        public bool isActive {
+        public bool IsActive {
 
-            get => chunkObject.activeSelf;
-            set => chunkObject.SetActive(value);
+            get => _chunkObject.activeSelf;
+            set => _chunkObject.SetActive(value);
         }
 
         public Block GetBlock(Vector3Int position) => GetBlock(position.x, position.y, position.z);
@@ -85,13 +84,14 @@ namespace World
                         _blockData[i, k, j] = Blocks.Dirt;
                     }
                     
-                    _blockData[i, 20, j] = Blocks.GrassBlock;
+                    _blockData[i, 20, j] = ((i ^ j) & 1) == 1 ? Blocks.GrassBlock : Blocks.Stone;
                     
                     for (int k = 21; k < ChunkHeight; k++)
                     {
                         _blockData[i, k, j] = Blocks.Air;
                     }
-
+                    _blockData[0, 21, 0] = Blocks.GrassBlock;
+                    _blockData[0, 22, 0] = Blocks.GrassBlock;
                 }
             }
         }
@@ -109,8 +109,11 @@ namespace World
             _world.GetChunk(new ChunkCoord(_chunkPosition.X, _chunkPosition.Z + 1))?.RenderChunk();
             _world.GetChunk(new ChunkCoord(_chunkPosition.X, _chunkPosition.Z - 1))?.RenderChunk();
         }
-        
-        private void RenderChunk() => _meshFilter.mesh = _renderObject.LoadChunk(this);
+
+        private void RenderChunk()
+        {
+            _meshFilter.mesh = _renderObject.LoadChunk(this);
+        }
     }
     
     public readonly struct ChunkCoord : IEquatable<ChunkCoord>

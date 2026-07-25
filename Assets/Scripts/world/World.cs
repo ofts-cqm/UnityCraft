@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using JetBrains.Annotations;
 using UnityEngine;
@@ -22,8 +23,8 @@ namespace World
         }
         
         private void Update() {
-            if (!new ChunkCoord(player.transform.position).Equals(_playerLastChunkCoord))
-                CheckViewDistance();
+            //if (!new ChunkCoord(player.transform.position).Equals(_playerLastChunkCoord))
+            //    CheckViewDistance();
         }
 
         // TODO: Investigate why chunk border is wrong
@@ -45,7 +46,7 @@ namespace World
 
             foreach (ChunkCoord coord in previouslyActiveChunks)
             {
-                _chunkMap[coord].isActive = false;
+                _chunkMap[coord].IsActive = false;
                 _chunkMap.Remove(coord);
             }
             
@@ -67,6 +68,12 @@ namespace World
         public Block GetBlock(int x, int y, int z)
         {
             return _chunkMap.TryGetValue(ChunkCoord.ToChunkCoord(x, z), out Chunk chunk) ? chunk.GetBlock(ToCoordInChunk(x, y, z)) : Blocks.Void;
+        }
+
+        public bool IsInBlock(float x, float y, float z)
+        {
+            return !GetBlock((int)Math.Floor(x), (int)Math.Floor(y), (int)Math.Floor(z))
+                .IsAir;
         }
 
         private static Vector3Int ToCoordInChunk(int x0, int y0, int z0)

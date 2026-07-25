@@ -6,6 +6,7 @@ namespace World
     public abstract record Block(int BlockId, bool IsSolid)
     {
         private static int _registered;
+        static readonly Vector3 BlockSize = new (1f, 1f, 1f);
 
         protected Block(bool isSolid = true): this(_registered++, isSolid) { }
 
