@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using JetBrains.Annotations;
 using UnityEngine;
 
 namespace World
@@ -6,9 +7,9 @@ namespace World
     public class World : MonoBehaviour
     {
         public Material material;
-        public const int ViewDistance = 4;
+        public const int ViewDistance = 2;
         
-        private readonly Dictionary<ChunkCoord, Chunk> chunkMap = new();
+        private readonly Dictionary<ChunkCoord, Chunk> _chunkMap = new();
         
         public Transform player;
         
@@ -17,10 +18,7 @@ namespace World
         // Start is called once before the first execution of Update after the MonoBehaviour is created
         private void Start()
         {
-            LoadChunk(new ChunkCoord(0, 0));
-            LoadChunk(new ChunkCoord(0, 1));
-            LoadChunk(new ChunkCoord(1, 0));
-            LoadChunk(new ChunkCoord(1, 1));
+            CheckViewDistance();
         }
         
         private void Update() {
@@ -31,51 +29,53 @@ namespace World
         // TODO: Investigate why chunk border is wrong
         private void CheckViewDistance()
         {
-            HashSet<ChunkCoord> previouslyActiveChunks = new HashSet<ChunkCoord>(chunkMap.Keys);
-            ChunkCoord chunkCoord = new ChunkCoord(player.transform.position);
-            _playerLastChunkCoord = chunkCoord;
+            HashSet<ChunkCoord> previouslyActiveChunks = new HashSet<ChunkCoord>(_chunkMap.Keys);
+            List<ChunkCoord> loadQueue = new List<ChunkCoord>();
+            ChunkCoord centerCoord = new ChunkCoord(player.transform.position);
+            _playerLastChunkCoord = centerCoord;
 
-            for (int x = chunkCoord.x - ViewDistance / 2; x < chunkCoord.x + ViewDistance / 2; x++) {
-                for (int z = chunkCoord.z - ViewDistance / 2; z < chunkCoord.z + ViewDistance / 2; z++) {
+            for (int x = centerCoord.X - ViewDistance; x < centerCoord.X + ViewDistance; x++) {
+                for (int z = centerCoord.Z - ViewDistance; z < centerCoord.Z + ViewDistance; z++) {
                     ChunkCoord thisChunk = new ChunkCoord(x, z);
 
-                    if (!chunkMap.ContainsKey(thisChunk))
-                    {
-                        LoadChunk(thisChunk);
-                    }
-
-                    previouslyActiveChunks.Remove(chunkCoord);
+                    if (!_chunkMap.ContainsKey(thisChunk)) loadQueue.Add(thisChunk);
+                    previouslyActiveChunks.Remove(thisChunk);
                 }
             }
 
-            //foreach (ChunkCoord coord in previouslyActiveChunks)
-            //{
-            //    chunkMap[coord].isActive = false;
-            //    chunkMap.Remove(coord);
-            //}
+            foreach (ChunkCoord coord in previouslyActiveChunks)
+            {
+                _chunkMap[coord].isActive = false;
+                _chunkMap.Remove(coord);
+            }
+            
+            foreach (ChunkCoord coord in loadQueue)
+            {
+                LoadChunk(coord);
+            }
         }
 
         private void LoadChunk(ChunkCoord coord)
         {
-            chunkMap.Add(coord, new Chunk(coord, this));
+            Chunk chunk = new Chunk(coord, this);
+            _chunkMap.Add(coord, chunk);
+            chunk.UpdateChunkRender();
         }
         
-        public Block GetBlock(int x, int y, int z) => GetBlock(new Vector3Int(x, y, z));
+        [CanBeNull] public Chunk GetChunk(ChunkCoord coord) => _chunkMap.GetValueOrDefault(coord);
 
-        public Block GetBlock(Vector3Int position)
+        public Block GetBlock(int x, int y, int z)
         {
-            //Console.WriteLine("World: getting block " + position);
-            ChunkCoord coord = new ChunkCoord(position);
-            return chunkMap.TryGetValue(coord, out Chunk chunk) ? chunk.GetBlock(ToCoordInChunk(position)) : Blocks.Air;
+            return _chunkMap.TryGetValue(ChunkCoord.ToChunkCoord(x, z), out Chunk chunk) ? chunk.GetBlock(ToCoordInChunk(x, y, z)) : Blocks.Void;
         }
 
-        public Vector3Int ToCoordInChunk(Vector3Int position)
+        private static Vector3Int ToCoordInChunk(int x0, int y0, int z0)
         {
-            int x = position.x % Chunk.ChunkSize;
+            int x = x0 % Chunk.ChunkSize;
             if (x < 0) x += Chunk.ChunkSize;
-            int z = position.z % Chunk.ChunkSize;
+            int z = z0 % Chunk.ChunkSize;
             if (z < 0) z += Chunk.ChunkSize;
-            return new Vector3Int(x, position.y, z);
+            return new Vector3Int(x, y0, z);
         }
     }
 }

@@ -25,7 +25,7 @@ namespace World
             {
                 transform =
                 {
-                    position = new Vector3(coord.x * ChunkSize, 0f, coord.z * ChunkSize)
+                    position = new Vector3(coord.X * ChunkSize, 0f, coord.Z * ChunkSize)
                 }
             };
             
@@ -50,9 +50,9 @@ namespace World
             if (y < 0 || y >= ChunkHeight) return Blocks.Air;
             
             if (x < 0 || x >= ChunkSize || z < 0 || z >= ChunkSize) 
-                return _world.GetBlock(_chunkPosition.x * ChunkSize + x, y, _chunkPosition.z * ChunkSize + z); 
+                return _world.GetBlock(_chunkPosition.X * ChunkSize + x, y, _chunkPosition.Z * ChunkSize + z); 
             
-            return _blockData[x, y, z] ?? Blocks.Air;
+            return _blockData[x, y, z];
         }
 
         public void ForEachBlock(Action<Block, Vector3Int> action)
@@ -99,44 +99,66 @@ namespace World
         void GenerateChunk()
         {
             InitializeBlockList();
-            
-            _meshFilter.mesh = _renderObject.LoadChunk(this);
         }
+
+        public void UpdateChunkRender()
+        {
+            RenderChunk();
+            _world.GetChunk(new ChunkCoord(_chunkPosition.X + 1, _chunkPosition.Z))?.RenderChunk();
+            _world.GetChunk(new ChunkCoord(_chunkPosition.X - 1, _chunkPosition.Z))?.RenderChunk();
+            _world.GetChunk(new ChunkCoord(_chunkPosition.X, _chunkPosition.Z + 1))?.RenderChunk();
+            _world.GetChunk(new ChunkCoord(_chunkPosition.X, _chunkPosition.Z - 1))?.RenderChunk();
+        }
+        
+        private void RenderChunk() => _meshFilter.mesh = _renderObject.LoadChunk(this);
     }
     
-    public struct ChunkCoord : IEquatable<ChunkCoord>
+    public readonly struct ChunkCoord : IEquatable<ChunkCoord>
     {
-        public int x;
-        public int z;
+        public readonly int X;
+        public readonly int Z;
 
         public ChunkCoord(int x, int z)
         {
-            this.x = x;
-            this.z = z;
+            X = x;
+            Z = z;
         }
 
         public ChunkCoord(Vector3Int coord)
         {
-            x = coord.x / Chunk.ChunkSize;
-            z = coord.z / Chunk.ChunkSize;
+            X = coord.x / Chunk.ChunkSize;
+            if (coord.x < 0) X--;
+            Z = coord.z / Chunk.ChunkSize;
+            if (coord.z < 0) Z--;
         }
         
         public ChunkCoord(Vector3 coord)
         {
-            x = (int)coord.x / Chunk.ChunkSize;
-            z = (int)coord.z / Chunk.ChunkSize;
+            X = (int)coord.x / Chunk.ChunkSize;
+            if (coord.x < 0) X--;
+            Z = (int)coord.z / Chunk.ChunkSize;
+            if (coord.z < 0) Z--;
+        }
+
+        public static ChunkCoord ToChunkCoord(int x, int z)
+        {
+            int X = x / Chunk.ChunkSize;
+            if (x < 0) X--;
+            int Z = z / Chunk.ChunkSize;
+            if (z < 0) Z--;
+            return new ChunkCoord(X, Z);
         }
 
         public bool Equals(ChunkCoord other)
         {
-            return x == other.x && z == other.z;
+            return X == other.X && Z == other.Z;
         }
 
         public override bool Equals(object obj)
         {
-            return obj is ChunkCoord other && x == other.x && z == other.z;
+            return obj is ChunkCoord other && X == other.X && Z == other.Z;
         }
 
-        public override int GetHashCode() => x << 16 | z;
+        public override int GetHashCode() => X << 16 | Z;
     }
 }

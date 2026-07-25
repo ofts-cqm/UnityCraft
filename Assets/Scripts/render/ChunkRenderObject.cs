@@ -53,6 +53,7 @@ namespace Render
             _vertices.Clear();
             _triangles.Clear();
             _uvs.Clear();
+            _vertIndex = 0;
             
             chunk.ForEachBlock((block, position) =>
             {
