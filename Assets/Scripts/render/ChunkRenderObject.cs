@@ -6,6 +6,11 @@ namespace Render
 {
     public class ChunkRenderObject
     {
+        private readonly MeshFilter _meshFilter;
+        private readonly MeshCollider _meshCollider;
+        private readonly GameObject _chunkObject;
+
+        private readonly int _heightIndex;
         private int _vertIndex;
         private readonly List<Vector3> _vertices = new();
         private readonly List<int> _triangles = new();
@@ -20,6 +25,8 @@ namespace Render
 
         private const int TextureWidth = 16;
         private const int TextureHeight = 1;
+
+        private const int ChunkSize = Chunk.ChunkSize;
         
         private static readonly Vector3[] VerticesLookup = {
             new(0.0f, 0.0f, 0.0f),
@@ -48,26 +55,74 @@ namespace Render
             new(1, 1)
         };
 
-        public Mesh LoadChunk(Chunk chunk)
+        public ChunkRenderObject(World.World world, ChunkCoord coord, int index)
         {
+            _chunkObject = new GameObject
+            {
+                transform =
+                {
+                    position = new Vector3(coord.X * ChunkSize, index * 16, coord.Z * ChunkSize)
+                },
+                name = $"Chunk @{coord.X},{coord.Z} height {index}"
+            };
+
+            _heightIndex = index * 16;
+            
+            var meshRenderer1 = _chunkObject.AddComponent<MeshRenderer>();
+            meshRenderer1.material = world.material;
+            
+            _meshFilter = _chunkObject.AddComponent<MeshFilter>();
+            _meshCollider = _chunkObject.AddComponent<MeshCollider>();
+            _chunkObject.transform.SetParent(world.transform);
+        }
+        
+        public bool Active {
+            get => _chunkObject.activeSelf;
+            set
+            {
+                _chunkObject.SetActive(value);
+                Dirty = true;
+            }
+        }
+
+        public bool Dirty { get; set; } = true;
+
+        public void RerenderChunk(Chunk chunk)
+        {
+            Dirty = false;
             _vertices.Clear();
             _triangles.Clear();
             _uvs.Clear();
             _vertIndex = 0;
             
-            chunk.ForEachBlock((block, position) =>
+            for (int i = 0; i < ChunkSize; i++)
             {
-                if (block.IsAir) return;
+                for (int j = 0; j < ChunkSize; j++)
+                {
+                    for (int k = 0; k < ChunkSize; k++)
+                    {
+                        Vector3Int position = new Vector3Int(i, j + _heightIndex, k);
+                        Vector3 localPosition = new Vector3(i, j, k);
+                        Block block = chunk.GetBlock(position);
+                        if (block.IsAir) continue;
                         
-                if (!chunk.GetBlock(position + Vector3Int.left).IsSolid) AddFace(LeftFace, position, block);
-                if (!chunk.GetBlock(position + Vector3Int.right).IsSolid) AddFace(RightFace, position, block);
-                if (!chunk.GetBlock(position + Vector3Int.up).IsSolid) AddFace(TopFace, position, block);
-                if (!chunk.GetBlock(position + Vector3Int.down).IsSolid) AddFace(BottomFace, position, block);
-                if (!chunk.GetBlock(position + Vector3Int.forward).IsSolid) AddFace(FrontFace, position, block);
-                if (!chunk.GetBlock(position + Vector3Int.back).IsSolid) AddFace(BackFace, position, block);
-            });
+                        if (!chunk.GetBlock(position + Vector3Int.left).IsSolid) AddFace(LeftFace, localPosition, block);
+                        if (!chunk.GetBlock(position + Vector3Int.right).IsSolid) AddFace(RightFace, localPosition, block);
+                        if (!chunk.GetBlock(position + Vector3Int.up).IsSolid) AddFace(TopFace, localPosition, block);
+                        if (!chunk.GetBlock(position + Vector3Int.down).IsSolid) AddFace(BottomFace, localPosition, block);
+                        if (!chunk.GetBlock(position + Vector3Int.forward).IsSolid) AddFace(FrontFace, localPosition, block);
+                        if (!chunk.GetBlock(position + Vector3Int.back).IsSolid) AddFace(BackFace, localPosition, block);
+                    }
+                }
+            }
 
-            return GetMesh();
+            if (_vertIndex == 0)
+            {
+                Active = false;
+            }
+
+            _meshFilter.mesh = GetMesh();
+            _meshCollider.sharedMesh = _meshFilter.mesh;
         }
 
         private void AddFace(int face, Vector3 position, Block block)
@@ -90,7 +145,7 @@ namespace Render
             _vertIndex+= 4;
         }
 
-        public Mesh GetMesh()
+        private Mesh GetMesh()
         {
             Mesh mesh = new Mesh
             {

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using JetBrains.Annotations;
+using Render;
 using UnityEngine;
 
 namespace World
@@ -8,9 +9,10 @@ namespace World
     public class World : MonoBehaviour
     {
         public Material material;
-        public const int ViewDistance = 2;
+        private const int ViewDistance = 2;
         
         private readonly Dictionary<ChunkCoord, Chunk> _chunkMap = new();
+        private readonly Dictionary<ChunkCoord, Chunk> _inactiveChunks = new();
         
         public Transform player;
         
@@ -23,8 +25,8 @@ namespace World
         }
         
         private void Update() {
-            //if (!new ChunkCoord(player.transform.position).Equals(_playerLastChunkCoord))
-            //    CheckViewDistance();
+            if (!new ChunkCoord(player.transform.position).Equals(_playerLastChunkCoord))
+                CheckViewDistance();
         }
 
         // TODO: Investigate why chunk border is wrong
@@ -35,8 +37,8 @@ namespace World
             ChunkCoord centerCoord = new ChunkCoord(player.transform.position);
             _playerLastChunkCoord = centerCoord;
 
-            for (int x = centerCoord.X - ViewDistance; x < centerCoord.X + ViewDistance; x++) {
-                for (int z = centerCoord.Z - ViewDistance; z < centerCoord.Z + ViewDistance; z++) {
+            for (int x = centerCoord.X - ViewDistance; x < centerCoord.X + ViewDistance + 1; x++) {
+                for (int z = centerCoord.Z - ViewDistance; z < centerCoord.Z + ViewDistance + 1; z++) {
                     ChunkCoord thisChunk = new ChunkCoord(x, z);
 
                     if (!_chunkMap.ContainsKey(thisChunk)) loadQueue.Add(thisChunk);
@@ -46,21 +48,29 @@ namespace World
 
             foreach (ChunkCoord coord in previouslyActiveChunks)
             {
-                _chunkMap[coord].IsActive = false;
+                _inactiveChunks.Add(coord, _chunkMap[coord]);
+                _chunkMap[coord].Active = false;
                 _chunkMap.Remove(coord);
             }
             
             foreach (ChunkCoord coord in loadQueue)
             {
-                LoadChunk(coord);
+                if (_inactiveChunks.TryGetValue(coord, out Chunk chunk))
+                {
+                    chunk.Active = true;
+                    _inactiveChunks.Remove(coord);
+                    _chunkMap[coord] = chunk;
+                }
+                else LoadChunk(coord);
             }
+
+            foreach (Chunk chunk in _chunkMap.Values) chunk.UpdateDirtyRenderObjects();
         }
 
         private void LoadChunk(ChunkCoord coord)
         {
             Chunk chunk = new Chunk(coord, this);
             _chunkMap.Add(coord, chunk);
-            chunk.UpdateChunkRender();
         }
         
         [CanBeNull] public Chunk GetChunk(ChunkCoord coord) => _chunkMap.GetValueOrDefault(coord);
@@ -68,12 +78,6 @@ namespace World
         public Block GetBlock(int x, int y, int z)
         {
             return _chunkMap.TryGetValue(ChunkCoord.ToChunkCoord(x, z), out Chunk chunk) ? chunk.GetBlock(ToCoordInChunk(x, y, z)) : Blocks.Void;
-        }
-
-        public bool IsInBlock(float x, float y, float z)
-        {
-            return !GetBlock((int)Math.Floor(x), (int)Math.Floor(y), (int)Math.Floor(z))
-                .IsAir;
         }
 
         private static Vector3Int ToCoordInChunk(int x0, int y0, int z0)

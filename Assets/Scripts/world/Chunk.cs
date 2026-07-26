@@ -6,45 +6,35 @@ namespace World
 {
     public class Chunk
     {
-        private readonly MeshFilter _meshFilter;
-        private readonly GameObject _chunkObject;
         private readonly World _world;
         private readonly ChunkCoord _chunkPosition;
         
         public const int ChunkSize = 16;
         private const int ChunkHeight = 128;
-        
-        private readonly ChunkRenderObject _renderObject = new();
+        private const int ChunkSectionCount = ChunkHeight / ChunkSize;
+
+        private readonly ChunkRenderObject[] _renderObjects = new ChunkRenderObject[8];
         private readonly Block[,,] _blockData = new Block[ChunkSize, ChunkHeight, ChunkSize];
 
         public Chunk(ChunkCoord coord, World world)
         {
             _chunkPosition = coord;
-            _chunkObject = new GameObject
-            {
-                transform =
-                {
-                    position = new Vector3(coord.X * ChunkSize, 0f, coord.Z * ChunkSize)
-                }
-            };
             
-            var meshRenderer1 = _chunkObject.AddComponent<MeshRenderer>();
-            _meshFilter = _chunkObject.AddComponent<MeshFilter>();
             _world = world;
-            _chunkObject.transform.SetParent(world.transform);
-            meshRenderer1.material = world.material;
             GenerateChunk();
+            for (int i = 0; i < ChunkSectionCount; i++) _renderObjects[i] = new ChunkRenderObject(world, coord, i);
         }
         
-        public bool IsActive {
-
-            get => _chunkObject.activeSelf;
-            set => _chunkObject.SetActive(value);
+        public bool Active {
+            get => _renderObjects[0].Active;
+            set {
+                foreach (var obj in _renderObjects) obj.Active = value;            
+            }
         }
 
         public Block GetBlock(Vector3Int position) => GetBlock(position.x, position.y, position.z);
-        
-        public Block GetBlock(int x, int y, int z)
+
+        private Block GetBlock(int x, int y, int z)
         {
             if (y < 0 || y >= ChunkHeight) return Blocks.Air;
             
@@ -52,20 +42,6 @@ namespace World
                 return _world.GetBlock(_chunkPosition.X * ChunkSize + x, y, _chunkPosition.Z * ChunkSize + z); 
             
             return _blockData[x, y, z];
-        }
-
-        public void ForEachBlock(Action<Block, Vector3Int> action)
-        {
-            for (int i = 0; i < ChunkSize; i++)
-            {
-                for (int j = 0; j < ChunkHeight; j++)
-                {
-                    for (int k = 0; k < ChunkSize; k++)
-                    {
-                        action.Invoke(GetBlock(i, j, k), new Vector3Int(i, j, k));
-                    }
-                }
-            }
         }
 
         private void InitializeBlockList()
@@ -101,18 +77,26 @@ namespace World
             InitializeBlockList();
         }
 
-        public void UpdateChunkRender()
+        public void UpdateDirtyRenderObjects()
         {
-            RenderChunk();
-            _world.GetChunk(new ChunkCoord(_chunkPosition.X + 1, _chunkPosition.Z))?.RenderChunk();
-            _world.GetChunk(new ChunkCoord(_chunkPosition.X - 1, _chunkPosition.Z))?.RenderChunk();
-            _world.GetChunk(new ChunkCoord(_chunkPosition.X, _chunkPosition.Z + 1))?.RenderChunk();
-            _world.GetChunk(new ChunkCoord(_chunkPosition.X, _chunkPosition.Z - 1))?.RenderChunk();
+            for (int i = 0; i < ChunkSectionCount; i++)
+            {
+                if (_renderObjects[i].Dirty) UpdateChunkRender(i);
+            }
         }
 
-        private void RenderChunk()
+        private void UpdateChunkRender(int index)
         {
-            _meshFilter.mesh = _renderObject.LoadChunk(this);
+            RenderChunk(index);
+            _world.GetChunk(new ChunkCoord(_chunkPosition.X + 1, _chunkPosition.Z))?.RenderChunk(index);
+            _world.GetChunk(new ChunkCoord(_chunkPosition.X - 1, _chunkPosition.Z))?.RenderChunk(index);
+            _world.GetChunk(new ChunkCoord(_chunkPosition.X, _chunkPosition.Z + 1))?.RenderChunk(index);
+            _world.GetChunk(new ChunkCoord(_chunkPosition.X, _chunkPosition.Z - 1))?.RenderChunk(index);
+        }
+
+        private void RenderChunk(int index)
+        {
+            _renderObjects[index].RerenderChunk(this);
         }
     }
     
@@ -125,14 +109,6 @@ namespace World
         {
             X = x;
             Z = z;
-        }
-
-        public ChunkCoord(Vector3Int coord)
-        {
-            X = coord.x / Chunk.ChunkSize;
-            if (coord.x < 0) X--;
-            Z = coord.z / Chunk.ChunkSize;
-            if (coord.z < 0) Z--;
         }
         
         public ChunkCoord(Vector3 coord)
