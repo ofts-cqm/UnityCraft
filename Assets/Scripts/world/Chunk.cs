@@ -7,7 +7,7 @@ namespace World
     public class Chunk
     {
         private readonly World _world;
-        private readonly ChunkCoord _chunkPosition;
+        public readonly ChunkCoord ChunkPosition;
         
         public const int ChunkSize = 16;
         private const int ChunkHeight = 128;
@@ -18,7 +18,7 @@ namespace World
 
         public Chunk(ChunkCoord coord, World world)
         {
-            _chunkPosition = coord;
+            ChunkPosition = coord;
             
             _world = world;
             GenerateChunk();
@@ -39,7 +39,7 @@ namespace World
             if (y < 0 || y >= ChunkHeight) return Blocks.Air;
             
             if (x < 0 || x >= ChunkSize || z < 0 || z >= ChunkSize) 
-                return _world.GetBlock(_chunkPosition.X * ChunkSize + x, y, _chunkPosition.Z * ChunkSize + z); 
+                return _world.GetBlock(ChunkPosition.X * ChunkSize + x, y, ChunkPosition.Z * ChunkSize + z); 
             
             return _blockData[x, y, z];
         }
@@ -79,24 +79,12 @@ namespace World
 
         public void UpdateDirtyRenderObjects()
         {
-            for (int i = 0; i < ChunkSectionCount; i++)
-            {
-                if (_renderObjects[i].Dirty) UpdateChunkRender(i);
-            }
+            foreach (ChunkRenderObject obj in _renderObjects) if (obj.Dirty) obj.RerenderChunk(this);
         }
 
-        private void UpdateChunkRender(int index)
+        public void MarkDirty()
         {
-            RenderChunk(index);
-            _world.GetChunk(new ChunkCoord(_chunkPosition.X + 1, _chunkPosition.Z))?.RenderChunk(index);
-            _world.GetChunk(new ChunkCoord(_chunkPosition.X - 1, _chunkPosition.Z))?.RenderChunk(index);
-            _world.GetChunk(new ChunkCoord(_chunkPosition.X, _chunkPosition.Z + 1))?.RenderChunk(index);
-            _world.GetChunk(new ChunkCoord(_chunkPosition.X, _chunkPosition.Z - 1))?.RenderChunk(index);
-        }
-
-        private void RenderChunk(int index)
-        {
-            _renderObjects[index].RerenderChunk(this);
+            foreach (ChunkRenderObject obj in _renderObjects) obj.Dirty = true;
         }
     }
     
@@ -121,11 +109,10 @@ namespace World
 
         public static ChunkCoord ToChunkCoord(int x, int z)
         {
-            int X = x / Chunk.ChunkSize;
-            if (x < 0) X--;
-            int Z = z / Chunk.ChunkSize;
-            if (z < 0) Z--;
-            return new ChunkCoord(X, Z);
+            return new ChunkCoord(
+                (x > 0 ? x : x - 15) / Chunk.ChunkSize,
+                (z > 0 ? z : z - 15) / Chunk.ChunkSize
+                );
         }
 
         public bool Equals(ChunkCoord other)
@@ -137,6 +124,11 @@ namespace World
         {
             return obj is ChunkCoord other && X == other.X && Z == other.Z;
         }
+        
+        public ChunkCoord Left() => new ChunkCoord(X - 1, Z);
+        public ChunkCoord Right() => new ChunkCoord(X + 1, Z);
+        public ChunkCoord Up() => new ChunkCoord(X, Z - 1);
+        public ChunkCoord Down() => new ChunkCoord(X, Z + 1);
 
         public override int GetHashCode() => X << 16 | Z;
     }

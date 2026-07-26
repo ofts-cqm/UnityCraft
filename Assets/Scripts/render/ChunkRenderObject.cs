@@ -81,7 +81,11 @@ namespace Render
             set
             {
                 _chunkObject.SetActive(value);
-                Dirty = true;
+                if (value)
+                {
+                    _chunkObject.name += "[Reactivated];";
+                    Dirty = true;
+                }
             }
         }
 

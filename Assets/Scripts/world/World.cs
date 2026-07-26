@@ -53,24 +53,24 @@ namespace World
                 _chunkMap.Remove(coord);
             }
             
-            foreach (ChunkCoord coord in loadQueue)
-            {
-                if (_inactiveChunks.TryGetValue(coord, out Chunk chunk))
-                {
-                    chunk.Active = true;
-                    _inactiveChunks.Remove(coord);
-                    _chunkMap[coord] = chunk;
-                }
-                else LoadChunk(coord);
-            }
+            foreach (ChunkCoord coord in loadQueue) LoadChunk(coord);
 
             foreach (Chunk chunk in _chunkMap.Values) chunk.UpdateDirtyRenderObjects();
         }
 
         private void LoadChunk(ChunkCoord coord)
         {
-            Chunk chunk = new Chunk(coord, this);
+            if (_inactiveChunks.TryGetValue(coord, out Chunk chunk))
+            {
+                chunk.Active = true;
+                _inactiveChunks.Remove(coord);
+            }
+            else chunk = new Chunk(coord, this);
             _chunkMap.Add(coord, chunk);
+            GetChunk(coord.Left())?.MarkDirty();
+            GetChunk(coord.Right())?.MarkDirty();
+            GetChunk(coord.Up())?.MarkDirty();
+            GetChunk(coord.Down())?.MarkDirty();
         }
         
         [CanBeNull] public Chunk GetChunk(ChunkCoord coord) => _chunkMap.GetValueOrDefault(coord);
