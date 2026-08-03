@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using render;
-using Unity.VisualScripting;
 using UnityEngine;
 using World;
 
@@ -17,6 +16,7 @@ namespace Render
         private readonly List<Vector3> _vertices = new();
         private readonly List<int> _triangles = new();
         private readonly List<int> _triangleCoordinate = new();
+        private readonly List<int> _triangleFace = new();
         private readonly List<Vector2> _uvs = new();
         private Vector3Int _chunkPosition;
 
@@ -104,6 +104,7 @@ namespace Render
             _vertices.Clear();
             _triangles.Clear();
             _triangleCoordinate.Clear();
+            _triangleFace.Clear();
             _uvs.Clear();
             _vertIndex = 0;
             
@@ -156,20 +157,21 @@ namespace Render
             
             int serialized = ((int)position.x << 16) | ((int)position.y << 8) | ((int)position.z);
             _triangleCoordinate.Add(serialized);
-            _triangleCoordinate.Add(serialized);
-            _triangleCoordinate.Add(serialized);
-            _triangleCoordinate.Add(serialized);
-            _triangleCoordinate.Add(serialized);
-            _triangleCoordinate.Add(serialized);
+            _triangleFace.Add(face);
             
             _vertIndex+= 4;
         }
 
         public Vector3Int GetBlockPositionOfTriangle(int index)
         {
-            int serialized = _triangleCoordinate[index];
+            int serialized = _triangleCoordinate[index / 2];
             Vector3Int des = new Vector3Int((serialized >> 16) & 0xFF, (serialized >> 8) & 0xFF, serialized & 0xFF) + _chunkPosition;
             return des;
+        }
+
+        public int GetTriangleFacing(int index)
+        {
+            return _triangleFace[index / 2];
         }
 
         private Mesh GetMesh()

@@ -77,6 +77,11 @@ namespace World
             return _chunkMap.TryGetValue(ChunkCoord.ToChunkCoord(x, z), out Chunk chunk) ? chunk.GetBlock(ToCoordInChunk(x, y, z)) : Blocks.Void;
         }
 
+        public Block GetBlock(Vector3Int position)
+        {
+            return GetBlock(position.x, position.y, position.z);
+        }
+
         public void SetBlock(int x, int y, int z, Block block)
         {
             if (_chunkMap.TryGetValue(ChunkCoord.ToChunkCoord(x, z), out Chunk chunk))

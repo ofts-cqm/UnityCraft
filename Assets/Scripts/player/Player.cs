@@ -1,4 +1,5 @@
 using render;
+using Render;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using World;
@@ -22,13 +23,17 @@ namespace player
         private const float Gravity = -20f;
         private const float JumpForce = 5f;
         private const float DoubleClickDelay = 0.3f;
+        private const int MinimumInteractionDelay = 10;
         
         private bool _sprint;
         private float _sprintLastClickTime;
         private float _verticalMomentum;
         private bool _jumping;
+        private int _tick = 0;
+        private int _lastInteractionTick = 0;
 
         private Vector3Int TargetLocation { get; set; }
+        private int TargetFace { get; set; }
         private bool HasTargetLocation { get; set; }
         private bool Paused { get; set; }
 
@@ -67,6 +72,8 @@ namespace player
 
         private void FixedUpdate()
         {
+            if (Paused) return;
+            _tick++;
             UpdateInput();
             UpdateInteraction();
         }
@@ -85,10 +92,40 @@ namespace player
         private void UpdateInteraction()
         {
             if (!HasTargetLocation) return;
+            if (_tick - _lastInteractionTick < MinimumInteractionDelay) return;
+            
             if (_attackAction.IsPressed())
             {
-                Debug.Log("Destroying Block @ " + TargetLocation);
                 world.SetBlock(TargetLocation, Blocks.Air);
+                _lastInteractionTick = _tick;
+            }
+
+            if (_interactAction.IsPressed())
+            {
+                Vector3Int rawPosition = TargetLocation;
+                int face = TargetFace;
+                Vector3Int finalPosition = face switch
+                {
+                    ChunkRenderObject.TopFace => rawPosition + Vector3Int.up,
+                    ChunkRenderObject.BottomFace => rawPosition + Vector3Int.down,
+                    ChunkRenderObject.LeftFace => rawPosition + Vector3Int.left,
+                    ChunkRenderObject.RightFace => rawPosition + Vector3Int.right,
+                    ChunkRenderObject.FrontFace => rawPosition + Vector3Int.forward,
+                    ChunkRenderObject.BackFace => rawPosition + Vector3Int.back,
+                    _ => rawPosition
+                };
+
+                if (world.GetBlock(finalPosition)?.IsAir ?? false)
+                {
+
+                    Vector3 half = new Vector3(0.5f, 0.5f, 0.5f);
+                    Vector3 center = finalPosition + half;
+                    if (!Physics.CheckBox(center, half * 0.9f, new Quaternion(), 0x0FFFFFFF))
+                    {
+                        world.SetBlock(finalPosition, Blocks.Stone);
+                        _lastInteractionTick = _tick;
+                    }
+                }
             }
         }
         private void UpdateInput()
@@ -129,7 +166,8 @@ namespace player
                 {
                     if (!targetOutline.activeSelf) targetOutline.SetActive(true);
                     
-                    TargetLocation = renderObjectProperty.RenderObject.GetBlockPositionOfTriangle(hitInfo.triangleIndex * 3);
+                    TargetLocation = renderObjectProperty.RenderObject.GetBlockPositionOfTriangle(hitInfo.triangleIndex);
+                    TargetFace = renderObjectProperty.RenderObject.GetTriangleFacing(hitInfo.triangleIndex);
                     HasTargetLocation = true;
                     
                     targetOutline.transform.position = TargetLocation;
