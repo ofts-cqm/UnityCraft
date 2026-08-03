@@ -38,6 +38,7 @@ namespace player
         private int TargetFace { get; set; }
         private bool HasTargetLocation { get; set; }
         private bool Paused { get; set; }
+        private int HoldingBlock { get; set; } = 2;
 
         private Vector3 _velocity;
 
@@ -61,6 +62,13 @@ namespace player
                 if (characterController.isGrounded) _jumping = true;
             };
             InputSystem.actions.FindAction("Pause").started += _ => Paused = !Paused;
+            InputSystem.actions.FindAction("Scroll").performed += context =>
+            {
+                int delta = (int)context.ReadValue<float>();
+                HoldingBlock += delta;
+                if (HoldingBlock >= Blocks.BlockList.Count) HoldingBlock = 2;
+                if (HoldingBlock < 2) HoldingBlock = Blocks.BlockList.Count - 1;
+            };
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
             _defaultLayer = LayerMask.GetMask("Default");
@@ -126,7 +134,7 @@ namespace player
                     Vector3 center = finalPosition + half;
                     if (!Physics.CheckBox(center, half * 0.9f, new Quaternion(), _allLayer))
                     {
-                        world.SetBlock(finalPosition, Blocks.Stone);
+                        world.SetBlock(finalPosition, Blocks.BlockList[HoldingBlock]);
                         _lastInteractionTick = _tick;
                     }
                 }

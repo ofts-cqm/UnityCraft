@@ -8,7 +8,10 @@ namespace World
         private static int _registered;
         static readonly Vector3 BlockSize = new (1f, 1f, 1f);
 
-        protected Block(bool isSolid = true): this(_registered++, isSolid) { }
+        protected Block(bool isSolid = true) : this(_registered++, isSolid)
+        {
+            Blocks.BlockList.Add(this);
+        }
 
         public abstract Vector2Int GetTextureIndex(int face);
         
