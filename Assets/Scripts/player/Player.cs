@@ -17,6 +17,8 @@ namespace player
         private InputAction _lookAction;
         private InputAction _attackAction;
         private InputAction _interactAction;
+        private int _defaultLayer;
+        private int _allLayer;
         
         private const float Sensitivity = 0.3f;
         private const float MoveSpeed = 4.317f;
@@ -29,8 +31,8 @@ namespace player
         private float _sprintLastClickTime;
         private float _verticalMomentum;
         private bool _jumping;
-        private int _tick = 0;
-        private int _lastInteractionTick = 0;
+        private int _tick;
+        private int _lastInteractionTick;
 
         private Vector3Int TargetLocation { get; set; }
         private int TargetFace { get; set; }
@@ -61,6 +63,8 @@ namespace player
             InputSystem.actions.FindAction("Pause").started += _ => Paused = !Paused;
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
+            _defaultLayer = LayerMask.GetMask("Default");
+            _allLayer = LayerMask.GetMask("Default", "Ignore Raycast");
         }
 
         private void Update()
@@ -120,7 +124,7 @@ namespace player
 
                     Vector3 half = new Vector3(0.5f, 0.5f, 0.5f);
                     Vector3 center = finalPosition + half;
-                    if (!Physics.CheckBox(center, half * 0.9f, new Quaternion(), 0x0FFFFFFF))
+                    if (!Physics.CheckBox(center, half * 0.9f, new Quaternion(), _allLayer))
                     {
                         world.SetBlock(finalPosition, Blocks.Stone);
                         _lastInteractionTick = _tick;
@@ -158,7 +162,7 @@ namespace player
             Vector3 direction = cameraTransform.forward;
             
             // Perform the standard physics operation
-            if (Physics.Raycast(origin, direction, out RaycastHit hitInfo, MaxDistance, 0x0FFFFFFF))
+            if (Physics.Raycast(origin, direction, out RaycastHit hitInfo, MaxDistance, _defaultLayer))
             {
                 if (hitInfo.collider.gameObject == _lastHitObject && hitInfo.triangleIndex == _lastHitFace) return;
 
