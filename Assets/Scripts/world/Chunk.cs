@@ -44,6 +44,27 @@ namespace World
             return _blockData[x, y, z];
         }
 
+        public void SetBlock(int x, int y, int z, Block block)
+        {
+            _blockData[x, y, z] = block;
+            _renderObjects[y / 16].Dirty = true;
+            
+            if (x == 0) _world.GetChunk(ChunkPosition.Left())?.SetDirty(y);
+            if (x == ChunkSize - 1) _world.GetChunk(ChunkPosition.Right())?.SetDirty(y);
+            if (z == 0) _world.GetChunk(ChunkPosition.Up())?.SetDirty(y);
+            if (z == ChunkSize - 1) _world.GetChunk(ChunkPosition.Down())?.SetDirty(y);
+        }
+
+        public void SetBlock(Vector3Int position, Block block)
+        {
+            SetBlock(position.x, position.y, position.z, block);
+        }
+
+        private void SetDirty(int y)
+        {
+            _renderObjects[y / 16].Dirty = true;
+        }
+
         private void InitializeBlockList()
         {
             for (int i = 0; i < ChunkSize; i++)
@@ -125,10 +146,10 @@ namespace World
             return obj is ChunkCoord other && X == other.X && Z == other.Z;
         }
         
-        public ChunkCoord Left() => new ChunkCoord(X - 1, Z);
-        public ChunkCoord Right() => new ChunkCoord(X + 1, Z);
-        public ChunkCoord Up() => new ChunkCoord(X, Z - 1);
-        public ChunkCoord Down() => new ChunkCoord(X, Z + 1);
+        public ChunkCoord Left() => new(X - 1, Z);
+        public ChunkCoord Right() => new(X + 1, Z);
+        public ChunkCoord Up() => new(X, Z - 1);
+        public ChunkCoord Down() => new(X, Z + 1);
 
         public override int GetHashCode() => X << 16 | Z;
     }

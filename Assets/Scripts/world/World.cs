@@ -1,7 +1,5 @@
-using System;
 using System.Collections.Generic;
 using JetBrains.Annotations;
-using Render;
 using UnityEngine;
 
 namespace World
@@ -27,6 +25,7 @@ namespace World
         private void Update() {
             if (!new ChunkCoord(player.transform.position).Equals(_playerLastChunkCoord))
                 CheckViewDistance();
+            foreach (Chunk chunk in _chunkMap.Values) chunk.UpdateDirtyRenderObjects();
         }
 
         // TODO: Investigate why chunk border is wrong
@@ -54,8 +53,6 @@ namespace World
             }
             
             foreach (ChunkCoord coord in loadQueue) LoadChunk(coord);
-
-            foreach (Chunk chunk in _chunkMap.Values) chunk.UpdateDirtyRenderObjects();
         }
 
         private void LoadChunk(ChunkCoord coord)
@@ -78,6 +75,26 @@ namespace World
         public Block GetBlock(int x, int y, int z)
         {
             return _chunkMap.TryGetValue(ChunkCoord.ToChunkCoord(x, z), out Chunk chunk) ? chunk.GetBlock(ToCoordInChunk(x, y, z)) : Blocks.Void;
+        }
+
+        public void SetBlock(int x, int y, int z, Block block)
+        {
+            if (_chunkMap.TryGetValue(ChunkCoord.ToChunkCoord(x, z), out Chunk chunk))
+            {
+                x %= Chunk.ChunkSize;
+                if (x < 0) x += Chunk.ChunkSize;
+                z %= Chunk.ChunkSize;
+                if (z < 0) z += Chunk.ChunkSize;
+                chunk.SetBlock(x, y, z, block);
+            }
+        }
+
+        public void SetBlock(Vector3Int position, Block block)
+        {
+            if (_chunkMap.TryGetValue(new ChunkCoord(position), out Chunk chunk))
+            {
+                chunk.SetBlock(ToCoordInChunk(position.x, position.y, position.z), block);
+            }
         }
 
         private static Vector3Int ToCoordInChunk(int x0, int y0, int z0)

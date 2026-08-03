@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using render;
+using Unity.VisualScripting;
 using UnityEngine;
 using World;
 
@@ -14,7 +16,9 @@ namespace Render
         private int _vertIndex;
         private readonly List<Vector3> _vertices = new();
         private readonly List<int> _triangles = new();
+        private readonly List<int> _triangleCoordinate = new();
         private readonly List<Vector2> _uvs = new();
+        private Vector3Int _chunkPosition;
 
         public const int TopFace = 0;
         public const int BottomFace = 1;
@@ -73,7 +77,10 @@ namespace Render
             
             _meshFilter = _chunkObject.AddComponent<MeshFilter>();
             _meshCollider = _chunkObject.AddComponent<MeshCollider>();
+            _chunkObject.AddComponent<RenderObjectProperty>().RenderObject = this;
             _chunkObject.transform.SetParent(world.transform);
+
+            _chunkPosition = new Vector3Int(coord.X * ChunkSize, index * 16, coord.Z * ChunkSize);
         }
         
         public bool Active {
@@ -96,6 +103,7 @@ namespace Render
             Dirty = false;
             _vertices.Clear();
             _triangles.Clear();
+            _triangleCoordinate.Clear();
             _uvs.Clear();
             _vertIndex = 0;
             
@@ -146,7 +154,22 @@ namespace Render
             _triangles.Add(_vertIndex + 1);
             _triangles.Add(_vertIndex + 3);
             
+            int serialized = ((int)position.x << 16) | ((int)position.y << 8) | ((int)position.z);
+            _triangleCoordinate.Add(serialized);
+            _triangleCoordinate.Add(serialized);
+            _triangleCoordinate.Add(serialized);
+            _triangleCoordinate.Add(serialized);
+            _triangleCoordinate.Add(serialized);
+            _triangleCoordinate.Add(serialized);
+            
             _vertIndex+= 4;
+        }
+
+        public Vector3Int GetBlockPositionOfTriangle(int index)
+        {
+            int serialized = _triangleCoordinate[index];
+            Vector3Int des = new Vector3Int((serialized >> 16) & 0xFF, (serialized >> 8) & 0xFF, serialized & 0xFF) + _chunkPosition;
+            return des;
         }
 
         private Mesh GetMesh()
