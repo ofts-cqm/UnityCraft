@@ -135,10 +135,8 @@ namespace World
         
         public ChunkCoord(Vector3 coord)
         {
-            X = (int)coord.x / Chunk.ChunkSize;
-            if (coord.x < 0) X--;
-            Z = (int)coord.z / Chunk.ChunkSize;
-            if (coord.z < 0) Z--;
+            X = (int)(coord.x > 0 ? coord.x : coord.x - 15) / Chunk.ChunkSize;
+            Z = (int)(coord.z > 0 ? coord.z : coord.z - 15) / Chunk.ChunkSize;
         }
 
         public static ChunkCoord ToChunkCoord(int x, int z)

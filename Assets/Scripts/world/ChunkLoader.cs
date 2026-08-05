@@ -32,10 +32,11 @@ namespace World
                 // Unity API: must happen on the main thread.
                 chunk.Active = true;
 
-                // Remove it from the inactive-cache tracking.
+                // Remove it from the inactive-cache tracking and add to the world
                 InactiveChunks.Remove(coord); 
                 InactiveMap.Remove(coord);
                 InactiveNodes.Remove(coord);
+                World.Instance.ChunkMap[coord] = chunk;
 
                 // Loading this neighbor may change visible border faces.
                 World.Instance.GetChunk(coord.Left())?.MarkDirty();

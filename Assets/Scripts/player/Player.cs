@@ -106,7 +106,6 @@ namespace player
             if (!HasTargetLocation) return;
             if (_tick - _lastInteractionTick < MinimumInteractionDelay) return;
             
-            // Todo: Investigate Border Destroying Issue
             if (_attackAction.IsPressed())
             {
                 world.SetBlock(TargetLocation, Blocks.Air);
