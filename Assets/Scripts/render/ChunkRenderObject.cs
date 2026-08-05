@@ -7,9 +7,9 @@ namespace Render
 {
     public class ChunkRenderObject
     {
-        private readonly MeshFilter _meshFilter;
-        private readonly MeshCollider _meshCollider;
-        private readonly GameObject _chunkObject;
+        private MeshFilter _meshFilter;
+        private MeshCollider _meshCollider;
+        private GameObject _chunkObject;
 
         private readonly int _heightIndex;
         private int _vertIndex;
@@ -18,7 +18,7 @@ namespace Render
         private readonly List<int> _triangleCoordinate = new();
         private readonly List<int> _triangleFace = new();
         private readonly List<Vector2> _uvs = new();
-        private Vector3Int _chunkPosition;
+        private readonly Vector3Int _chunkPosition;
 
         public const int TopFace = 0;
         public const int BottomFace = 1;
@@ -61,26 +61,28 @@ namespace Render
 
         public ChunkRenderObject(World.World world, ChunkCoord coord, int index)
         {
+            _heightIndex = index * 16;
+            _chunkPosition = new Vector3Int(coord.X * ChunkSize, index * 16, coord.Z * ChunkSize);
+        }
+
+        public void FinalizeGeneration()
+        {
             _chunkObject = new GameObject
             {
                 transform =
                 {
-                    position = new Vector3(coord.X * ChunkSize, index * 16, coord.Z * ChunkSize)
+                    position = _chunkPosition
                 },
-                name = $"Chunk @{coord.X},{coord.Z} height {index}"
+                name = $"Chunk @{_chunkPosition.x / ChunkSize},{_chunkPosition.z / ChunkSize} height {_heightIndex / ChunkSize}"
             };
-
-            _heightIndex = index * 16;
             
             var meshRenderer1 = _chunkObject.AddComponent<MeshRenderer>();
-            meshRenderer1.material = world.material;
+            meshRenderer1.material = World.World.Instance.material;
             
             _meshFilter = _chunkObject.AddComponent<MeshFilter>();
             _meshCollider = _chunkObject.AddComponent<MeshCollider>();
             _chunkObject.AddComponent<RenderObjectProperty>().RenderObject = this;
-            _chunkObject.transform.SetParent(world.transform);
-
-            _chunkPosition = new Vector3Int(coord.X * ChunkSize, index * 16, coord.Z * ChunkSize);
+            _chunkObject.transform.SetParent(World.World.Instance.transform);
         }
         
         public bool Active {
@@ -94,6 +96,11 @@ namespace Render
                     Dirty = true;
                 }
             }
+        }
+
+        public void DestroyObject()
+        {
+            Object.Destroy(_chunkObject);
         }
 
         public bool Dirty { get; set; } = true;

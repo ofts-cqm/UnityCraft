@@ -65,6 +65,19 @@ namespace World
             _renderObjects[y / 16].Dirty = true;
         }
 
+        public void FinalizeLoading()
+        {
+            foreach (var obj in _renderObjects) obj.FinalizeGeneration();
+        }
+        
+        public void DestroyChunk()
+        {
+            foreach (ChunkRenderObject obj in _renderObjects)
+            {
+                obj.DestroyObject();
+            }
+        }
+
         private void InitializeBlockList()
         {
             for (int i = 0; i < ChunkSize; i++)

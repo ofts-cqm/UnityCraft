@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using JetBrains.Annotations;
 using UnityEngine;
 
@@ -9,29 +11,33 @@ namespace World
         public Material material;
         private const int ViewDistance = 2;
         
-        private readonly Dictionary<ChunkCoord, Chunk> _chunkMap = new();
-        private readonly Dictionary<ChunkCoord, Chunk> _inactiveChunks = new();
+        public readonly Dictionary<ChunkCoord, Chunk> ChunkMap = new();
         
         public Transform player;
+        public static World Instance;
         
         private ChunkCoord _playerLastChunkCoord;
         
         // Start is called once before the first execution of Update after the MonoBehaviour is created
         private void Start()
         {
+            Instance = this;
+            new Thread(ChunkLoader.WorkerLoop).Start();
+            ChunkLoader.SyncLoading = true;
             CheckViewDistance();
+            ChunkLoader.SyncLoading = false;
         }
         
         private void Update() {
             if (!new ChunkCoord(player.transform.position).Equals(_playerLastChunkCoord))
                 CheckViewDistance();
-            foreach (Chunk chunk in _chunkMap.Values) chunk.UpdateDirtyRenderObjects();
+            ChunkLoader.ProcessCompletedLoads();
+            foreach (Chunk chunk in ChunkMap.Values) chunk.UpdateDirtyRenderObjects();
         }
 
-        // TODO: Investigate why chunk border is wrong
         private void CheckViewDistance()
         {
-            HashSet<ChunkCoord> previouslyActiveChunks = new HashSet<ChunkCoord>(_chunkMap.Keys);
+            HashSet<ChunkCoord> previouslyActiveChunks = new HashSet<ChunkCoord>(ChunkMap.Keys);
             List<ChunkCoord> loadQueue = new List<ChunkCoord>();
             ChunkCoord centerCoord = new ChunkCoord(player.transform.position);
             _playerLastChunkCoord = centerCoord;
@@ -40,41 +46,21 @@ namespace World
                 for (int z = centerCoord.Z - ViewDistance; z < centerCoord.Z + ViewDistance + 1; z++) {
                     ChunkCoord thisChunk = new ChunkCoord(x, z);
 
-                    if (!_chunkMap.ContainsKey(thisChunk)) loadQueue.Add(thisChunk);
+                    if (!ChunkMap.ContainsKey(thisChunk)) loadQueue.Add(thisChunk);
                     previouslyActiveChunks.Remove(thisChunk);
                 }
             }
 
-            foreach (ChunkCoord coord in previouslyActiveChunks)
-            {
-                _inactiveChunks.Add(coord, _chunkMap[coord]);
-                _chunkMap[coord].Active = false;
-                _chunkMap.Remove(coord);
-            }
+            foreach (ChunkCoord coord in previouslyActiveChunks) ChunkLoader.UnloadChunk(coord);
             
-            foreach (ChunkCoord coord in loadQueue) LoadChunk(coord);
-        }
-
-        private void LoadChunk(ChunkCoord coord)
-        {
-            if (_inactiveChunks.TryGetValue(coord, out Chunk chunk))
-            {
-                chunk.Active = true;
-                _inactiveChunks.Remove(coord);
-            }
-            else chunk = new Chunk(coord, this);
-            _chunkMap.Add(coord, chunk);
-            GetChunk(coord.Left())?.MarkDirty();
-            GetChunk(coord.Right())?.MarkDirty();
-            GetChunk(coord.Up())?.MarkDirty();
-            GetChunk(coord.Down())?.MarkDirty();
+            foreach (ChunkCoord coord in loadQueue) ChunkLoader.LoadChunk(coord);
         }
         
-        [CanBeNull] public Chunk GetChunk(ChunkCoord coord) => _chunkMap.GetValueOrDefault(coord);
+        [CanBeNull] public Chunk GetChunk(ChunkCoord coord) => ChunkMap.GetValueOrDefault(coord);
 
         public Block GetBlock(int x, int y, int z)
         {
-            return _chunkMap.TryGetValue(ChunkCoord.ToChunkCoord(x, z), out Chunk chunk) ? chunk.GetBlock(ToCoordInChunk(x, y, z)) : Blocks.Void;
+            return ChunkMap.TryGetValue(ChunkCoord.ToChunkCoord(x, z), out Chunk chunk) ? chunk.GetBlock(ToCoordInChunk(x, y, z)) : Blocks.Void;
         }
 
         public Block GetBlock(Vector3Int position)
@@ -84,7 +70,7 @@ namespace World
 
         public void SetBlock(int x, int y, int z, Block block)
         {
-            if (_chunkMap.TryGetValue(ChunkCoord.ToChunkCoord(x, z), out Chunk chunk))
+            if (ChunkMap.TryGetValue(ChunkCoord.ToChunkCoord(x, z), out Chunk chunk))
             {
                 x %= Chunk.ChunkSize;
                 if (x < 0) x += Chunk.ChunkSize;
@@ -96,7 +82,7 @@ namespace World
 
         public void SetBlock(Vector3Int position, Block block)
         {
-            if (_chunkMap.TryGetValue(new ChunkCoord(position), out Chunk chunk))
+            if (ChunkMap.TryGetValue(new ChunkCoord(position), out Chunk chunk))
             {
                 chunk.SetBlock(ToCoordInChunk(position.x, position.y, position.z), block);
             }
