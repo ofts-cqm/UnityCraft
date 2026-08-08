@@ -148,10 +148,9 @@ namespace Render
                 }
             }
 
-            if (_vertIndex == 0)
-            {
-                Active = false;
-            }
+            //if (_vertIndex == 0) Active = false;
+            if (_vertIndex == 0 && Active) Active = false;
+            else if (_vertIndex != 0 && !Active) Active = true;
 
             _meshFilter.mesh = GetMesh();
             // Todo: fix water collider
@@ -175,10 +174,6 @@ namespace Render
             _triangles.Add(_vertIndex + 1);
             _triangles.Add(_vertIndex + 3);
             _vertIndex+= 4;
-            
-            int serialized = ((int)position.x << 16) | ((int)position.y << 8) | ((int)position.z);
-            _triangleCoordinate.Add(serialized);
-            _triangleFace.Add(face);
 
             if (block.Collide)
             {
@@ -194,6 +189,10 @@ namespace Render
                 _colliderTriangles.Add(_colliderVertIndex + 1);
                 _colliderTriangles.Add(_colliderVertIndex + 3);
                 _colliderVertIndex+= 4;
+                
+                int serialized = ((int)position.x << 16) | ((int)position.y << 8) | ((int)position.z);
+                _triangleCoordinate.Add(serialized);
+                _triangleFace.Add(face);
             }
         }
 

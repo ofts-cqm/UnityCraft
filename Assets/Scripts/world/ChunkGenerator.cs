@@ -7,12 +7,13 @@ namespace World
     {
         private const float FirstLevelFrequency = 0.001f;//0.01f;
         private const float SecondLevelFrequency = 0.002f;//0.02f;
-        private const float FeatureFrequency = 0.04f;
+        private const float FeatureFrequency = 0.05f;
         private const float Root = 1/5f;
 
         private static float LevelNoise(int x, int z, float frequency)
         {
-            float noise = Mathf.PerlinNoise(x * frequency, z * frequency) - 0.5f;
+            float noise = Mathf.PerlinNoise(x * frequency, z * frequency) / 2 +
+                Mathf.PerlinNoise(x * frequency * 2, z * frequency * 2) / 2 - 0.5f;
             return (noise > 0 ? Mathf.Pow(noise, Root) : -Mathf.Pow(-noise, Root)) + 0.5f;
         }
         
