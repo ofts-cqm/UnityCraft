@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Threading;
-using System.Threading.Tasks;
 using JetBrains.Annotations;
 using UnityEngine;
 
@@ -9,7 +8,7 @@ namespace World
     public class World : MonoBehaviour
     {
         public Material material;
-        private const int ViewDistance = 2;
+        private const int ViewDistance = 8;
         
         public readonly Dictionary<ChunkCoord, Chunk> ChunkMap = new();
         

@@ -3,12 +3,15 @@ using UnityEngine;
 
 namespace World
 {
-    public abstract record Block(int BlockId, bool IsSolid)
+    
+    // IsSolid: if is solid, then neighboring faces will not be rendered, otherwise see IsTransparent. 
+    // IsTransparent: if is transparent, neighboring faces will be rendered if and only if they are the same block. 
+    // If is not transparent, then neighboring faces will always be rendered
+    public abstract record Block(int BlockId, bool IsSolid, bool IsTransparent, bool Collide)
     {
         private static int _registered;
-        static readonly Vector3 BlockSize = new (1f, 1f, 1f);
 
-        protected Block(bool isSolid = true) : this(_registered++, isSolid)
+        protected Block(bool isSolid = true, bool isTransparent = false, bool collide = true) : this(_registered++, isSolid, isTransparent, collide)
         {
             Blocks.BlockList.Add(this);
         }
@@ -18,9 +21,9 @@ namespace World
         public bool IsAir => BlockId == 0;
     }
 
-    public record SimpleBlock(bool IsSolid, Vector2Int TextureUv) : Block(IsSolid)
+    public record SimpleBlock(bool IsSolid, bool IsTransparent, bool Collide, Vector2Int TextureUv) : Block(IsSolid, IsTransparent)
     {
-        public SimpleBlock(Vector2Int TextureUv, bool isSolid = true) : this(isSolid, TextureUv) { }
+        public SimpleBlock(Vector2Int TextureUv, bool isSolid = true, bool isTransparent = false, bool collide = true) : this(isSolid, isTransparent, collide, TextureUv) { }
         
         public override Vector2Int GetTextureIndex(int face) => TextureUv;
     }

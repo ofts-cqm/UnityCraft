@@ -10,18 +10,18 @@ namespace World
         public readonly ChunkCoord ChunkPosition;
         
         public const int ChunkSize = 16;
-        private const int ChunkHeight = 128;
+        public const int ChunkHeight = 128;
         private const int ChunkSectionCount = ChunkHeight / ChunkSize;
 
         private readonly ChunkRenderObject[] _renderObjects = new ChunkRenderObject[8];
-        private readonly Block[,,] _blockData = new Block[ChunkSize, ChunkHeight, ChunkSize];
+        private readonly Block[,,] _blockData;
 
         public Chunk(ChunkCoord coord, World world)
         {
             ChunkPosition = coord;
             
             _world = world;
-            GenerateChunk();
+            _blockData = ChunkGenerator.GenerateFromHeightMap(ChunkGenerator.GetHeightMap(ChunkPosition.X, ChunkPosition.Z));
             for (int i = 0; i < ChunkSectionCount; i++) _renderObjects[i] = new ChunkRenderObject(world, coord, i);
         }
         
@@ -53,6 +53,8 @@ namespace World
             if (x == ChunkSize - 1) _world.GetChunk(ChunkPosition.Right())?.SetDirty(y);
             if (z == 0) _world.GetChunk(ChunkPosition.Up())?.SetDirty(y);
             if (z == ChunkSize - 1) _world.GetChunk(ChunkPosition.Down())?.SetDirty(y);
+            if (y % 16 == 0 && y != 0) _renderObjects[y / 16 - 1].Dirty = true;
+            if (y % 16 == 15 && y != ChunkHeight - 1) _renderObjects[y / 16 + 1].Dirty = true;
         }
 
         public void SetBlock(Vector3Int position, Block block)
@@ -76,39 +78,6 @@ namespace World
             {
                 obj.DestroyObject();
             }
-        }
-
-        private void InitializeBlockList()
-        {
-            for (int i = 0; i < ChunkSize; i++)
-            {
-                for (int j = 0; j < ChunkSize; j++)
-                {
-                    for (int k = 0; k < 16; k++)
-                    {
-                        _blockData[i, k, j] = Blocks.Stone;
-                    }
-                    
-                    for (int k = 16; k < 20; k++)
-                    {
-                        _blockData[i, k, j] = Blocks.Dirt;
-                    }
-                    
-                    _blockData[i, 20, j] = ((i ^ j) & 1) == 1 ? Blocks.GrassBlock : Blocks.Stone;
-                    
-                    for (int k = 21; k < ChunkHeight; k++)
-                    {
-                        _blockData[i, k, j] = Blocks.Air;
-                    }
-                    _blockData[0, 21, 0] = Blocks.GrassBlock;
-                    _blockData[0, 22, 0] = Blocks.GrassBlock;
-                }
-            }
-        }
-
-        void GenerateChunk()
-        {
-            InitializeBlockList();
         }
 
         public void UpdateDirtyRenderObjects()

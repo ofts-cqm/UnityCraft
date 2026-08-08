@@ -13,8 +13,11 @@ namespace Render
 
         private readonly int _heightIndex;
         private int _vertIndex;
+        private int _colliderVertIndex;
         private readonly List<Vector3> _vertices = new();
         private readonly List<int> _triangles = new();
+        private readonly List<Vector3> _colliderVertices = new();
+        private readonly List<int> _colliderTriangles = new();
         private readonly List<int> _triangleCoordinate = new();
         private readonly List<int> _triangleFace = new();
         private readonly List<Vector2> _uvs = new();
@@ -104,15 +107,25 @@ namespace Render
 
         public bool Dirty { get; set; } = true;
 
+        private static bool ShouldRender(Block thisBlock, Block adjacentBlock)
+        {
+            if (adjacentBlock.IsSolid) return false;
+            if (adjacentBlock.IsTransparent) return adjacentBlock.BlockId != thisBlock.BlockId;
+            return true;
+        }
+
         public void RerenderChunk(Chunk chunk)
         {
             Dirty = false;
             _vertices.Clear();
             _triangles.Clear();
+            _colliderVertices.Clear();
+            _colliderTriangles.Clear();
             _triangleCoordinate.Clear();
             _triangleFace.Clear();
             _uvs.Clear();
             _vertIndex = 0;
+            _colliderVertIndex = 0;
             
             for (int i = 0; i < ChunkSize; i++)
             {
@@ -125,12 +138,12 @@ namespace Render
                         Block block = chunk.GetBlock(position);
                         if (block.IsAir) continue;
                         
-                        if (!chunk.GetBlock(position + Vector3Int.left).IsSolid) AddFace(LeftFace, localPosition, block);
-                        if (!chunk.GetBlock(position + Vector3Int.right).IsSolid) AddFace(RightFace, localPosition, block);
-                        if (!chunk.GetBlock(position + Vector3Int.up).IsSolid) AddFace(TopFace, localPosition, block);
-                        if (!chunk.GetBlock(position + Vector3Int.down).IsSolid) AddFace(BottomFace, localPosition, block);
-                        if (!chunk.GetBlock(position + Vector3Int.forward).IsSolid) AddFace(FrontFace, localPosition, block);
-                        if (!chunk.GetBlock(position + Vector3Int.back).IsSolid) AddFace(BackFace, localPosition, block);
+                        if (ShouldRender(block, chunk.GetBlock(position + Vector3Int.left))) AddFace(LeftFace, localPosition, block);
+                        if (ShouldRender(block, chunk.GetBlock(position + Vector3Int.right))) AddFace(RightFace, localPosition, block);
+                        if (ShouldRender(block, chunk.GetBlock(position + Vector3Int.up))) AddFace(TopFace, localPosition, block);
+                        if (ShouldRender(block, chunk.GetBlock(position + Vector3Int.down))) AddFace(BottomFace, localPosition, block);
+                        if (ShouldRender(block, chunk.GetBlock(position + Vector3Int.forward))) AddFace(FrontFace, localPosition, block);
+                        if (ShouldRender(block, chunk.GetBlock(position + Vector3Int.back))) AddFace(BackFace, localPosition, block);
                     }
                 }
             }
@@ -141,7 +154,8 @@ namespace Render
             }
 
             _meshFilter.mesh = GetMesh();
-            _meshCollider.sharedMesh = _meshFilter.mesh;
+            // Todo: fix water collider
+            _meshCollider.sharedMesh = GetCollideMesh();
         }
 
         private void AddFace(int face, Vector3 position, Block block)
@@ -160,12 +174,27 @@ namespace Render
             _triangles.Add(_vertIndex + 2);
             _triangles.Add(_vertIndex + 1);
             _triangles.Add(_vertIndex + 3);
+            _vertIndex+= 4;
             
             int serialized = ((int)position.x << 16) | ((int)position.y << 8) | ((int)position.z);
             _triangleCoordinate.Add(serialized);
             _triangleFace.Add(face);
+
+            if (block.Collide)
+            {
+                for (int i = 0; i < 4; i++)
+                {
+                    _colliderVertices.Add(VerticesLookup[TrianglesLookup[face, i]] + position);
+                }
             
-            _vertIndex+= 4;
+                _colliderTriangles.Add(_colliderVertIndex);
+                _colliderTriangles.Add(_colliderVertIndex + 1);
+                _colliderTriangles.Add(_colliderVertIndex + 2);
+                _colliderTriangles.Add(_colliderVertIndex + 2);
+                _colliderTriangles.Add(_colliderVertIndex + 1);
+                _colliderTriangles.Add(_colliderVertIndex + 3);
+                _colliderVertIndex+= 4;
+            }
         }
 
         public Vector3Int GetBlockPositionOfTriangle(int index)
@@ -187,6 +216,19 @@ namespace Render
                 vertices = _vertices.ToArray(),
                 triangles = _triangles.ToArray(),
                 uv = _uvs.ToArray()
+            };
+            
+            mesh.RecalculateNormals();
+
+            return mesh;
+        }
+
+        private Mesh GetCollideMesh()
+        {
+            Mesh mesh = new Mesh
+            {
+                vertices = _colliderVertices.ToArray(),
+                triangles = _colliderTriangles.ToArray()
             };
             
             mesh.RecalculateNormals();
