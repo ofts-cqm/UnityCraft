@@ -17,20 +17,28 @@ namespace player
         private InputAction _lookAction;
         private InputAction _attackAction;
         private InputAction _interactAction;
+        private InputAction _jumpAction;
+        private InputAction _sneakAction;
+        
         private int _defaultLayer;
         private int _allLayer;
         
         private const float Sensitivity = 0.3f;
         private const float MoveSpeed = 4.317f;
+        private const float FlyingSpeed = 5f;
         private const float Gravity = -20f;
         private const float JumpForce = 5f;
         private const float DoubleClickDelay = 0.3f;
         private const int MinimumInteractionDelay = 10;
         
-        private bool _sprint;
-        private float _sprintLastClickTime;
-        private float _verticalMomentum;
+        private bool _sprinting;
         private bool _jumping;
+        private bool _flying;
+        
+        private float _sprintLastClickTime;
+        private float _flyLastClickTime;
+        private float _verticalMomentum;
+        
         private int _tick;
         private int _lastInteractionTick;
 
@@ -50,16 +58,28 @@ namespace player
             _lookAction = InputSystem.actions.FindAction("Look");
             _attackAction = InputSystem.actions.FindAction("Attack");
             _interactAction = InputSystem.actions.FindAction("Interact");
-            InputSystem.actions.FindAction("Sprint").performed += _ => _sprint = true;
+            _jumpAction = InputSystem.actions.FindAction("Jump");
+            _sneakAction = InputSystem.actions.FindAction("Sneak");
+            InputSystem.actions.FindAction("Sprint").performed += _ => _sprinting = true;
             InputSystem.actions.FindAction("SprintPending").started += _ =>
             {
                 float timeSinceLastClick = Time.time - _sprintLastClickTime;
-                if (timeSinceLastClick <= DoubleClickDelay) _sprint = true;
+                if (timeSinceLastClick <= DoubleClickDelay) _sprinting = true;
                 _sprintLastClickTime = Time.time;
             };
             InputSystem.actions.FindAction("Jump").started += _ =>
             {
-                if (characterController.isGrounded) _jumping = true;
+                // jump
+                if (!_flying && characterController.isGrounded) _jumping = true;
+                
+                // fly check
+                float timeSinceLastClick = Time.time - _flyLastClickTime;
+                if (timeSinceLastClick <= DoubleClickDelay) _flying = !_flying;
+
+                if (!_flying) _verticalMomentum = 0;
+                else _jumping = false;
+                
+                _flyLastClickTime = Time.time;
             };
             InputSystem.actions.FindAction("Pause").started += _ => Paused = !Paused;
             InputSystem.actions.FindAction("Scroll").performed += context =>
@@ -143,21 +163,33 @@ namespace player
         private void UpdateInput()
         {
             Vector2 move = _moveAction.ReadValue<Vector2>().normalized;
-            if (_sprint && Vector2.Dot(move, Vector2.up) <= 0.1) _sprint = false;
-            if (_sprint) move *= 1.4f;
+            if (_sprinting && Vector2.Dot(move, Vector2.up) <= 0.1) _sprinting = false;
+            if (_sprinting) move *= 1.4f;
+            if (_flying) move *= 1.5f;
             
-            camera.fieldOfView = Mathf.MoveTowards(camera.fieldOfView, _sprint ? 100 : 80, 180 * Time.deltaTime);
+            camera.fieldOfView = Mathf.MoveTowards(camera.fieldOfView, _sprinting ? 100 : 80, 180 * Time.deltaTime);
             _velocity = (transform.forward * move.y + transform.right * move.x) * MoveSpeed;
-            _velocity.y = _verticalMomentum + Time.deltaTime * Gravity;
 
-            if (_jumping)
+            if (_flying)
             {
-                _velocity.y = JumpForce;
-                _jumping = false;
+                if (_jumpAction.IsPressed()) _velocity.y = FlyingSpeed;
+                else if (_sneakAction.IsPressed()) _velocity.y = -FlyingSpeed;
+                else _velocity.y = 0;
+            }
+            else
+            {
+                _velocity.y = _verticalMomentum + Time.deltaTime * Gravity;
+
+                if (_jumping)
+                {
+                    _velocity.y = JumpForce;
+                    _jumping = false;
+                }
+                
             }
             
             characterController.Move(_velocity * Time.fixedDeltaTime);
-            _verticalMomentum = characterController.isGrounded ? _verticalMomentum : _velocity.y;
+            _verticalMomentum = characterController.isGrounded ? 0 : _velocity.y;
         }
 
         private GameObject _lastHitObject;
