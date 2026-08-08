@@ -21,7 +21,7 @@ namespace World
         public bool IsAir => BlockId == 0;
     }
 
-    public record SimpleBlock(bool IsSolid, bool IsTransparent, bool Collide, Vector2Int TextureUv) : Block(IsSolid, IsTransparent)
+    public record SimpleBlock(bool IsSolid, bool IsTransparent, bool Collide, Vector2Int TextureUv) : Block(IsSolid, IsTransparent, Collide)
     {
         public SimpleBlock(Vector2Int TextureUv, bool isSolid = true, bool isTransparent = false, bool collide = true) : this(isSolid, isTransparent, collide, TextureUv) { }
         

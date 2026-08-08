@@ -7,7 +7,7 @@ namespace World
     {
         private const float FirstLevelFrequency = 0.001f;//0.01f;
         private const float SecondLevelFrequency = 0.002f;//0.02f;
-        private const float FeatureFrequency = 0.06f;
+        private const float FeatureFrequency = 0.04f;
         private const float Root = 1/5f;
 
         private static float LevelNoise(int x, int z, float frequency)
@@ -30,7 +30,7 @@ namespace World
                     float secondLevel = LevelNoise(x + i, z + j, SecondLevelFrequency) / 4;
                     float preliminaryHeight = firstLevel + secondLevel;
                     float featureLevel = Mathf.PerlinNoise((x + i) * FeatureFrequency, (z + j) * FeatureFrequency);
-                    featureLevel *= Mathf.Clamp(preliminaryHeight, 0, 1) * 0.2f;
+                    featureLevel *= Mathf.Clamp(preliminaryHeight, 0, 1) * 0.3f;
                     heightMap[i, j] = preliminaryHeight + featureLevel;
                 }
             }
