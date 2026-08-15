@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using render;
 using UnityEngine;
 using World;
+using World.blocks;
 
 namespace Render
 {
@@ -12,16 +13,10 @@ namespace Render
         private GameObject _chunkObject;
 
         private readonly int _heightIndex;
-        private int _vertIndex;
-        private int _colliderVertIndex;
-        private readonly List<Vector3> _vertices = new();
-        private readonly List<int> _triangles = new();
-        private readonly List<Vector3> _colliderVertices = new();
-        private readonly List<int> _colliderTriangles = new();
-        private readonly List<int> _triangleCoordinate = new();
-        private readonly List<int> _triangleFace = new();
-        private readonly List<Vector2> _uvs = new();
         private readonly Vector3Int _chunkPosition;
+        
+        private List<int> _triangleCoordinate = new();
+        private List<int> _triangleFace = new();
 
         public const int TopFace = 0;
         public const int BottomFace = 1;
@@ -30,37 +25,7 @@ namespace Render
         public const int LeftFace = 4;
         public const int RightFace = 5;
 
-        private const int TextureWidth = 16;
-        private const int TextureHeight = 1;
-
         private const int ChunkSize = Chunk.ChunkSize;
-        
-        private static readonly Vector3[] VerticesLookup = {
-            new(0.0f, 0.0f, 0.0f),
-            new(1.0f, 0.0f, 0.0f),
-            new(1.0f, 1.0f, 0.0f),
-            new(0.0f, 1.0f, 0.0f),
-            new(0.0f, 0.0f, 1.0f),
-            new(1.0f, 0.0f, 1.0f),
-            new(1.0f, 1.0f, 1.0f),
-            new(0.0f, 1.0f, 1.0f)
-        };
-
-        private static readonly int[,] TrianglesLookup = {
-            { 3, 7, 2, 6 }, // top
-            { 1, 5, 0, 4 }, // bottom 
-            { 5, 6, 4, 7 }, // front
-            { 0, 3, 1, 2 }, // back
-            { 4, 7, 0, 3 }, // left
-            { 1, 2, 5, 6 } // right
-        };
-        
-        private static readonly Vector2Int[] UvsLookup = {
-            new(0, 0),
-            new(0, 1),
-            new(1, 0),
-            new(1, 1)
-        };
 
         public ChunkRenderObject(World.World world, ChunkCoord coord, int index)
         {
@@ -107,25 +72,10 @@ namespace Render
 
         public bool Dirty { get; set; } = true;
 
-        private static bool ShouldRender(Block thisBlock, Block adjacentBlock)
-        {
-            if (adjacentBlock.IsSolid) return false;
-            if (adjacentBlock.IsTransparent) return adjacentBlock.BlockId != thisBlock.BlockId;
-            return true;
-        }
-
         public void RerenderChunk(Chunk chunk)
         {
             Dirty = false;
-            _vertices.Clear();
-            _triangles.Clear();
-            _colliderVertices.Clear();
-            _colliderTriangles.Clear();
-            _triangleCoordinate.Clear();
-            _triangleFace.Clear();
-            _uvs.Clear();
-            _vertIndex = 0;
-            _colliderVertIndex = 0;
+            MeshBuilder meshBuilder = new MeshBuilder();
             
             for (int i = 0; i < ChunkSize; i++)
             {
@@ -138,62 +88,36 @@ namespace Render
                         Block block = chunk.GetBlock(position);
                         if (block.IsAir) continue;
                         
-                        if (ShouldRender(block, chunk.GetBlock(position + Vector3Int.left))) AddFace(LeftFace, localPosition, block);
-                        if (ShouldRender(block, chunk.GetBlock(position + Vector3Int.right))) AddFace(RightFace, localPosition, block);
-                        if (ShouldRender(block, chunk.GetBlock(position + Vector3Int.up))) AddFace(TopFace, localPosition, block);
-                        if (ShouldRender(block, chunk.GetBlock(position + Vector3Int.down))) AddFace(BottomFace, localPosition, block);
-                        if (ShouldRender(block, chunk.GetBlock(position + Vector3Int.forward))) AddFace(FrontFace, localPosition, block);
-                        if (ShouldRender(block, chunk.GetBlock(position + Vector3Int.back))) AddFace(BackFace, localPosition, block);
+                        block.Render(chunk, meshBuilder, position, localPosition);
                     }
                 }
             }
 
             //if (_vertIndex == 0) Active = false;
-            if (_vertIndex == 0 && Active) Active = false;
-            else if (_vertIndex != 0 && !Active) Active = true;
+            if (meshBuilder.VertIndex == 0 && Active) Active = false;
+            else if (meshBuilder.VertIndex != 0 && !Active) Active = true;
 
-            _meshFilter.mesh = GetMesh();
-            // Todo: fix water collider
-            _meshCollider.sharedMesh = GetCollideMesh();
-        }
+            _triangleCoordinate = meshBuilder.TriangleCoordinate;
+            _triangleFace = meshBuilder.TriangleFace;
 
-        private void AddFace(int face, Vector3 position, Block block)
-        {
-            for (int i = 0; i < 4; i++)
+            Mesh renderMesh = new Mesh
             {
-                _vertices.Add(VerticesLookup[TrianglesLookup[face, i]] + position);
-
-                Vector2Int textureUv = UvsLookup[i] + block.GetTextureIndex(face);
-                _uvs.Add(new Vector2(textureUv.x / (float) TextureWidth, textureUv.y / (float )TextureHeight));
-            }
+                vertices = meshBuilder.Vertices.ToArray(),
+                triangles = meshBuilder.Triangles.ToArray(),
+                uv = meshBuilder.Uvs.ToArray()
+            };
             
-            _triangles.Add(_vertIndex);
-            _triangles.Add(_vertIndex + 1);
-            _triangles.Add(_vertIndex + 2);
-            _triangles.Add(_vertIndex + 2);
-            _triangles.Add(_vertIndex + 1);
-            _triangles.Add(_vertIndex + 3);
-            _vertIndex+= 4;
-
-            if (block.Collide)
+            renderMesh.RecalculateNormals();
+            _meshFilter.mesh = renderMesh;
+            
+            Mesh colliderMesh = new Mesh
             {
-                for (int i = 0; i < 4; i++)
-                {
-                    _colliderVertices.Add(VerticesLookup[TrianglesLookup[face, i]] + position);
-                }
+                vertices = meshBuilder.ColliderVertices.ToArray(),
+                triangles = meshBuilder.ColliderTriangles.ToArray()
+            };
             
-                _colliderTriangles.Add(_colliderVertIndex);
-                _colliderTriangles.Add(_colliderVertIndex + 1);
-                _colliderTriangles.Add(_colliderVertIndex + 2);
-                _colliderTriangles.Add(_colliderVertIndex + 2);
-                _colliderTriangles.Add(_colliderVertIndex + 1);
-                _colliderTriangles.Add(_colliderVertIndex + 3);
-                _colliderVertIndex+= 4;
-                
-                int serialized = ((int)position.x << 16) | ((int)position.y << 8) | ((int)position.z);
-                _triangleCoordinate.Add(serialized);
-                _triangleFace.Add(face);
-            }
+            colliderMesh.RecalculateNormals();
+            _meshCollider.sharedMesh = colliderMesh;
         }
 
         public Vector3Int GetBlockPositionOfTriangle(int index)
@@ -206,33 +130,6 @@ namespace Render
         public int GetTriangleFacing(int index)
         {
             return _triangleFace[index / 2];
-        }
-
-        private Mesh GetMesh()
-        {
-            Mesh mesh = new Mesh
-            {
-                vertices = _vertices.ToArray(),
-                triangles = _triangles.ToArray(),
-                uv = _uvs.ToArray()
-            };
-            
-            mesh.RecalculateNormals();
-
-            return mesh;
-        }
-
-        private Mesh GetCollideMesh()
-        {
-            Mesh mesh = new Mesh
-            {
-                vertices = _colliderVertices.ToArray(),
-                triangles = _colliderTriangles.ToArray()
-            };
-            
-            mesh.RecalculateNormals();
-
-            return mesh;
         }
     }
 }

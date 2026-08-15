@@ -3,6 +3,7 @@ using Render;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using World;
+using world.blocks;
 
 namespace player
 {
@@ -86,7 +87,7 @@ namespace player
             {
                 int delta = (int)context.ReadValue<float>();
                 HoldingBlock += delta;
-                if (HoldingBlock >= Blocks.BlockList.Count) HoldingBlock = 2;
+                if (HoldingBlock >= Blocks.BlockList.Count - 1) HoldingBlock = 2;
                 if (HoldingBlock < 2) HoldingBlock = Blocks.BlockList.Count - 1;
             };
             Cursor.lockState = CursorLockMode.Locked;

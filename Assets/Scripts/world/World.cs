@@ -2,12 +2,15 @@ using System.Collections.Generic;
 using System.Threading;
 using JetBrains.Annotations;
 using UnityEngine;
+using world.blocks;
+using World.blocks;
 
 namespace World
 {
     public class World : MonoBehaviour
     {
         public Material material;
+        public Material waterMaterial;
         private const int ViewDistance = 8;
         
         public readonly Dictionary<ChunkCoord, Chunk> ChunkMap = new();
