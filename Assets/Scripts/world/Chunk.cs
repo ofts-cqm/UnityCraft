@@ -23,7 +23,7 @@ namespace World
             ChunkPosition = coord;
             
             _world = world;
-            _blockData = ChunkGenerator.GenerateFromHeightMap(ChunkGenerator.GetHeightMap(ChunkPosition.X, ChunkPosition.Z));
+            _blockData = ChunkGenerator.GenerateChunk(coord);
             for (int i = 0; i < ChunkSectionCount; i++) _renderObjects[i] = new ChunkRenderObject(world, coord, i);
         }
         
