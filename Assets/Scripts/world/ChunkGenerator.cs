@@ -9,14 +9,16 @@ namespace World
     {
         private const float FirstLevelFrequency = 0.001f;//0.01f;
         private const float SecondLevelFrequency = 0.002f;//0.02f;
-        private const float FeatureFrequency = 0.05f;
+        private const float FeatureFrequency = 0.01f;
         private const float Root = 1/5f;
 
-        private static float LevelNoise(int x, int z, float frequency)
+        private static readonly PerlinNoise ContinentalNoise = new(114514, FirstLevelFrequency, new[]{ 3, 1, 0, 0, 1 });
+        private static readonly PerlinNoise HeightNoise = new(1919810, SecondLevelFrequency, new[] { 3, 1, 0, 0, 1 });
+        private static readonly PerlinNoise FeatureNoise = new(6767, FeatureFrequency, new[] { 1, 1, 4, 2 });
+
+        private static float BiasNoise(float noise)
         {
-            float noise = Mathf.PerlinNoise(x * frequency, z * frequency) / 2 +
-                Mathf.PerlinNoise(x * frequency * 2, z * frequency * 2) / 2 - 0.5f;
-            return (noise > 0 ? Mathf.Pow(noise, Root) : -Mathf.Pow(-noise, Root)) + 0.5f;
+            return noise > 0 ? Mathf.Pow(noise, Root) : -Mathf.Pow(-noise, Root);
         }
         
         public static float[,] GetHeightMap(int x, int z)
@@ -29,11 +31,11 @@ namespace World
             {
                 for (int j = 0; j < Chunk.ChunkSize; j++)
                 {
-                    float firstLevel = LevelNoise(x + i, z + j, FirstLevelFrequency) / 2;
-                    float secondLevel = LevelNoise(x + i, z + j, SecondLevelFrequency) / 4;
+                    float firstLevel = BiasNoise(ContinentalNoise.At(x + i, z + j)) / 2;//LevelNoise(x + i, z + j, FirstLevelFrequency) / 2;
+                    float secondLevel = BiasNoise(HeightNoise.At(x + i, z + j)) / 4;//LevelNoise(x + i, z + j, SecondLevelFrequency) / 4;
                     float preliminaryHeight = firstLevel + secondLevel;
-                    float featureLevel = Mathf.PerlinNoise((x + i) * FeatureFrequency, (z + j) * FeatureFrequency);
-                    featureLevel *= Mathf.Clamp(preliminaryHeight, 0, 1) * 0.3f;
+                    float featureLevel = FeatureNoise.At(x + i, z + j);//Mathf.PerlinNoise((x + i) * FeatureFrequency, (z + j) * FeatureFrequency);
+                    featureLevel *= Mathf.Clamp(preliminaryHeight / 2 + 0.5f, 0, 1) * 0.25f;
                     heightMap[i, j] = preliminaryHeight + featureLevel;
                 }
             }
@@ -48,7 +50,7 @@ namespace World
             {
                 for (int k = 0; k < Chunk.ChunkSize; k++)
                 {
-                    int height = (int)(heightMap[i, k] * 64) + 32;
+                    int height = (int)(heightMap[i, k] * 40) + 60;
                     for (int j = 0; j < Chunk.ChunkHeight; j++)
                     {
                         if (j < height - 3) blocks[i, j, k] = Blocks.Stone;
