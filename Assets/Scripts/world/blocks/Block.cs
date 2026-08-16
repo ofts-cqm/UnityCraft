@@ -30,7 +30,7 @@ namespace World.blocks
                 builder.AddFace(ChunkRenderObject.BackFace, localPosition, this, MeshBuilder.DefaultModel);
         }
 
-        public Vector2Int TextureIndex(int face) => Property.UVs[face];
+        public int TextureIndex(int face) => Property.Texture[face];
         public bool IsAir => BlockId == 0;
         public bool Collide => Property.Collide;
         public bool ReplaceTerrain => Property.ReplaceTerrain;

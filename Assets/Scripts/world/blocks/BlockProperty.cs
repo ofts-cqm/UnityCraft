@@ -2,14 +2,14 @@ using UnityEngine;
 
 namespace world.blocks
 {
-    public record BlockProperty(bool[] IsSolid, Vector2Int[] UVs, bool Collide, bool ReplaceTerrain)
+    public record BlockProperty(bool[] IsSolid, int[] Texture, bool Collide, bool ReplaceTerrain)
     {
-        public static BlockProperty Default(Vector2Int uv) => Default(new[] { uv, uv, uv, uv, uv, uv });
+        public static BlockProperty Default(int texture) => Default(new[] { texture, texture, texture, texture, texture, texture });
 
-        public static BlockProperty Pillar(Vector2Int top, Vector2Int bottom, Vector2Int side) =>
+        public static BlockProperty Pillar(int top, int bottom, int side) =>
             Default(new[] { top, bottom, side, side, side, side });
         
-        private static BlockProperty Default(Vector2Int[] uv) => new(
+        private static BlockProperty Default(int[] uv) => new(
             new[] { true, true, true, true, true, true }, 
             uv,
             true, 

@@ -21,16 +21,16 @@ namespace world.blocks
 
         static Blocks()
         {
-            Air = new Block(BlockProperty.Default(new Vector2Int(0, 0)).SetSolid(false) with { Collide = false });
-            Void = new Block(BlockProperty.Default(new Vector2Int(0, 0)));
-            GrassBlock = new Block(BlockProperty.Pillar(new Vector2Int(0, 0), new Vector2Int(2, 0), new Vector2Int(1, 0)));
-            Dirt = new Block(BlockProperty.Default(new Vector2Int(2, 0)));
-            Stone = new Block(BlockProperty.Default(new Vector2Int(3, 0)));
+            Air = new Block(BlockProperty.Default(0).SetSolid(false) with { Collide = false });
+            Void = new Block(BlockProperty.Default(0));
+            GrassBlock = new Block(BlockProperty.Pillar(0, 2, 1));
+            Dirt = new Block(BlockProperty.Default(2));
+            Stone = new Block(BlockProperty.Default(3));
             Water = new Water();
-            Sand = new Block(BlockProperty.Default(new Vector2Int(5, 0)));
-            OakLog = new Block(BlockProperty.Pillar(new Vector2Int(6, 0), new Vector2Int(7, 0), new Vector2Int(6, 0)));
-            OakLeave = new Block(BlockProperty.Default(new Vector2Int(8, 0)) with { ReplaceTerrain = false });
-            Gravel = new Block(BlockProperty.Default(new Vector2Int(9, 0)));
+            Sand = new Block(BlockProperty.Default(5));
+            OakLog = new Block(BlockProperty.Pillar(6, 7, 6));
+            OakLeave = new Block(BlockProperty.Default(8) with { ReplaceTerrain = false });
+            Gravel = new Block(BlockProperty.Default(9));
         }
     }
 }

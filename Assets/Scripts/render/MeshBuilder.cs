@@ -15,6 +15,7 @@ namespace render
         public readonly List<int> TriangleCoordinate = new();
         public readonly List<int> TriangleFace = new();
         public readonly List<Vector2> Uvs = new();
+        public readonly List<Vector2> TextureIndices = new();
         
         public const int TextureWidth = 16;
         public const int TextureHeight = 1;
@@ -54,9 +55,8 @@ namespace render
             for (int i = 0; i < 4; i++)
             {
                 Vertices.Add(model.VerticesLookup[model.TrianglesLookup[face, i]] + position);
-
-                Vector2 textureUv = model.UvsLookup[i] + block.TextureIndex(face);
-                Uvs.Add(new Vector2(textureUv.x / TextureWidth, textureUv.y / TextureHeight));
+                Uvs.Add(model.UvsLookup[i]);
+                TextureIndices.Add(new Vector2(block.TextureIndex(face), 0));
             }
             
             Triangles.Add(VertIndex);
