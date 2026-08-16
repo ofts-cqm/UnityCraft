@@ -16,8 +16,8 @@ namespace render
         public readonly List<int> TriangleFace = new();
         public readonly List<Vector2> Uvs = new();
         
-        private const int TextureWidth = 16;
-        private const int TextureHeight = 1;
+        public const int TextureWidth = 16;
+        public const int TextureHeight = 1;
 
         public record CubicModel(Vector3[] VerticesLookup, int[,] TrianglesLookup, Vector2[] UvsLookup);
 

@@ -117,9 +117,9 @@ namespace world.generation
 
         private static Block PlaceOceanBlocks(int y, int height)
         {
-            if (y < height && y > height - 3 && y > SeaLevel - 3) return Blocks.Sand;
+            if (y < height && y > height - 3 && y > SeaLevel - 3) return Blocks.Gravel;
             if (y < height) return Blocks.Stone;
-            if (y == height) return Blocks.Sand;
+            if (y == height) return Blocks.Gravel;
             return y < SeaLevel ? Blocks.Water : Blocks.Air;
         }
 

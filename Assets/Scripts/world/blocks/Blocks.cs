@@ -17,6 +17,7 @@ namespace world.blocks
         public static readonly Block Sand;
         public static readonly Block OakLog;
         public static readonly Block OakLeave;
+        public static readonly Block Gravel;
 
         static Blocks()
         {
@@ -29,6 +30,7 @@ namespace world.blocks
             Sand = new Block(BlockProperty.Default(new Vector2Int(5, 0)));
             OakLog = new Block(BlockProperty.Pillar(new Vector2Int(6, 0), new Vector2Int(7, 0), new Vector2Int(6, 0)));
             OakLeave = new Block(BlockProperty.Default(new Vector2Int(8, 0)) with { ReplaceTerrain = false });
+            Gravel = new Block(BlockProperty.Default(new Vector2Int(9, 0)));
         }
     }
 }

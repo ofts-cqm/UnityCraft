@@ -35,17 +35,44 @@ namespace World.blocks
             }
         );
         
+        private static bool ShouldRender(Block other, int face)
+        {
+            if (other.BlockId == Blocks.Water.BlockId) return false;
+            if (face == ChunkRenderObject.BottomFace) return true;
+            if (other.IsSolid(face)) return false;
+            return true;
+        }
+
+        private void AddFace(MeshBuilder builder, int face, Vector3 position, MeshBuilder.CubicModel model)
+        {
+            builder.AddFace(face, position, this, model);
+            
+            for (int i = 0; i < 4; i++)
+            {
+                builder.Vertices.Add(model.VerticesLookup[model.TrianglesLookup[face, i]] + position);
+
+                Vector2 textureUv = model.UvsLookup[i] + TextureIndex(face);
+                builder.Uvs.Add(new Vector2(textureUv.x / MeshBuilder.TextureWidth, textureUv.y / MeshBuilder.TextureHeight));
+            }
+            
+            builder.Triangles.Add(builder.VertIndex + 2);
+            builder.Triangles.Add(builder.VertIndex + 1);
+            builder.Triangles.Add(builder.VertIndex);
+            builder.Triangles.Add(builder.VertIndex + 3);
+            builder.Triangles.Add(builder.VertIndex + 1);
+            builder.Triangles.Add(builder.VertIndex + 2);
+            builder.VertIndex+= 4;
+        }
         
-        // Todo: do not render if face is solid
         public override void Render(Chunk chunk, MeshBuilder builder, Vector3Int position, Vector3 localPosition)
         {
-            MeshBuilder.CubicModel model = chunk.GetBlock(position + Vector3Int.up).BlockId == BlockId ? MeshBuilder.DefaultModel : WaterModel;
-            if (chunk.GetBlock(position + Vector3Int.left).BlockId != BlockId) builder.AddFace(ChunkRenderObject.LeftFace, localPosition, this, model);
-            if (chunk.GetBlock(position + Vector3Int.right).BlockId != BlockId) builder.AddFace(ChunkRenderObject.RightFace, localPosition, this, model);
-            if (chunk.GetBlock(position + Vector3Int.up).BlockId != BlockId) builder.AddFace(ChunkRenderObject.TopFace, localPosition, this, model);
-            if (chunk.GetBlock(position + Vector3Int.down).BlockId != BlockId) builder.AddFace(ChunkRenderObject.BottomFace, localPosition, this, model);
-            if (chunk.GetBlock(position + Vector3Int.forward).BlockId != BlockId) builder.AddFace(ChunkRenderObject.FrontFace, localPosition, this, model);
-            if (chunk.GetBlock(position + Vector3Int.back).BlockId != BlockId) builder.AddFace(ChunkRenderObject.BackFace, localPosition, this, model);
+            MeshBuilder.CubicModel model = chunk.GetBlock(position + Vector3Int.up).IsAir ? WaterModel : MeshBuilder.DefaultModel;
+            if (ShouldRender(chunk.GetBlock(position + Vector3Int.left), ChunkRenderObject.RightFace)) AddFace(builder, ChunkRenderObject.LeftFace, localPosition, model);
+            if (ShouldRender(chunk.GetBlock(position + Vector3Int.right), ChunkRenderObject.LeftFace)) AddFace(builder, ChunkRenderObject.RightFace, localPosition, model);
+            if (ShouldRender(chunk.GetBlock(position + Vector3Int.up), ChunkRenderObject.BottomFace)) AddFace(builder, ChunkRenderObject.TopFace, localPosition, model);
+            if (ShouldRender(chunk.GetBlock(position + Vector3Int.down), ChunkRenderObject.TopFace)) AddFace(builder, ChunkRenderObject.BottomFace, localPosition, model);
+            if (ShouldRender(chunk.GetBlock(position + Vector3Int.forward), ChunkRenderObject.BackFace)) AddFace(builder, ChunkRenderObject.FrontFace, localPosition, model);
+            if (ShouldRender(chunk.GetBlock(position + Vector3Int.back), ChunkRenderObject.FrontFace)) AddFace(builder, ChunkRenderObject.BackFace, localPosition, model);
         }
     }
 }
