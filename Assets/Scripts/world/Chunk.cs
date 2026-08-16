@@ -3,6 +3,7 @@ using UnityEngine;
 using Render;
 using world.blocks;
 using World.blocks;
+using world.generation;
 
 namespace World
 {
@@ -36,7 +37,7 @@ namespace World
 
         public Block GetBlock(Vector3Int position) => GetBlock(position.x, position.y, position.z);
 
-        private Block GetBlock(int x, int y, int z)
+        public Block GetBlock(int x, int y, int z)
         {
             if (y < 0 || y >= ChunkHeight) return Blocks.Air;
             

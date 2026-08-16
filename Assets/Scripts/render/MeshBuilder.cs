@@ -55,7 +55,7 @@ namespace render
             {
                 Vertices.Add(model.VerticesLookup[model.TrianglesLookup[face, i]] + position);
 
-                Vector2 textureUv = model.UvsLookup[i] + block.GetTextureIndex(face);
+                Vector2 textureUv = model.UvsLookup[i] + block.TextureIndex(face);
                 Uvs.Add(new Vector2(textureUv.x / TextureWidth, textureUv.y / TextureHeight));
             }
             

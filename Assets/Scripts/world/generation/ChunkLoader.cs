@@ -1,9 +1,9 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
-using Unity.VisualScripting;
+using World;
 
-namespace World
+namespace world.generation
 {
     public static class ChunkLoader
     {
@@ -21,6 +21,8 @@ namespace World
         private const int MaxInactiveChunks = 20;
         public static bool SyncLoading = false;
         
+        public static bool TryGetInactiveChunk(ChunkCoord coord, out Chunk chunk) => InactiveMap.TryGetValue(coord, out chunk);
+        
         public static void LoadChunk(ChunkCoord coord)
         {
             // MAIN THREAD ONLY.
@@ -36,13 +38,13 @@ namespace World
                 InactiveChunks.Remove(coord); 
                 InactiveMap.Remove(coord);
                 InactiveNodes.Remove(coord);
-                World.Instance.ChunkMap[coord] = chunk;
+                World.World.Instance.ChunkMap[coord] = chunk;
 
                 // Loading this neighbor may change visible border faces.
-                World.Instance.GetChunk(coord.Left())?.MarkDirty();
-                World.Instance.GetChunk(coord.Right())?.MarkDirty();
-                World.Instance.GetChunk(coord.Up())?.MarkDirty();
-                World.Instance.GetChunk(coord.Down())?.MarkDirty();
+                World.World.Instance.GetChunk(coord.Left())?.MarkDirty();
+                World.World.Instance.GetChunk(coord.Right())?.MarkDirty();
+                World.World.Instance.GetChunk(coord.Up())?.MarkDirty();
+                World.World.Instance.GetChunk(coord.Down())?.MarkDirty();
                 return;
             }
 
@@ -53,14 +55,14 @@ namespace World
             // If Sync Loading is required
             if(SyncLoading)
             {
-                Chunk newChunk = new Chunk(coord, World.Instance);
+                Chunk newChunk = new Chunk(coord, World.World.Instance);
                 newChunk.FinalizeLoading();
-                World.Instance.ChunkMap.Add(coord, newChunk);
+                World.World.Instance.ChunkMap.Add(coord, newChunk);
                 
-                World.Instance.GetChunk(coord.Left())?.MarkDirty();
-                World.Instance.GetChunk(coord.Right())?.MarkDirty();
-                World.Instance.GetChunk(coord.Up())?.MarkDirty();
-                World.Instance.GetChunk(coord.Down())?.MarkDirty();
+                World.World.Instance.GetChunk(coord.Left())?.MarkDirty();
+                World.World.Instance.GetChunk(coord.Right())?.MarkDirty();
+                World.World.Instance.GetChunk(coord.Up())?.MarkDirty();
+                World.World.Instance.GetChunk(coord.Down())?.MarkDirty();
                 return;
             }
             
@@ -88,7 +90,7 @@ namespace World
             }
 
             // Remove the chunk from the chunk map
-            if (!World.Instance.ChunkMap.Remove(coord, out Chunk chunk)) return;
+            if (!World.World.Instance.ChunkMap.Remove(coord, out Chunk chunk)) return;
 
             // It might already be inactive.
             if (!chunk.Active) return;
@@ -130,7 +132,7 @@ namespace World
                     request = LoadQueue.Dequeue();
                 }
 
-                Chunk chunk = new Chunk(request, World.Instance);
+                Chunk chunk = new Chunk(request, World.World.Instance);
                 CompletedLoads.Enqueue(chunk);
             }
         }
@@ -153,12 +155,12 @@ namespace World
                 
                 // Unity API starts here, on the main thread.
                 chunk.FinalizeLoading();
-                World.Instance.ChunkMap.Add(coord, chunk);
+                World.World.Instance.ChunkMap.Add(coord, chunk);
 
-                World.Instance.GetChunk(coord.Left())?.MarkDirty();
-                World.Instance.GetChunk(coord.Right())?.MarkDirty();
-                World.Instance.GetChunk(coord.Up())?.MarkDirty();
-                World.Instance.GetChunk(coord.Down())?.MarkDirty();
+                World.World.Instance.GetChunk(coord.Left())?.MarkDirty();
+                World.World.Instance.GetChunk(coord.Right())?.MarkDirty();
+                World.World.Instance.GetChunk(coord.Up())?.MarkDirty();
+                World.World.Instance.GetChunk(coord.Down())?.MarkDirty();
 
                 installedThisFrame++;
             }

@@ -1,9 +1,10 @@
 using System.Collections.Generic;
 using UnityEngine;
+using World;
 using world.blocks;
 using World.blocks;
 
-namespace World
+namespace world.generation
 {
     public static class ChunkGenerator
     {
@@ -21,7 +22,7 @@ namespace World
         
         private static readonly Dictionary<ChunkCoord, List<BlockState>> _outOfBoundsStates = new();
 
-        private enum BiomeEnum
+        public enum BiomeEnum
         {
             Ocean,
             Plain,
@@ -30,7 +31,7 @@ namespace World
             Forest
         }
         
-        private record ChunkGenerationContext(Block[,,] Blocks, float[,] Height, float[,] Continental, float[,] Temperature, BiomeEnum[,] Biome);
+        public record ChunkGenerationContext(Block[,,] Blocks, int[,] HeightMap, float[,] Height, float[,] Continental, float[,] Temperature, BiomeEnum[,] Biome);
 
         private static float BiasNoise(float noise)
         {
@@ -42,12 +43,14 @@ namespace World
             ChunkGenerationContext context = GenerateNoise(chunk.X, chunk.Z);
             GenerateFromHeightMap(context);
             PlaceOutOfBoundBlocks(context.Blocks, chunk);
+            StructureGenerator.GenerateTrees(chunk, context);
             return context.Blocks;
         }
         
         private static ChunkGenerationContext GenerateNoise(int x, int z)
         {
-            float[,] heightMap = new float[Chunk.ChunkSize, Chunk.ChunkSize];
+            float[,] height = new float[Chunk.ChunkSize, Chunk.ChunkSize];
+            int[,] heightMap = new int[Chunk.ChunkSize, Chunk.ChunkSize];
             float[,] levelMap =  new float[Chunk.ChunkSize, Chunk.ChunkSize];
             float[,] temperatureMap = new float[Chunk.ChunkSize, Chunk.ChunkSize];
             x *= 16;
@@ -64,7 +67,7 @@ namespace World
                     featureLevel *= Mathf.Clamp(preliminaryHeight / 2 + 0.5f, 0, 1) * 0.25f;
 
                     levelMap[i, j] = preliminaryHeight;
-                    heightMap[i, j] = preliminaryHeight + featureLevel;
+                    height[i, j] = preliminaryHeight + featureLevel;
                     
                     temperatureMap[i, j] = TemperatureNoise.At(x + i, z + j);
                 }
@@ -72,7 +75,8 @@ namespace World
             
             return new ChunkGenerationContext(
                 new Block[Chunk.ChunkSize, Chunk.ChunkHeight, Chunk.ChunkSize], 
-                heightMap, 
+                heightMap,
+                height, 
                 levelMap, 
                 temperatureMap, 
                 new BiomeEnum[Chunk.ChunkSize, Chunk.ChunkSize]
@@ -95,6 +99,7 @@ namespace World
                     else biomeMap[i, k] = context.Temperature[i, k] > 0 ? BiomeEnum.Forest : BiomeEnum.Mountain;
                     
                     int height = (int)(heightMap[i, k] * 40) + 60;
+                    context.HeightMap[i, k] = height;
                     for (int j = 0; j < Chunk.ChunkHeight; j++)
                     {
                         blocks[i, j, k] = biomeMap[i, k] switch
@@ -147,7 +152,54 @@ namespace World
                 if (x < 0) x += Chunk.ChunkSize;
                 int z =  blockState.Position.z % Chunk.ChunkSize;
                 if (z < 0) z += Chunk.ChunkSize;
+                
+                if (!blocks[x, blockState.Position.y, z].IsAir && !blockState.Block.ReplaceTerrain) return;
+                
                 blocks[x, blockState.Position.y, z] = blockState.Block;
+            }
+        }
+
+        public static void PlaceStructureBlock(BlockState blockState, ChunkCoord coord, ChunkGenerationContext context)
+        {
+            if (blockState.Block.BlockId == Blocks.Void.BlockId) return;
+            
+            int x = blockState.Position.x % Chunk.ChunkSize;
+            if (x < 0) x += Chunk.ChunkSize;
+            int z =  blockState.Position.z % Chunk.ChunkSize;
+            if (z < 0) z += Chunk.ChunkSize;
+            
+            ChunkCoord targetChunk = ChunkCoord.ToChunkCoord(blockState.Position.x, blockState.Position.z);
+            if (!targetChunk.Equals(coord))
+            {
+                // see if loaded chunks contain the coord
+                Block block = World.World.Instance.GetBlock(blockState.Position);
+                if (block.BlockId != Blocks.Void.BlockId)
+                {
+                    if (block.IsAir || blockState.Block.ReplaceTerrain) World.World.Instance.SetBlock(blockState.Position, blockState.Block);
+                    return;
+                }
+                
+                // see if it is in inactive chunk map
+                if (ChunkLoader.TryGetInactiveChunk(coord, out Chunk chunk))
+                {
+                    block = chunk.GetBlock(x, blockState.Position.y, z);
+                    if (block.IsAir || blockState.Block.ReplaceTerrain) chunk.SetBlock(x, blockState.Position.y, z, blockState.Block);
+                    return;
+                }
+                
+                // store this as an out of bound block
+                if (!_outOfBoundsStates.TryGetValue(targetChunk, out List<BlockState> blocks))
+                {
+                    blocks = new List<BlockState>();
+                    _outOfBoundsStates[targetChunk] = blocks;
+                }
+                blocks.Add(blockState);
+            }
+            else
+            {
+                if (!context.Blocks[x, blockState.Position.y, z].IsAir && !blockState.Block.ReplaceTerrain) return;
+                
+                context.Blocks[x, blockState.Position.y, z] = blockState.Block;
             }
         }
     }

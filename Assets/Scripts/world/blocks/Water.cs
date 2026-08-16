@@ -1,10 +1,11 @@
 using render;
 using Render;
 using UnityEngine;
+using world.blocks;
 
 namespace World.blocks
 {
-    public record Water() : SimpleBlock(new Vector2Int(4, 0), false, false)
+    public record Water() : Block(BlockProperty.Default(new Vector2Int(4, 0)).SetSolid(false) with { Collide = false })
     {
         private static readonly MeshBuilder.CubicModel WaterModel = new(
             new Vector3[]
@@ -34,6 +35,8 @@ namespace World.blocks
             }
         );
         
+        
+        // Todo: do not render if face is solid
         public override void Render(Chunk chunk, MeshBuilder builder, Vector3Int position, Vector3 localPosition)
         {
             MeshBuilder.CubicModel model = chunk.GetBlock(position + Vector3Int.up).BlockId == BlockId ? MeshBuilder.DefaultModel : WaterModel;
