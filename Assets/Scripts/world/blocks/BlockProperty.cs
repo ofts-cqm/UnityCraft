@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace world.blocks
 {
-    public record BlockProperty(bool[] IsSolid, int[] Texture, bool Collide, bool ReplaceTerrain)
+    public record BlockProperty(bool[] IsSolid, int[] Texture, bool Collide, bool ReplaceTerrain, bool Transparent)
     {
         public static BlockProperty Default(int texture) => Default(new[] { texture, texture, texture, texture, texture, texture });
 
@@ -13,7 +13,8 @@ namespace world.blocks
             new[] { true, true, true, true, true, true }, 
             uv,
             true, 
-            true);
+            true, 
+            false);
 
         public BlockProperty SetSolid(bool solid) => this with { IsSolid = new[] { solid, solid, solid, solid, solid, solid } };
     }

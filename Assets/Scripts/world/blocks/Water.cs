@@ -45,23 +45,23 @@ namespace World.blocks
 
         private void AddFace(MeshBuilder builder, int face, Vector3 position, MeshBuilder.CubicModel model)
         {
-            builder.AddFace(face, position, this, model, new Vector3(TextureIndex(face), 8, 32));
+            builder.AddFace(face, position, this, model, new Vector4(TextureIndex(face), 8, 32, 1), true);
             
             for (int i = 0; i < 4; i++)
             {
-                builder.Vertices.Add(model.VerticesLookup[model.TrianglesLookup[face, i]] + position);
+                builder.TransparentVertices.Add(model.VerticesLookup[model.TrianglesLookup[face, i]] + position);
 
-                builder.Uvs.Add(model.UvsLookup[i]);
-                builder.TextureIndices.Add(new Vector3(TextureIndex(face), 8, 32));
+                builder.TransparentUvs.Add(model.UvsLookup[i]);
+                builder.TransparentTextureIndices.Add(new Vector4(TextureIndex(face), 8, 32, 1));
             }
             
-            builder.Triangles.Add(builder.VertIndex + 2);
-            builder.Triangles.Add(builder.VertIndex + 1);
-            builder.Triangles.Add(builder.VertIndex);
-            builder.Triangles.Add(builder.VertIndex + 3);
-            builder.Triangles.Add(builder.VertIndex + 1);
-            builder.Triangles.Add(builder.VertIndex + 2);
-            builder.VertIndex+= 4;
+            builder.TransparentTriangles.Add(builder.TransparentVertIndex + 2);
+            builder.TransparentTriangles.Add(builder.TransparentVertIndex + 1);
+            builder.TransparentTriangles.Add(builder.TransparentVertIndex);
+            builder.TransparentTriangles.Add(builder.TransparentVertIndex + 3);
+            builder.TransparentTriangles.Add(builder.TransparentVertIndex + 1);
+            builder.TransparentTriangles.Add(builder.TransparentVertIndex + 2);
+            builder.TransparentVertIndex+= 4;
         }
         
         public override void Render(Chunk chunk, MeshBuilder builder, Vector3Int position, Vector3 localPosition)

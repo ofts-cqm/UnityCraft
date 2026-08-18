@@ -29,7 +29,7 @@ namespace world.blocks
             Water = new Water();
             Sand = new Block(BlockProperty.Default(5));
             OakLog = new Block(BlockProperty.Pillar(6, 7, 6));
-            OakLeave = new Block(BlockProperty.Default(8) with { ReplaceTerrain = false });
+            OakLeave = new Block(BlockProperty.Default(/*8*/12).SetSolid(false) with { ReplaceTerrain = false });
             Gravel = new Block(BlockProperty.Default(9));
         }
     }

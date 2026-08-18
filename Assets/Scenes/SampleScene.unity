@@ -413,7 +413,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::World.World
   material: {fileID: 2100000, guid: eb5cc7ea38f579c988f173d2dfb6b769, type: 2}
-  waterMaterial: {fileID: 2100000, guid: 446b738ee65d2f8e1854b8d1fdfedc4a, type: 2}
+  waterMaterial: {fileID: 2100000, guid: fd1450d2518698d1f9cee36d803a9f0c, type: 2}
   player: {fileID: 839279772}
 --- !u!4 &500257326
 Transform:

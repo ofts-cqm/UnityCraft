@@ -11,6 +11,9 @@ namespace Render
         private MeshFilter _meshFilter;
         private MeshCollider _meshCollider;
         private GameObject _chunkObject;
+        
+        private MeshFilter _transparentMesh;
+        private GameObject _transparentObject;
 
         private readonly int _heightIndex;
         private readonly Vector3Int _chunkPosition;
@@ -51,6 +54,22 @@ namespace Render
             _meshCollider = _chunkObject.AddComponent<MeshCollider>();
             _chunkObject.AddComponent<RenderObjectProperty>().RenderObject = this;
             _chunkObject.transform.SetParent(World.World.Instance.transform);
+
+            _transparentObject = new GameObject
+            {
+                transform =
+                {
+                    position = _chunkPosition,
+                    parent = _chunkObject.transform  
+                },
+                name = "Transparent Render"
+            };
+            
+            var meshRenderer2 = _transparentObject.AddComponent<MeshRenderer>();
+            meshRenderer2.material = World.World.Instance.waterMaterial;
+            
+            _transparentMesh = _transparentObject.AddComponent<MeshFilter>();
+            _chunkObject.AddComponent<RenderObjectProperty>().RenderObject = this;
         }
         
         public bool Active {
@@ -94,8 +113,8 @@ namespace Render
             }
 
             //if (_vertIndex == 0) Active = false;
-            if (meshBuilder.VertIndex == 0 && Active) Active = false;
-            else if (meshBuilder.VertIndex != 0 && !Active) Active = true;
+            if (meshBuilder.VertIndex == 0 && meshBuilder.TransparentVertIndex == 0 && Active) Active = false;
+            else if (meshBuilder.VertIndex != 0 && meshBuilder.TransparentVertIndex != 0 && !Active) Active = true;
 
             _triangleCoordinate = meshBuilder.TriangleCoordinate;
             _triangleFace = meshBuilder.TriangleFace;
@@ -119,6 +138,17 @@ namespace Render
             
             colliderMesh.RecalculateNormals();
             _meshCollider.sharedMesh = colliderMesh;
+
+            Mesh transparentMesh = new Mesh
+            {
+                vertices = meshBuilder.TransparentVertices.ToArray(),
+                triangles = meshBuilder.TransparentTriangles.ToArray(),
+                uv = meshBuilder.TransparentUvs.ToArray()
+            };
+            transparentMesh.SetUVs(1, meshBuilder.TransparentTextureIndices.ToArray());
+            
+            transparentMesh.RecalculateNormals();
+            _transparentMesh.mesh = transparentMesh;
         }
 
         public Vector3Int GetBlockPositionOfTriangle(int index)

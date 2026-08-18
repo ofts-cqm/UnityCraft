@@ -7,15 +7,20 @@ namespace render
     public class MeshBuilder
     {
         public int VertIndex;
+        public int TransparentVertIndex;
         private int _colliderVertIndex;
         public readonly List<Vector3> Vertices = new();
         public readonly List<int> Triangles = new();
         public readonly List<Vector3> ColliderVertices = new();
         public readonly List<int> ColliderTriangles = new();
+        public readonly List<Vector3> TransparentVertices = new();
+        public readonly List<int> TransparentTriangles = new();
         public readonly List<int> TriangleCoordinate = new();
         public readonly List<int> TriangleFace = new();
         public readonly List<Vector2> Uvs = new();
-        public readonly List<Vector3> TextureIndices = new();
+        public readonly List<Vector4> TextureIndices = new();
+        public readonly List<Vector2> TransparentUvs = new();
+        public readonly List<Vector4> TransparentTextureIndices = new();
 
         public record CubicModel(Vector3[] VerticesLookup, int[,] TrianglesLookup, Vector2[] UvsLookup);
 
@@ -49,25 +54,45 @@ namespace render
 
         public void AddFace(int face, Vector3 position, Block block)
         {
-            AddFace(face, position, block, DefaultModel, new Vector3(block.TextureIndex(face), 1, 1));
+            AddFace(face, position, block, DefaultModel, new Vector4(block.TextureIndex(face), 1, 1, 0), block.Property.Transparent);
         }
         
-        public void AddFace(int face, Vector3 position, Block block, CubicModel model, Vector3 texture)
+        public void AddFace(int face, Vector3 position, Block block, CubicModel model, Vector4 texture, bool transparent)
         {
-            for (int i = 0; i < 4; i++)
+            if (transparent)
             {
-                Vertices.Add(model.VerticesLookup[model.TrianglesLookup[face, i]] + position);
-                Uvs.Add(model.UvsLookup[i]);
-                TextureIndices.Add(texture);
+                for (int i = 0; i < 4; i++)
+                {
+                    TransparentVertices.Add(model.VerticesLookup[model.TrianglesLookup[face, i]] + position);
+                    TransparentUvs.Add(model.UvsLookup[i]);
+                    TransparentTextureIndices.Add(texture);
+                }
+
+                TransparentTriangles.Add(TransparentVertIndex);
+                TransparentTriangles.Add(TransparentVertIndex + 1);
+                TransparentTriangles.Add(TransparentVertIndex + 2);
+                TransparentTriangles.Add(TransparentVertIndex + 2);
+                TransparentTriangles.Add(TransparentVertIndex + 1);
+                TransparentTriangles.Add(TransparentVertIndex + 3);
+                TransparentVertIndex += 4;
             }
-            
-            Triangles.Add(VertIndex);
-            Triangles.Add(VertIndex + 1);
-            Triangles.Add(VertIndex + 2);
-            Triangles.Add(VertIndex + 2);
-            Triangles.Add(VertIndex + 1);
-            Triangles.Add(VertIndex + 3);
-            VertIndex+= 4;
+            else
+            {
+                for (int i = 0; i < 4; i++)
+                {
+                    Vertices.Add(model.VerticesLookup[model.TrianglesLookup[face, i]] + position);
+                    Uvs.Add(model.UvsLookup[i]);
+                    TextureIndices.Add(texture);
+                }
+
+                Triangles.Add(VertIndex);
+                Triangles.Add(VertIndex + 1);
+                Triangles.Add(VertIndex + 2);
+                Triangles.Add(VertIndex + 2);
+                Triangles.Add(VertIndex + 1);
+                Triangles.Add(VertIndex + 3);
+                VertIndex += 4;
+            }
 
             if (block.Collide)
             {
