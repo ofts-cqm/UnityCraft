@@ -5,7 +5,7 @@ using world.blocks;
 
 namespace World.blocks
 {
-    public record Water() : Block(BlockProperty.Default(4).SetSolid(false) with { Collide = false })
+    public record Water() : Block(BlockProperty.Default(16).SetSolid(false) with { Collide = false })
     {
         private static readonly MeshBuilder.CubicModel WaterModel = new(
             new Vector3[]
@@ -45,14 +45,14 @@ namespace World.blocks
 
         private void AddFace(MeshBuilder builder, int face, Vector3 position, MeshBuilder.CubicModel model)
         {
-            builder.AddFace(face, position, this, model);
+            builder.AddFace(face, position, this, model, new Vector3(TextureIndex(face), 8, 32));
             
             for (int i = 0; i < 4; i++)
             {
                 builder.Vertices.Add(model.VerticesLookup[model.TrianglesLookup[face, i]] + position);
 
                 builder.Uvs.Add(model.UvsLookup[i]);
-                builder.TextureIndices.Add(new Vector2(TextureIndex(face), 0));
+                builder.TextureIndices.Add(new Vector3(TextureIndex(face), 8, 32));
             }
             
             builder.Triangles.Add(builder.VertIndex + 2);

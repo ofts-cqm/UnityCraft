@@ -104,9 +104,9 @@ namespace Render
             {
                 vertices = meshBuilder.Vertices.ToArray(),
                 triangles = meshBuilder.Triangles.ToArray(),
-                uv = meshBuilder.Uvs.ToArray(),
-                uv2 = meshBuilder.TextureIndices.ToArray()
+                uv = meshBuilder.Uvs.ToArray()
             };
+            renderMesh.SetUVs(1, meshBuilder.TextureIndices.ToArray());
             
             renderMesh.RecalculateNormals();
             _meshFilter.mesh = renderMesh;

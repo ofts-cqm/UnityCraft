@@ -15,10 +15,7 @@ namespace render
         public readonly List<int> TriangleCoordinate = new();
         public readonly List<int> TriangleFace = new();
         public readonly List<Vector2> Uvs = new();
-        public readonly List<Vector2> TextureIndices = new();
-        
-        public const int TextureWidth = 16;
-        public const int TextureHeight = 1;
+        public readonly List<Vector3> TextureIndices = new();
 
         public record CubicModel(Vector3[] VerticesLookup, int[,] TrianglesLookup, Vector2[] UvsLookup);
 
@@ -49,14 +46,19 @@ namespace render
                 new(1, 1)
             }
             );
+
+        public void AddFace(int face, Vector3 position, Block block)
+        {
+            AddFace(face, position, block, DefaultModel, new Vector3(block.TextureIndex(face), 1, 1));
+        }
         
-        public void AddFace(int face, Vector3 position, Block block, CubicModel model)
+        public void AddFace(int face, Vector3 position, Block block, CubicModel model, Vector3 texture)
         {
             for (int i = 0; i < 4; i++)
             {
                 Vertices.Add(model.VerticesLookup[model.TrianglesLookup[face, i]] + position);
                 Uvs.Add(model.UvsLookup[i]);
-                TextureIndices.Add(new Vector2(block.TextureIndex(face), 0));
+                TextureIndices.Add(texture);
             }
             
             Triangles.Add(VertIndex);
