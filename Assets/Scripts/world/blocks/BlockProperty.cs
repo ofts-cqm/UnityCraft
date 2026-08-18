@@ -17,5 +17,8 @@ namespace world.blocks
             false);
 
         public BlockProperty SetSolid(bool solid) => this with { IsSolid = new[] { solid, solid, solid, solid, solid, solid } };
+        
+        public BlockProperty SetTransparent(bool transparent) 
+            => this with { Transparent = transparent, IsSolid = new[] { !transparent, !transparent, !transparent, !transparent, !transparent, !transparent } };
     }
 }
