@@ -1,9 +1,11 @@
+using System;
 using render;
 using Render;
+using render.ui;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using World;
 using world.blocks;
+using World.blocks;
 
 namespace player
 {
@@ -31,6 +33,7 @@ namespace player
         private const float JumpForce = 5f;
         private const float DoubleClickDelay = 0.3f;
         private const int MinimumInteractionDelay = 10;
+        private const float MaxDistance = 5f;
         
         private bool _sprinting;
         private bool _jumping;
@@ -42,16 +45,16 @@ namespace player
         
         private int _tick;
         private int _lastInteractionTick;
+        
+        private Vector3 _velocity;
 
         private Vector3Int TargetLocation { get; set; }
         private int TargetFace { get; set; }
         private bool HasTargetLocation { get; set; }
         private bool Paused { get; set; }
-        private int HoldingBlock { get; set; } = 2;
 
-        private Vector3 _velocity;
-
-        private const float MaxDistance = 5f;
+        public Hotbar hotbar;
+        public Block[] inventory = new Block[36];
 
         private void Awake()
         {
@@ -83,17 +86,21 @@ namespace player
                 _flyLastClickTime = Time.time;
             };
             InputSystem.actions.FindAction("Pause").started += _ => Paused = !Paused;
-            InputSystem.actions.FindAction("Scroll").performed += context =>
-            {
-                int delta = (int)context.ReadValue<float>();
-                HoldingBlock += delta;
-                if (HoldingBlock >= Blocks.BlockList.Count - 1) HoldingBlock = 2;
-                if (HoldingBlock < 2) HoldingBlock = Blocks.BlockList.Count - 1;
-            };
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
             _defaultLayer = LayerMask.GetMask("Default");
             _allLayer = LayerMask.GetMask("Default", "Ignore Raycast");
+            
+            Array.Fill(inventory, Blocks.Air);
+            inventory[0] = Blocks.GrassBlock;
+            inventory[1] = Blocks.Dirt;
+            inventory[2] = Blocks.Stone;
+            inventory[3] = Blocks.Sand;
+            inventory[4] = Blocks.Gravel;
+            inventory[5] = Blocks.WhiteStainedGlass;
+            inventory[6] = Blocks.LightGrayStainedGlass;
+            inventory[7] = Blocks.GrayStainedGlass;
+            hotbar.LoadFromPlayer(this);
         }
 
         private void Update()
@@ -148,14 +155,14 @@ namespace player
                     _ => rawPosition
                 };
 
-                if (world.GetBlock(finalPosition)?.IsAir ?? false)
+                if ((world.GetBlock(finalPosition)?.IsAir ?? false) && !hotbar.HoldingBlock.IsAir)
                 {
 
                     Vector3 half = new Vector3(0.5f, 0.5f, 0.5f);
                     Vector3 center = finalPosition + half;
                     if (!Physics.CheckBox(center, half * 0.9f, new Quaternion(), _allLayer))
                     {
-                        world.SetBlock(finalPosition, Blocks.BlockList[HoldingBlock]);
+                        world.SetBlock(finalPosition, hotbar.HoldingBlock);
                         _lastInteractionTick = _tick;
                     }
                 }
