@@ -12,6 +12,7 @@ namespace render.ui
         private static GameObject _camObj;
         private static Camera _bakeCam;
         private static MeshRenderer _meshRenderer;
+        private static RenderTexture _rt;
         
         private static Material _material;
         private static Material _transparentMaterial;
@@ -61,6 +62,10 @@ namespace render.ui
             _bakeCam.backgroundColor = new Color(0, 0, 0, 0); // Completely transparent
             _bakeCam.orthographic = true;
             _bakeCam.orthographicSize = 1f; // Adjust based on model size
+            
+            _rt = RenderTexture.GetTemporary(Resolution, Resolution, 24, RenderTextureFormat.ARGB32);
+            _bakeCam.targetTexture = _rt;
+            RenderTexture.active = _rt;
         }
 
         public static Sprite BakeToSprite(Block block)
@@ -91,35 +96,25 @@ namespace render.ui
         public static Sprite BakeToSprite(Mesh mesh)
         {
             _modelMesh.mesh = mesh;
-            
-            // 1. Render the model directly into a temporary RenderTexture
-            RenderTexture rt = RenderTexture.GetTemporary(Resolution, Resolution, 24, RenderTextureFormat.ARGB32);
-            _bakeCam.targetTexture = rt;
             _bakeCam.Render();
-        
-            // 2. Extract raw pixels from the RenderTexture to a Texture2D
-            RenderTexture.active = rt;
+            
             Texture2D texture = new Texture2D(Resolution, Resolution, TextureFormat.RGBA32, false);
             texture.ReadPixels(new Rect(0, 0, Resolution, Resolution), 0, 0);
             texture.Apply();
         
-            // 3. Build the runtime Sprite
-            Sprite generatedSprite = Sprite.Create(
+            return Sprite.Create(
                 texture, 
                 new Rect(0, 0, Resolution, Resolution), 
                 new Vector2(0.5f, 0.5f), // Pivot in the center
                 100f // Pixels Per Unit
             );
-        
-            // 4. Clean up memory and scene pollution leak immediately
-            RenderTexture.active = null;
-            RenderTexture.ReleaseTemporary(rt);
-        
-            return generatedSprite;
         }
 
         public static void FinalizeBaking()
         {
+            RenderTexture.active = null;
+            RenderTexture.ReleaseTemporary(_rt);
+            
             Destroy(_camObj);
             Destroy(_spawnedModel);
         }

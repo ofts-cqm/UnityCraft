@@ -187,6 +187,14 @@ namespace world.generation
                     return;
                 }
                 
+                // see if it is in a completed queue
+                if (ChunkLoader.TryGetQueuedChunk(coord, out chunk))
+                {
+                    block = chunk.GetBlock(x, blockState.Position.y, z);
+                    if (block.IsAir || blockState.Block.ReplaceTerrain) chunk.SetBlock(x, blockState.Position.y, z, blockState.Block);
+                    return;
+                }
+                
                 // store this as an out of bound block
                 if (!_outOfBoundsStates.TryGetValue(targetChunk, out List<BlockState> blocks))
                 {

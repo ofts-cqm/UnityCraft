@@ -17,11 +17,13 @@ namespace world.generation
         private static readonly Queue<ChunkCoord> LoadQueue = new();
         private static readonly object LoadQueueLock = new();
         private static readonly ConcurrentQueue<Chunk> CompletedLoads = new();
+        private static readonly ConcurrentDictionary<ChunkCoord, Chunk> CompletedMap = new();
 
         private const int MaxInactiveChunks = 20;
         public static bool SyncLoading = false;
         
         public static bool TryGetInactiveChunk(ChunkCoord coord, out Chunk chunk) => InactiveMap.TryGetValue(coord, out chunk);
+        public static bool TryGetQueuedChunk(ChunkCoord coord, out Chunk chunk) => CompletedMap.TryGetValue(coord, out chunk);
         
         public static void LoadChunk(ChunkCoord coord)
         {
@@ -35,7 +37,7 @@ namespace world.generation
                 chunk.Active = true;
 
                 // Remove it from the inactive-cache tracking and add to the world
-                InactiveChunks.Remove(coord); 
+                InactiveChunks.Remove(InactiveNodes[coord]); 
                 InactiveMap.Remove(coord);
                 InactiveNodes.Remove(coord);
                 World.World.Instance.ChunkMap[coord] = chunk;
@@ -134,6 +136,7 @@ namespace world.generation
 
                 Chunk chunk = new Chunk(request, World.World.Instance);
                 CompletedLoads.Enqueue(chunk);
+                CompletedMap[request] = chunk;
             }
         }
         
@@ -147,6 +150,7 @@ namespace world.generation
                    CompletedLoads.TryDequeue(out Chunk chunk))
             {
                 ChunkCoord coord = chunk.ChunkPosition;
+                CompletedMap.Remove(coord, out _);
                 
                 // The old request may have been cancelled and removed.
                 if (!PendingLoad.Contains(coord)) continue;
