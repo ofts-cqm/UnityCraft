@@ -1372,6 +1372,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: '::'
   selection: {fileID: 1151708256}
+  holdingBlockTransform: {fileID: 54523470}
   holdingBlockImage: {fileID: 54523471}
   prefab: {fileID: 8774319528771333899, guid: c7c61fd45bde3f80eb09c622772178ce, type: 3}
 --- !u!1 &1471478211

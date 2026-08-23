@@ -45,14 +45,28 @@ namespace render.ui
                 SelectedIndex -= delta;
                 if (SelectedIndex >= 9) SelectedIndex = 0;
                 if (SelectedIndex < 0) SelectedIndex = 8;
-                selection.anchoredPosition = new Vector2(SelectedIndex * 50, selection.anchoredPosition.y);
-                holdingBlockImage.sprite = HotbarItems.Span[SelectedIndex].Sprite;
-                _holdingBlockAnimationStartTime = Time.time;
+                UpdateHoldingBlock();
             };
             
-            for (int i = 0; i < 9; i++) RegisterSprite(i);
+            for (int i = 0; i < 9; i++)
+            {
+                int copy = i;
+                InputSystem.actions.FindAction((i + 1).ToString()).performed += _ =>
+                {
+                    SelectedIndex = copy;
+                    UpdateHoldingBlock();
+                };
+                RegisterSprite(i);
+            }
             
             RefreshInventory();
+        }
+
+        private void UpdateHoldingBlock()
+        {
+            selection.anchoredPosition = new Vector2(SelectedIndex * 50, selection.anchoredPosition.y);
+            holdingBlockImage.sprite = HotbarItems.Span[SelectedIndex].Sprite;
+            _holdingBlockAnimationStartTime = Time.time;
         }
 
         void Update()
