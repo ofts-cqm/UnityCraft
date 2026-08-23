@@ -10,6 +10,7 @@ namespace render.ui
     public class Hotbar : MonoBehaviour
     {
         public RectTransform selection;
+        public RectTransform holdingBlockTransform;
         public Image holdingBlockImage;
         public GameObject prefab;
         
@@ -17,6 +18,9 @@ namespace render.ui
         private Memory<Item> HotbarItems { get; set; }
         public Item HoldingItem => HotbarItems.Span[SelectedIndex];
         private Image[] _sprites = new Image[9];
+
+        private float _holdingBlockAnimationStartTime;
+        private const float HoldingBlockAnimationDuration = 0.3f;
 
         private void RegisterSprite(int index)
         {
@@ -43,11 +47,20 @@ namespace render.ui
                 if (SelectedIndex < 0) SelectedIndex = 8;
                 selection.anchoredPosition = new Vector2(SelectedIndex * 50, selection.anchoredPosition.y);
                 holdingBlockImage.sprite = HotbarItems.Span[SelectedIndex].Sprite;
+                _holdingBlockAnimationStartTime = Time.time;
             };
             
             for (int i = 0; i < 9; i++) RegisterSprite(i);
             
             RefreshInventory();
+        }
+
+        void Update()
+        {
+            holdingBlockTransform.anchoredPosition = new Vector2(
+                500, 
+                Mathf.Lerp(-500, -200, (Time.time - _holdingBlockAnimationStartTime) / HoldingBlockAnimationDuration)
+            );
         }
 
         private void RefreshInventory()
