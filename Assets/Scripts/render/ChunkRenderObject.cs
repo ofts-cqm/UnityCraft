@@ -112,9 +112,11 @@ namespace Render
                 }
             }
 
+            bool targetState = !(meshBuilder.VertIndex == 0 && meshBuilder.TransparentVertIndex == 0);
+            if (targetState != Active) Active = targetState;
             //if (_vertIndex == 0) Active = false;
-            if (meshBuilder.VertIndex == 0 && meshBuilder.TransparentVertIndex == 0 && Active) Active = false;
-            else if (meshBuilder.VertIndex != 0 && meshBuilder.TransparentVertIndex != 0 && !Active) Active = true;
+            //if (meshBuilder.VertIndex == 0 && meshBuilder.TransparentVertIndex == 0 && Active) Active = false;
+            //else if (meshBuilder.VertIndex != 0 && meshBuilder.TransparentVertIndex != 0 && !Active) Active = true;
 
             _triangleCoordinate = meshBuilder.TriangleCoordinate;
             _triangleFace = meshBuilder.TriangleFace;
