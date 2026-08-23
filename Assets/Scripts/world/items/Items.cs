@@ -62,6 +62,7 @@ namespace world.items
             PurpleStainedGlass = new BlockItem(Blocks.PurpleStainedGlass);
             MagentaStainedGlass = new BlockItem(Blocks.MagentaStainedGlass);
             PinkStainedGlass = new BlockItem(Blocks.PinkStainedGlass);
+            Gravel = new BlockItem(Blocks.Gravel);
             
             SpriteBaker.FinalizeBaking();
         }

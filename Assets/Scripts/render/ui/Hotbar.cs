@@ -10,6 +10,7 @@ namespace render.ui
     public class Hotbar : MonoBehaviour
     {
         public RectTransform selection;
+        public Image holdingBlockImage;
         public GameObject prefab;
         
         private int SelectedIndex { get; set; }
@@ -28,6 +29,7 @@ namespace render.ui
         public void LoadFromPlayer(Player player)
         {
             HotbarItems = player.inventory.AsMemory(0, 9);
+            holdingBlockImage.sprite = HotbarItems.Span[SelectedIndex].Sprite;
         }
         
         // Start is called once before the first execution of Update after the MonoBehaviour is created
@@ -40,6 +42,7 @@ namespace render.ui
                 if (SelectedIndex >= 9) SelectedIndex = 0;
                 if (SelectedIndex < 0) SelectedIndex = 8;
                 selection.anchoredPosition = new Vector2(SelectedIndex * 50, selection.anchoredPosition.y);
+                holdingBlockImage.sprite = HotbarItems.Span[SelectedIndex].Sprite;
             };
             
             for (int i = 0; i < 9; i++) RegisterSprite(i);

@@ -11,9 +11,12 @@ namespace render.ui
         private static MeshFilter _modelMesh;
         private static GameObject _camObj;
         private static Camera _bakeCam;
+        private static MeshRenderer _meshRenderer;
+        
+        private static Material _material;
+        private static Material _transparentMaterial;
 
-        private const float CameraDistance = 3.0f;
-        private const int Resolution = 512;
+        private const int Resolution = 1024;
 
         private class FakeChunk : IBlockProvider
         {
@@ -23,44 +26,64 @@ namespace render.ui
         }
         
         private static readonly FakeChunk Chunk = new();
-        private static readonly Vector3Int ModelPosition = new(-2, -2, -2);
         
         public static void PrepareBaking()
         {
+            
             _spawnedModel = new GameObject("Model")
             {
                 transform =
                 {
-                    position = new Vector3(-2, -2, -2),
+                    position = new Vector3(-0.7f, -0.4f, 2.5f),
+                    // -30, 45, 0, XYZ order
+                    rotation = new Quaternion(-0.2391176f, 0.3696438f, -0.0990458f, 0.8923991f)
+                }
+            };
+
+            _meshRenderer = _spawnedModel.AddComponent<MeshRenderer>(); 
+            _modelMesh = _spawnedModel.AddComponent<MeshFilter>();
+            _modelMesh = _spawnedModel.GetComponent<MeshFilter>();
+            
+            _material = Resources.Load<Material>("VoxelMaterial");
+            _transparentMaterial = Resources.Load<Material>("TransparentVoxelMaterial");
+
+            _camObj = new GameObject("BakeCamera")
+            {
+                transform =
+                {
+                    position = Vector3.zero,
                     rotation = Quaternion.identity
                 }
             };
-            
-            _spawnedModel.AddComponent<MeshRenderer>().material = Resources.Load<Material>("VoxelMaterial");
-            _modelMesh = _spawnedModel.AddComponent<MeshFilter>();
-            
-            _camObj = new GameObject("BakeCamera");
             _bakeCam = _camObj.AddComponent<Camera>();
             
-            _bakeCam.transform.position = _spawnedModel.transform.position + new Vector3(0, 0, -CameraDistance);
-            _bakeCam.transform.LookAt(_spawnedModel.transform.position);
             _bakeCam.clearFlags = CameraClearFlags.SolidColor;
             _bakeCam.backgroundColor = new Color(0, 0, 0, 0); // Completely transparent
             _bakeCam.orthographic = true;
-            _bakeCam.orthographicSize = 1.5f; // Adjust based on model size
+            _bakeCam.orthographicSize = 1f; // Adjust based on model size
         }
 
         public static Sprite BakeToSprite(Block block)
         {
             MeshBuilder meshBuilder = new MeshBuilder();
-            block.Render(Chunk, meshBuilder, ModelPosition, ModelPosition);
+            if (!block.IsAir) block.Render(Chunk, meshBuilder, Vector3Int.zero, Vector3.zero);
             
-            Mesh renderMesh = new Mesh
+            Mesh renderMesh = block.Transparent ? new Mesh{
+                    vertices = meshBuilder.TransparentVertices.ToArray(),
+                    triangles = meshBuilder.TransparentTriangles.ToArray(),
+                    uv = meshBuilder.TransparentUvs.ToArray()
+            } : 
+            new Mesh
             {
                 vertices = meshBuilder.Vertices.ToArray(),
                 triangles = meshBuilder.Triangles.ToArray(),
                 uv = meshBuilder.Uvs.ToArray()
             };
+            
+            _meshRenderer.material = block.Transparent ? _transparentMaterial : _material;
+            
+            renderMesh.SetUVs(1, block.Transparent ? meshBuilder.TransparentTextureIndices.ToArray() : meshBuilder.TextureIndices.ToArray());
+            renderMesh.RecalculateNormals();
             
             return BakeToSprite(renderMesh);
         }
