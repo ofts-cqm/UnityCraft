@@ -7,7 +7,7 @@ using world.generation;
 
 namespace World
 {
-    public class Chunk
+    public class Chunk : IBlockProvider
     {
         private readonly World _world;
         public readonly ChunkCoord ChunkPosition;

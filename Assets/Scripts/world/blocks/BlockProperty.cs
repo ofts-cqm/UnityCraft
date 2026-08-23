@@ -14,7 +14,8 @@ namespace world.blocks
             uv,
             true, 
             true, 
-            false);
+            false
+        );
 
         public BlockProperty SetSolid(bool solid) => this with { IsSolid = new[] { solid, solid, solid, solid, solid, solid } };
         

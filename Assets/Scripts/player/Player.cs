@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using world.blocks;
 using World.blocks;
+using world.items;
 
 namespace player
 {
@@ -54,7 +55,7 @@ namespace player
         private bool Paused { get; set; }
 
         public Hotbar hotbar;
-        public Block[] inventory = new Block[36];
+        public Item[] inventory = new Item[36];
 
         private void Awake()
         {
@@ -91,15 +92,16 @@ namespace player
             _defaultLayer = LayerMask.GetMask("Default");
             _allLayer = LayerMask.GetMask("Default", "Ignore Raycast");
             
-            Array.Fill(inventory, Blocks.Air);
-            inventory[0] = Blocks.GrassBlock;
-            inventory[1] = Blocks.Dirt;
-            inventory[2] = Blocks.Stone;
-            inventory[3] = Blocks.Sand;
-            inventory[4] = Blocks.Gravel;
-            inventory[5] = Blocks.WhiteStainedGlass;
-            inventory[6] = Blocks.LightGrayStainedGlass;
-            inventory[7] = Blocks.GrayStainedGlass;
+            Array.Fill(inventory, Items.Air);
+            inventory[0] = Items.GrassBlock;
+            inventory[1] = Items.Dirt;
+            inventory[2] = Items.Stone;
+            inventory[3] = Items.Sand;
+            inventory[4] = Items.Gravel;
+            inventory[5] = Items.WhiteStainedGlass;
+            inventory[6] = Items.LightGrayStainedGlass;
+            inventory[7] = Items.GrayStainedGlass;
+            
             hotbar.LoadFromPlayer(this);
         }
 
@@ -136,36 +138,14 @@ namespace player
             
             if (_attackAction.IsPressed())
             {
-                world.SetBlock(TargetLocation, Blocks.Air);
-                _lastInteractionTick = _tick;
+                if(hotbar.HoldingItem.OnDestroy(world, TargetLocation, TargetFace))
+                    _lastInteractionTick = _tick;
             }
 
             if (_interactAction.IsPressed())
             {
-                Vector3Int rawPosition = TargetLocation;
-                int face = TargetFace;
-                Vector3Int finalPosition = face switch
-                {
-                    ChunkRenderObject.TopFace => rawPosition + Vector3Int.up,
-                    ChunkRenderObject.BottomFace => rawPosition + Vector3Int.down,
-                    ChunkRenderObject.LeftFace => rawPosition + Vector3Int.left,
-                    ChunkRenderObject.RightFace => rawPosition + Vector3Int.right,
-                    ChunkRenderObject.FrontFace => rawPosition + Vector3Int.forward,
-                    ChunkRenderObject.BackFace => rawPosition + Vector3Int.back,
-                    _ => rawPosition
-                };
-
-                if ((world.GetBlock(finalPosition)?.IsAir ?? false) && !hotbar.HoldingBlock.IsAir)
-                {
-
-                    Vector3 half = new Vector3(0.5f, 0.5f, 0.5f);
-                    Vector3 center = finalPosition + half;
-                    if (!Physics.CheckBox(center, half * 0.9f, new Quaternion(), _allLayer))
-                    {
-                        world.SetBlock(finalPosition, hotbar.HoldingBlock);
-                        _lastInteractionTick = _tick;
-                    }
-                }
+                if(hotbar.HoldingItem.OnUse(world, TargetLocation, TargetFace))
+                    _lastInteractionTick = _tick;
             }
         }
         private void UpdateInput()

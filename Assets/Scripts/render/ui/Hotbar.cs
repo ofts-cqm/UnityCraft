@@ -2,17 +2,29 @@ using System;
 using player;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using World.blocks;
+using UnityEngine.UI;
+using world.items;
 
 namespace render.ui
 {
     public class Hotbar : MonoBehaviour
     {
         public RectTransform selection;
+        public GameObject prefab;
+        
         private int SelectedIndex { get; set; }
-        private Memory<Block> HotbarItems { get; set; }
-        public Block HoldingBlock => HotbarItems.Span[SelectedIndex];
+        private Memory<Item> HotbarItems { get; set; }
+        public Item HoldingItem => HotbarItems.Span[SelectedIndex];
+        private Image[] _sprites = new Image[9];
 
+        private void RegisterSprite(int index)
+        {
+            GameObject go = Instantiate(prefab, transform);
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.anchoredPosition = new Vector2(rt.anchoredPosition.x + index * 50, rt.anchoredPosition.y);
+            _sprites[index] = go.GetComponent<Image>();
+        }
+        
         public void LoadFromPlayer(Player player)
         {
             HotbarItems = player.inventory.AsMemory(0, 9);
@@ -29,6 +41,18 @@ namespace render.ui
                 if (SelectedIndex < 0) SelectedIndex = 8;
                 selection.anchoredPosition = new Vector2(SelectedIndex * 50, selection.anchoredPosition.y);
             };
+            
+            for (int i = 0; i < 9; i++) RegisterSprite(i);
+            
+            RefreshInventory();
+        }
+
+        private void RefreshInventory()
+        {
+            for (int i = 0; i < 9; i++)
+            {
+                _sprites[i].sprite = HotbarItems.Span[i].Sprite;
+            }
         }
     }
 }

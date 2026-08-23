@@ -64,7 +64,7 @@ namespace World.blocks
             builder.TransparentVertIndex+= 4;
         }
         
-        public override void Render(Chunk chunk, MeshBuilder builder, Vector3Int position, Vector3 localPosition)
+        public override void Render(IBlockProvider chunk, MeshBuilder builder, Vector3Int position, Vector3 localPosition)
         {
             MeshBuilder.CubicModel model = chunk.GetBlock(position + Vector3Int.up).IsAir ? WaterModel : MeshBuilder.DefaultModel;
             if (ShouldRender(chunk.GetBlock(position + Vector3Int.left), ChunkRenderObject.RightFace)) AddFace(builder, ChunkRenderObject.LeftFace, localPosition, model);

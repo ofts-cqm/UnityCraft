@@ -20,7 +20,7 @@ namespace World.blocks
             return !block.IsSolid(face);
         }
 
-        public virtual void Render(Chunk chunk, MeshBuilder builder, Vector3Int position, Vector3 localPosition)
+        public virtual void Render(IBlockProvider chunk, MeshBuilder builder, Vector3Int position, Vector3 localPosition)
         {
             if (ShouldRender(chunk.GetBlock(position + Vector3Int.left), ChunkRenderObject.RightFace)) 
                 builder.AddFace(ChunkRenderObject.LeftFace, localPosition, this);
