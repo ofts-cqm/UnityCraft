@@ -110,5 +110,5 @@ InitTestScene*.unity*
 *.meta
 # idea
 *.idea/*
-# temp textures
-*/Textures/block/*
+# texture folder to avoid sharing Minecraft assets
+*/Textures/*
