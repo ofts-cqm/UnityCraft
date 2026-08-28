@@ -14,6 +14,7 @@ namespace render.ui
         private ItemStack _stack;
         private int _index;
         [CanBeNull] public InventoryMenu Parent { get; set; } = null;
+        public bool IgnoreClick { get; set; } = false;
         
         void Awake()
         {
@@ -33,6 +34,7 @@ namespace render.ui
         public void OnPointerClick(PointerEventData eventData)
         {
             if (_stack.IsEmpty && InventoryMenu.HoldingItem.IsEmpty) return;
+            if (IgnoreClick) return;
             
             if (eventData.button == PointerEventData.InputButton.Left)
             {

@@ -89,15 +89,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f5924c07aef84491b2300bcacc3b52e0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::render.ui.ItemSlot
-  onLeftClick:
-    m_PersistentCalls:
-      m_Calls: []
-  onRightClick:
-    m_PersistentCalls:
-      m_Calls: []
-  onMiddleClick:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!1 &8818251710182159937
 GameObject:
   m_ObjectHideFlags: 0

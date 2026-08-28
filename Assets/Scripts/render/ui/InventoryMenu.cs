@@ -36,11 +36,12 @@ namespace render.ui
         private ItemSlot AddSlot(ItemStack stack, int index)
         {
             if (!_preFab) _preFab = Resources.Load<GameObject>("Item");
-            GameObject obj = Instantiate(_preFab);
+            GameObject obj = Instantiate(_preFab, transform);
             RectTransform rt = obj.GetComponent<RectTransform>();
             // ReSharper disable once PossibleLossOfFraction
             rt.anchoredPosition = new Vector2(rt.anchoredPosition.x + index % 9 * 50, rt.anchoredPosition.y + index / 9 * 50);
             ItemSlot slot = obj.GetComponent<ItemSlot>();
+            slot.Parent = this;
             slot.Display(stack, index);
             return slot;
         }

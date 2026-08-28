@@ -33,8 +33,8 @@ namespace world.items
         
         public bool OnDestroy(World.World world, Vector3Int position, int face) => Item.OnDestroy(world, position, face);
         
-        public static ItemStack CreativeStack(Item item) => new ItemStack(item, 1, true);
-        public static ItemStack EmptyStack() => new ItemStack(Items.Air, 0);
+        public static ItemStack CreativeStack(Item item) => new(item, 1, true);
+        public static ItemStack EmptyStack() => new(Items.Air, 0);
 
         public bool CanStack(ItemStack other)
         {

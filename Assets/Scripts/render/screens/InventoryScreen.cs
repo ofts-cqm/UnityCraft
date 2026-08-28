@@ -34,9 +34,11 @@ namespace render.screens
                 _background = gameObject.transform.parent.GetComponent<Image>();
                 ItemSlot image = gameObject.GetComponent<ItemSlot>();
                 image.Display(new ItemStack(icon, 1), -1);
+                image.IgnoreClick = true;
                 
                 Button button = gameObject.AddComponent<Button>();
                 button.onClick.AddListener(Activate);
+                button.transition = Selectable.Transition.None;
                 
                 if (active)
                 {
@@ -101,6 +103,8 @@ namespace render.screens
         void OnEnable()
         {
             Player.PauseGame();
+            InventoryMenu.HoldingItem = ItemStack.EmptyStack();
+            InventoryMenu.UpdateHoldingItem();
         }
 
         void OnDisable()
