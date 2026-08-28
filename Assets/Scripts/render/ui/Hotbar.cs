@@ -1,4 +1,5 @@
 using System;
+using JetBrains.Annotations;
 using player;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -15,25 +16,28 @@ namespace render.ui
         public GameObject prefab;
         
         private int SelectedIndex { get; set; }
-        private Memory<Item> HotbarItems { get; set; }
-        public Item HoldingItem => HotbarItems.Span[SelectedIndex];
-        private Image[] _sprites = new Image[9];
+        public Memory<ItemStack> HotbarItems { get; private set; }
+        public ItemStack HoldingItem => HotbarItems.Span[SelectedIndex];
+        private readonly ItemSlot[] _sprites = new ItemSlot[9];
 
         private float _holdingBlockAnimationStartTime;
         private const float HoldingBlockAnimationDuration = 0.3f;
+        
+        public static Hotbar Instance { get; private set; }
 
         private void RegisterSprite(int index)
         {
             GameObject go = Instantiate(prefab, transform);
             RectTransform rt = go.GetComponent<RectTransform>();
             rt.anchoredPosition = new Vector2(rt.anchoredPosition.x + index * 50, rt.anchoredPosition.y);
-            _sprites[index] = go.GetComponent<Image>();
+            _sprites[index] = go.GetComponent<ItemSlot>();
         }
         
         public void LoadFromPlayer(Player player)
         {
             HotbarItems = player.inventory.AsMemory(0, 9);
-            holdingBlockImage.sprite = HotbarItems.Span[SelectedIndex].Sprite;
+            holdingBlockImage.sprite = HotbarItems.Span[SelectedIndex].Item.Sprite;
+            Instance = this;
         }
         
         // Start is called once before the first execution of Update after the MonoBehaviour is created
@@ -65,7 +69,7 @@ namespace render.ui
         private void UpdateHoldingBlock()
         {
             selection.anchoredPosition = new Vector2(SelectedIndex * 50, selection.anchoredPosition.y);
-            holdingBlockImage.sprite = HotbarItems.Span[SelectedIndex].Sprite;
+            holdingBlockImage.sprite = HotbarItems.Span[SelectedIndex].Item.Sprite;
             _holdingBlockAnimationStartTime = Time.time;
         }
 
@@ -77,12 +81,15 @@ namespace render.ui
             );
         }
 
+        public void InventoryUpdateCallBack([CanBeNull] object sender, InventoryMenu.UpdateInventoryEventArg arg)
+        {
+            if (arg.index == -1) RefreshInventory();
+            else _sprites[arg.index].Display(arg.newStack, arg.index);
+        }
+
         private void RefreshInventory()
         {
-            for (int i = 0; i < 9; i++)
-            {
-                _sprites[i].sprite = HotbarItems.Span[i].Sprite;
-            }
+            for (int i = 0; i < 9; i++) _sprites[i].Display(HotbarItems.Span[i], i);
         }
     }
 }

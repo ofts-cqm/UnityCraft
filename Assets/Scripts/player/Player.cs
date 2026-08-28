@@ -1,11 +1,7 @@
-using System;
 using render;
-using Render;
 using render.ui;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using world.blocks;
-using World.blocks;
 using world.items;
 
 namespace player
@@ -25,7 +21,6 @@ namespace player
         private InputAction _sneakAction;
         
         private int _defaultLayer;
-        private int _allLayer;
         
         private const float Sensitivity = 0.3f;
         private const float MoveSpeed = 4.317f;
@@ -52,12 +47,12 @@ namespace player
         private Vector3Int TargetLocation { get; set; }
         private int TargetFace { get; set; }
         private bool HasTargetLocation { get; set; }
-        private bool Paused { get; set; }
+        private static bool Paused { get; set; }
 
         public Hotbar hotbar;
-        public Item[] inventory = new Item[36];
+        public readonly ItemStack[] inventory = new ItemStack[36];
 
-        private void Awake()
+        private void Start()
         {
             _moveAction = InputSystem.actions.FindAction("Move");
             _lookAction = InputSystem.actions.FindAction("Look");
@@ -86,23 +81,33 @@ namespace player
                 
                 _flyLastClickTime = Time.time;
             };
-            InputSystem.actions.FindAction("Pause").started += _ => Paused = !Paused;
+            InputSystem.actions.FindAction("Pause").started += _ =>
+            {
+                if (Paused) ResumeGame();
+                else PauseGame();
+            };
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
             _defaultLayer = LayerMask.GetMask("Default");
-            _allLayer = LayerMask.GetMask("Default", "Ignore Raycast");
             
-            Array.Fill(inventory, Items.Air);
-            inventory[0] = Items.GrassBlock;
-            inventory[1] = Items.Dirt;
-            inventory[2] = Items.Stone;
-            inventory[3] = Items.Sand;
-            inventory[4] = Items.Gravel;
-            inventory[5] = Items.WhiteStainedGlass;
-            inventory[6] = Items.LightGrayStainedGlass;
-            inventory[7] = Items.GrayStainedGlass;
+            for (int i = 0; i < inventory.Length; i++) inventory[i] = ItemStack.EmptyStack();
             
             hotbar.LoadFromPlayer(this);
+            PauseGame();
+        }
+
+        public static void PauseGame()
+        {
+            Cursor.visible = true;
+            Cursor.lockState = CursorLockMode.None;
+            Paused = true;
+        }
+
+        public static void ResumeGame()
+        {
+            Cursor.visible = false;
+            Cursor.lockState = CursorLockMode.Locked;
+            Paused = false;
         }
 
         private void Update()
