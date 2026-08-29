@@ -44,7 +44,7 @@ namespace world.blocks
             Stone = new Block(BlockProperty.Default(3));
             Water = new Water();
             Sand = new Block(BlockProperty.Default(5));
-            OakLog = new Block(BlockProperty.Pillar(6, 7, 6));
+            OakLog = new Block(BlockProperty.Pillar(7, 7, 6));
             OakLeave = new Block(BlockProperty.Default(8).SetSolid(false) with { ReplaceTerrain = false });
             Gravel = new Block(BlockProperty.Default(9));
             WhiteStainedGlass = new Block(BlockProperty.Default(48).SetTransparent(true));
