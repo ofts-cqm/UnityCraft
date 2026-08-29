@@ -48,6 +48,7 @@ namespace player
 
         private Vector3Int TargetLocation { get; set; }
         private int TargetFace { get; set; }
+        public Vector3 ImpactPoint { get; private set; }
         private bool HasTargetLocation { get; set; }
         public static bool Paused { get; private set; }
         [CanBeNull] public static BaseScreen CurrentScreen { get; set; }
@@ -208,6 +209,7 @@ namespace player
             // Perform the standard physics operation
             if (Physics.Raycast(origin, direction, out RaycastHit hitInfo, MaxDistance, _defaultLayer))
             {
+                ImpactPoint = hitInfo.point;
                 if (hitInfo.collider.gameObject == _lastHitObject && hitInfo.triangleIndex == _lastHitFace) return;
 
                 if (hitInfo.collider.gameObject.TryGetComponent(out RenderObjectProperty renderObjectProperty))

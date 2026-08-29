@@ -35,7 +35,7 @@ namespace World.blocks
             }
         );
         
-        private static bool ShouldRender(BlockState other, int face)
+        private static bool ShouldRenderWater(BlockState other, int face)
         {
             if (other.Block.BlockId == Blocks.Water.BlockId) return false;
             if (face == ChunkRenderObject.BottomFace) return true;
@@ -67,12 +67,17 @@ namespace World.blocks
         public override void Render(BlockState state, IBlockProvider chunk, MeshBuilder builder, Vector3Int position, Vector3 localPosition)
         {
             MeshBuilder.CubicModel model = chunk.GetBlock(position + Vector3Int.up).IsAir ? WaterModel : MeshBuilder.DefaultModel;
-            if (ShouldRender(chunk.GetBlock(position + Vector3Int.left), ChunkRenderObject.RightFace)) AddFace(builder, ChunkRenderObject.LeftFace, localPosition, model);
-            if (ShouldRender(chunk.GetBlock(position + Vector3Int.right), ChunkRenderObject.LeftFace)) AddFace(builder, ChunkRenderObject.RightFace, localPosition, model);
-            if (ShouldRender(chunk.GetBlock(position + Vector3Int.up), ChunkRenderObject.BottomFace)) AddFace(builder, ChunkRenderObject.TopFace, localPosition, model);
-            if (ShouldRender(chunk.GetBlock(position + Vector3Int.down), ChunkRenderObject.TopFace)) AddFace(builder, ChunkRenderObject.BottomFace, localPosition, model);
-            if (ShouldRender(chunk.GetBlock(position + Vector3Int.forward), ChunkRenderObject.BackFace)) AddFace(builder, ChunkRenderObject.FrontFace, localPosition, model);
-            if (ShouldRender(chunk.GetBlock(position + Vector3Int.back), ChunkRenderObject.FrontFace)) AddFace(builder, ChunkRenderObject.BackFace, localPosition, model);
+            if (ShouldRenderWater(chunk.GetBlock(position + Vector3Int.left), ChunkRenderObject.RightFace)) AddFace(builder, ChunkRenderObject.LeftFace, localPosition, model);
+            if (ShouldRenderWater(chunk.GetBlock(position + Vector3Int.right), ChunkRenderObject.LeftFace)) AddFace(builder, ChunkRenderObject.RightFace, localPosition, model);
+            if (ShouldRenderWater(chunk.GetBlock(position + Vector3Int.up), ChunkRenderObject.BottomFace)) AddFace(builder, ChunkRenderObject.TopFace, localPosition, model);
+            if (ShouldRenderWater(chunk.GetBlock(position + Vector3Int.down), ChunkRenderObject.TopFace)) AddFace(builder, ChunkRenderObject.BottomFace, localPosition, model);
+            if (ShouldRenderWater(chunk.GetBlock(position + Vector3Int.forward), ChunkRenderObject.BackFace)) AddFace(builder, ChunkRenderObject.FrontFace, localPosition, model);
+            if (ShouldRenderWater(chunk.GetBlock(position + Vector3Int.back), ChunkRenderObject.FrontFace)) AddFace(builder, ChunkRenderObject.BackFace, localPosition, model);
+        }
+
+        public override (Vector3 half, Vector3 center) GetBoundingBox(Vector3Int position, object state)
+        {
+            return (Vector3.zero, Vector3.down);
         }
     }
 }

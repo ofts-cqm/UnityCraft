@@ -36,6 +36,8 @@ namespace world.items
         public static readonly Item MagentaStainedGlass;
         public static readonly Item PinkStainedGlass;
         public static readonly Item Barrel;
+        public static readonly Item OakPlanks;
+        public static readonly Item OakSlab;
 
         private static Item RegisterBuildingItem(this Item item)
         {
@@ -78,6 +80,8 @@ namespace world.items
             MagentaStainedGlass = new BlockItem(Blocks.MagentaStainedGlass).RegisterBuildingItem();
             PinkStainedGlass = new BlockItem(Blocks.PinkStainedGlass).RegisterBuildingItem();
             Barrel = new BlockItem(Blocks.Barrel);
+            OakPlanks = new BlockItem(Blocks.OakPlanks).RegisterBuildingItem();
+            OakSlab = new BlockItem(Blocks.OakSlab).RegisterBuildingItem();
             
             while (BuildingBlockList.Count < 45 || BuildingBlockList.Count % 9 != 0) BuildingBlockList.Add(ItemStack.EmptyStack(true));
             while (NatureBlockList.Count < 45 || NatureBlockList.Count % 9 != 0) NatureBlockList.Add(ItemStack.EmptyStack(true));

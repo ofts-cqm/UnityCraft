@@ -6,11 +6,11 @@ using world.blocks;
 
 namespace World.blocks
 {
-    public record Block(int BlockId, BlockProperty Property)
+    public record Block(int BlockId, BlockProperty Property, object DefaultState)
     {
         private static int _registered;
 
-        public Block(BlockProperty property) : this(_registered++, property)
+        public Block(BlockProperty property, [CanBeNull] object defaultState = null) : this(_registered++, property, defaultState ?? new object())
         {
             Blocks.BlockList.Add(this);
         }
@@ -37,6 +37,18 @@ namespace World.blocks
                 builder.AddFace(ChunkRenderObject.BackFace, localPosition, this);
         }
 
+        public virtual object GetStateToPlace(int face, Vector3Int original, ref Vector3Int position)
+        {
+            return DefaultState;
+        }
+
+        public virtual (Vector3 half, Vector3 center) GetBoundingBox(Vector3Int position, object state)
+        {
+            Vector3 half = new Vector3(0.5f, 0.5f, 0.5f);
+            Vector3 center = position + half;
+            return (half, center);
+        }
+
         public int TextureIndex(int face) => Property.Texture[face];
         public bool IsAir => BlockId == 0;
         public bool Collide => Property.Collide;
@@ -44,8 +56,8 @@ namespace World.blocks
         public bool IsSolid(int face) => Property.IsSolid[face];
         public bool Transparent => Property.Transparent;
         public bool IsAirOrVoid => BlockId == Blocks.Air.BlockId || BlockId == Blocks.Void.BlockId;
-        public BlockState AsState(Vector3Int position, [CanBeNull] object data = null) => new(position, this, data);
-        public BlockState AsState(int x, int y, int z, [CanBeNull] object data = null) => new(new(x, y, z), this, data);
+        public BlockState AsState(Vector3Int position, [CanBeNull] object data = null) => new(position, this, data ?? DefaultState);
+        public BlockState AsState(int x, int y, int z, [CanBeNull] object data = null) => new(new(x, y, z), this, data ?? DefaultState);
     }
 }
 

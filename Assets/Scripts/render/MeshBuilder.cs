@@ -56,6 +56,11 @@ namespace render
         {
             AddFace(face, position, block, DefaultModel, new Vector4(block.TextureIndex(face), 1, 1, 0), block.Transparent);
         }
+
+        public void AddFace(int face, Vector3 position, Block block, CubicModel model)
+        {
+            AddFace(face, position, block, model, new Vector4(block.TextureIndex(face), 1, 1, 0), block.Transparent);
+        }
         
         public void AddFace(int face, Vector3 position, Block block, CubicModel model, Vector4 texture, bool transparent)
         {

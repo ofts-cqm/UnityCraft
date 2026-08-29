@@ -10,7 +10,7 @@ namespace world.items
     {
         private Block Block { get; }
 
-        private readonly int _allLayer = LayerMask.GetMask("Default", "Ignore Raycast");
+        private readonly int _allLayer = LayerMask.GetMask("Ignore Raycast");
 
         public BlockItem(Block block)
         {
@@ -31,15 +31,16 @@ namespace world.items
                 ChunkRenderObject.BackFace => rawPosition + Vector3Int.back,
                 _ => rawPosition
             };
-
-            if ((world.GetBlock(finalPosition)?.IsAir ?? false) && !Block.IsAir)
+            
+            object data = Block.GetStateToPlace(face, rawPosition, ref finalPosition);
+            BlockState posBlock = world.GetBlock(finalPosition);
+            
+            if ((posBlock.IsAir || posBlock.Block.BlockId == Block.BlockId) && !Block.IsAir)
             {
-
-                Vector3 half = new Vector3(0.5f, 0.5f, 0.5f);
-                Vector3 center = finalPosition + half;
+                (Vector3 half, Vector3 center) = Block.GetBoundingBox(finalPosition, data);
                 if (!Physics.CheckBox(center, half * 0.9f, new Quaternion(), _allLayer))
                 {
-                    world.SetBlock(finalPosition, Block);
+                    world.SetBlock(finalPosition, Block, data);
                     return true;
                 }
             }

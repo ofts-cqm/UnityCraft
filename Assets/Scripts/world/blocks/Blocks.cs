@@ -35,6 +35,8 @@ namespace world.blocks
         public static readonly Block MagentaStainedGlass;
         public static readonly Block PinkStainedGlass;
         public static readonly Block Barrel;
+        public static readonly Block OakPlanks;
+        public static readonly Block OakSlab;
 
         static Blocks()
         {
@@ -65,6 +67,8 @@ namespace world.blocks
             MagentaStainedGlass = new Block(BlockProperty.Default(62).SetTransparent(true));
             PinkStainedGlass = new Block(BlockProperty.Default(63).SetTransparent(true));
             Barrel = new Block(BlockProperty.Pillar(13, 15, 14));
+            OakPlanks = new Block(BlockProperty.Default(12));
+            OakSlab = new Slab();
         }
     }
 }
