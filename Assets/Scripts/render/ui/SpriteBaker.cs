@@ -21,9 +21,9 @@ namespace render.ui
 
         private class FakeChunk : IBlockProvider
         {
-            public Block GetBlock(Vector3Int position) => Blocks.Air;
+            public BlockState GetBlock(Vector3Int position) => Blocks.Air.AsState(position);
 
-            public Block GetBlock(int x, int y, int z) => Blocks.Air;
+            public BlockState GetBlock(int x, int y, int z) => Blocks.Air.AsState(x, y, z);
         }
         
         private static readonly FakeChunk Chunk = new();
@@ -71,7 +71,7 @@ namespace render.ui
         public static Sprite BakeToSprite(Block block)
         {
             MeshBuilder meshBuilder = new MeshBuilder();
-            if (!block.IsAir) block.Render(Chunk, meshBuilder, Vector3Int.zero, Vector3.zero);
+            if (!block.IsAir) block.Render(block.AsState(Vector3Int.zero), Chunk, meshBuilder, Vector3Int.zero, Vector3.zero);
             
             Mesh renderMesh = block.Transparent ? new Mesh{
                     vertices = meshBuilder.TransparentVertices.ToArray(),

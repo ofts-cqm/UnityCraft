@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using render;
 using UnityEngine;
 using World;
+using world.blocks;
 using World.blocks;
 
 namespace Render
@@ -104,10 +105,10 @@ namespace Render
                     {
                         Vector3Int position = new Vector3Int(i, j + _heightIndex, k);
                         Vector3 localPosition = new Vector3(i, j, k);
-                        Block block = chunk.GetBlock(position);
+                        BlockState block = chunk.GetBlock(position);
                         if (block.IsAir) continue;
                         
-                        block.Render(chunk, meshBuilder, position, localPosition);
+                        block.Block.Render(block, chunk, meshBuilder, position, localPosition);
                     }
                 }
             }

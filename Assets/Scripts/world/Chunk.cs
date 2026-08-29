@@ -1,4 +1,5 @@
 using System;
+using JetBrains.Annotations;
 using UnityEngine;
 using Render;
 using world.blocks;
@@ -18,6 +19,7 @@ namespace World
 
         private readonly ChunkRenderObject[] _renderObjects = new ChunkRenderObject[8];
         private readonly Block[,,] _blockData;
+         private readonly object[,,] _stateData;
 
         public Chunk(ChunkCoord coord, World world)
         {
@@ -25,6 +27,7 @@ namespace World
             
             _world = world;
             _blockData = ChunkGenerator.GenerateChunk(coord);
+            _stateData = new object[ChunkSize, ChunkHeight, ChunkSize];
             for (int i = 0; i < ChunkSectionCount; i++) _renderObjects[i] = new ChunkRenderObject(world, coord, i);
         }
         
@@ -35,21 +38,22 @@ namespace World
             }
         }
 
-        public Block GetBlock(Vector3Int position) => GetBlock(position.x, position.y, position.z);
+        public BlockState GetBlock(Vector3Int position) => GetBlock(position.x, position.y, position.z);
 
-        public Block GetBlock(int x, int y, int z)
+        public BlockState GetBlock(int x, int y, int z)
         {
-            if (y < 0 || y >= ChunkHeight) return Blocks.Air;
+            if (y < 0 || y >= ChunkHeight) return Blocks.Air.AsState(x, y, z);
             
             if (x < 0 || x >= ChunkSize || z < 0 || z >= ChunkSize) 
                 return _world.GetBlock(ChunkPosition.X * ChunkSize + x, y, ChunkPosition.Z * ChunkSize + z); 
             
-            return _blockData[x, y, z];
+            return _blockData[x, y, z].AsState(x, y, z, _stateData[x, y, z]);
         }
 
-        public void SetBlock(int x, int y, int z, Block block)
+        public void SetBlock(int x, int y, int z, Block block, [CanBeNull] object state = null)
         {
             _blockData[x, y, z] = block;
+            _stateData[x, y, z] = state;
             _renderObjects[y / 16].Dirty = true;
             
             if (x == 0) _world.GetChunk(ChunkPosition.Left())?.SetDirty(y);
@@ -60,9 +64,9 @@ namespace World
             if (y % 16 == 15 && y != ChunkHeight - 1) _renderObjects[y / 16 + 1].Dirty = true;
         }
 
-        public void SetBlock(Vector3Int position, Block block)
+        public void SetBlock(Vector3Int position, Block block, [CanBeNull] object state = null)
         {
-            SetBlock(position.x, position.y, position.z, block);
+            SetBlock(position.x, position.y, position.z, block, state);
         }
 
         private void SetDirty(int y)

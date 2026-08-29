@@ -35,11 +35,11 @@ namespace World.blocks
             }
         );
         
-        private static bool ShouldRender(Block other, int face)
+        private static bool ShouldRender(BlockState other, int face)
         {
-            if (other.BlockId == Blocks.Water.BlockId) return false;
+            if (other.Block.BlockId == Blocks.Water.BlockId) return false;
             if (face == ChunkRenderObject.BottomFace) return true;
-            if (other.IsSolid(face)) return false;
+            if (other.Block.IsSolid(face)) return false;
             return true;
         }
 
@@ -64,7 +64,7 @@ namespace World.blocks
             builder.TransparentVertIndex+= 4;
         }
         
-        public override void Render(IBlockProvider chunk, MeshBuilder builder, Vector3Int position, Vector3 localPosition)
+        public override void Render(BlockState state, IBlockProvider chunk, MeshBuilder builder, Vector3Int position, Vector3 localPosition)
         {
             MeshBuilder.CubicModel model = chunk.GetBlock(position + Vector3Int.up).IsAir ? WaterModel : MeshBuilder.DefaultModel;
             if (ShouldRender(chunk.GetBlock(position + Vector3Int.left), ChunkRenderObject.RightFace)) AddFace(builder, ChunkRenderObject.LeftFace, localPosition, model);

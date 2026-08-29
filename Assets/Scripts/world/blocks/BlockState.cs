@@ -1,17 +1,15 @@
+using JetBrains.Annotations;
 using UnityEngine;
 using World.blocks;
 
 namespace world.blocks
 {
-    public class BlockState
+    public record BlockState(Vector3Int Position, Block Block, [CanBeNull] object Data = null)
     {
-        public Vector3Int Position { get; set; }
-        public Block Block { get; set; }
-
-        public BlockState(int x, int y, int z, Block block)
+        public BlockState(int x, int y, int z, Block block, [CanBeNull] object data = null)
+        : this(new Vector3Int(x, y, z), block, data)
         {
-            Position = new Vector3Int(x, y, z);
-            Block = block;
         }
+        public bool IsAir => Block.IsAir;
     }
 }

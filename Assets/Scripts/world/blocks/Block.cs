@@ -1,3 +1,4 @@
+using JetBrains.Annotations;
 using render;
 using Render;
 using UnityEngine;
@@ -14,13 +15,13 @@ namespace World.blocks
             Blocks.BlockList.Add(this);
         }
 
-        private bool ShouldRender(Block block, int face)
+        private bool ShouldRender(BlockState block, int face)
         {
-            if (block.Transparent) return block.BlockId != BlockId;
-            return !block.IsSolid(face);
+            if (block.Block.Transparent) return block.Block.BlockId != BlockId;
+            return !block.Block.IsSolid(face);
         }
 
-        public virtual void Render(IBlockProvider chunk, MeshBuilder builder, Vector3Int position, Vector3 localPosition)
+        public virtual void Render(BlockState state, IBlockProvider chunk, MeshBuilder builder, Vector3Int position, Vector3 localPosition)
         {
             if (ShouldRender(chunk.GetBlock(position + Vector3Int.left), ChunkRenderObject.RightFace)) 
                 builder.AddFace(ChunkRenderObject.LeftFace, localPosition, this);
@@ -43,6 +44,8 @@ namespace World.blocks
         public bool IsSolid(int face) => Property.IsSolid[face];
         public bool Transparent => Property.Transparent;
         public bool IsAirOrVoid => BlockId == Blocks.Air.BlockId || BlockId == Blocks.Void.BlockId;
+        public BlockState AsState(Vector3Int position, [CanBeNull] object data = null) => new(position, this, data);
+        public BlockState AsState(int x, int y, int z, [CanBeNull] object data = null) => new(new(x, y, z), this, data);
     }
 }
 

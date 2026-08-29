@@ -61,17 +61,19 @@ namespace World
         
         [CanBeNull] public Chunk GetChunk(ChunkCoord coord) => ChunkMap.GetValueOrDefault(coord);
 
-        public Block GetBlock(int x, int y, int z)
+        public BlockState GetBlock(int x, int y, int z)
         {
-            return ChunkMap.TryGetValue(ChunkCoord.ToChunkCoord(x, z), out Chunk chunk) ? chunk.GetBlock(ToCoordInChunk(x, y, z)) : Blocks.Void;
+            return ChunkMap.TryGetValue(ChunkCoord.ToChunkCoord(x, z), out Chunk chunk)
+                ? chunk.GetBlock(ToCoordInChunk(x, y, z))
+                : Blocks.Void.AsState(x, y, z);
         }
 
-        public Block GetBlock(Vector3Int position)
+        public BlockState GetBlock(Vector3Int position)
         {
             return GetBlock(position.x, position.y, position.z);
         }
 
-        public void SetBlock(int x, int y, int z, Block block)
+        public void SetBlock(int x, int y, int z, Block block, [CanBeNull] object state = null)
         {
             if (ChunkMap.TryGetValue(ChunkCoord.ToChunkCoord(x, z), out Chunk chunk))
             {
@@ -79,15 +81,15 @@ namespace World
                 if (x < 0) x += Chunk.ChunkSize;
                 z %= Chunk.ChunkSize;
                 if (z < 0) z += Chunk.ChunkSize;
-                chunk.SetBlock(x, y, z, block);
+                chunk.SetBlock(x, y, z, block, state);
             }
         }
 
-        public void SetBlock(Vector3Int position, Block block)
+        public void SetBlock(Vector3Int position, Block block, [CanBeNull] object state = null)
         {
             if (ChunkMap.TryGetValue(new ChunkCoord(position), out Chunk chunk))
             {
-                chunk.SetBlock(ToCoordInChunk(position.x, position.y, position.z), block);
+                chunk.SetBlock(ToCoordInChunk(position.x, position.y, position.z), block, state);
             }
         }
 

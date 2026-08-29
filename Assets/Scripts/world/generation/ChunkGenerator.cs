@@ -172,7 +172,7 @@ namespace world.generation
             if (!targetChunk.Equals(coord))
             {
                 // see if loaded chunks contain the coord
-                Block block = World.World.Instance.GetBlock(blockState.Position);
+                Block block = World.World.Instance.GetBlock(blockState.Position).Block;
                 if (block.BlockId != Blocks.Void.BlockId)
                 {
                     if (block.IsAir || blockState.Block.ReplaceTerrain) World.World.Instance.SetBlock(blockState.Position, blockState.Block);
@@ -182,7 +182,7 @@ namespace world.generation
                 // see if it is in inactive chunk map
                 if (ChunkLoader.TryGetInactiveChunk(coord, out Chunk chunk))
                 {
-                    block = chunk.GetBlock(x, blockState.Position.y, z);
+                    block = chunk.GetBlock(x, blockState.Position.y, z).Block;
                     if (block.IsAir || blockState.Block.ReplaceTerrain) chunk.SetBlock(x, blockState.Position.y, z, blockState.Block);
                     return;
                 }
@@ -190,7 +190,7 @@ namespace world.generation
                 // see if it is in a completed queue
                 if (ChunkLoader.TryGetQueuedChunk(coord, out chunk))
                 {
-                    block = chunk.GetBlock(x, blockState.Position.y, z);
+                    block = chunk.GetBlock(x, blockState.Position.y, z).Block;
                     if (block.IsAir || blockState.Block.ReplaceTerrain) chunk.SetBlock(x, blockState.Position.y, z, blockState.Block);
                     return;
                 }
