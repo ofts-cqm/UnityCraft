@@ -77,8 +77,8 @@ namespace world.items
             MagentaStainedGlass = new BlockItem(Blocks.MagentaStainedGlass).RegisterBuildingItem();
             PinkStainedGlass = new BlockItem(Blocks.PinkStainedGlass).RegisterBuildingItem();
             
-            while (BuildingBlockList.Count < 45 || BuildingBlockList.Count % 9 != 0) BuildingBlockList.Add(ItemStack.EmptyStack());
-            while (NatureBlockList.Count < 45 || NatureBlockList.Count % 9 != 0) NatureBlockList.Add(ItemStack.EmptyStack());
+            while (BuildingBlockList.Count < 45 || BuildingBlockList.Count % 9 != 0) BuildingBlockList.Add(ItemStack.EmptyStack(true));
+            while (NatureBlockList.Count < 45 || NatureBlockList.Count % 9 != 0) NatureBlockList.Add(ItemStack.EmptyStack(true));
             
             SpriteBaker.FinalizeBaking();
         }

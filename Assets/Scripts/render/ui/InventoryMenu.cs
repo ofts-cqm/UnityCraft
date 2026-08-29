@@ -1,5 +1,7 @@
 using System;
+using JetBrains.Annotations;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using world.items;
 
 namespace render.ui
@@ -7,6 +9,7 @@ namespace render.ui
     public class InventoryMenu : MonoBehaviour
     {
         public static ItemStack HoldingItem;
+        [CanBeNull] public static ItemSlot HoldingItemSlot;
         private static GameObject _preFab;
 
         public event EventHandler<UpdateInventoryEventArg> OnUpdate;
@@ -28,6 +31,7 @@ namespace render.ui
         
         public void InitializeInventory(Memory<ItemStack> stack)
         {
+            _inventory = stack;
             _slots = new ItemSlot[stack.Length];
             Span<ItemStack> stackSpan = stack.Span;
             for (int i = 0; i < _slots.Length; i++) _slots[i] = AddSlot(stackSpan[i], i);
@@ -39,7 +43,7 @@ namespace render.ui
             GameObject obj = Instantiate(_preFab, transform);
             RectTransform rt = obj.GetComponent<RectTransform>();
             // ReSharper disable once PossibleLossOfFraction
-            rt.anchoredPosition = new Vector2(rt.anchoredPosition.x + index % 9 * 50, rt.anchoredPosition.y + index / 9 * 50);
+            rt.position = new Vector2(rt.position.x + index % 9 * 45, rt.position.y - index / 9 * 45);
             ItemSlot slot = obj.GetComponent<ItemSlot>();
             slot.Parent = this;
             slot.Display(stack, index);
@@ -62,7 +66,12 @@ namespace render.ui
 
         public static void UpdateHoldingItem()
         {
-            
+            HoldingItemSlot?.Display(HoldingItem, -1);
+        }
+
+        public static void DrawHoldingItem()
+        {
+            HoldingItemSlot?.SetPosition(Mouse.current.position.ReadValue());
         }
     }
 }

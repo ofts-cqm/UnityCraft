@@ -1,3 +1,4 @@
+using System;
 using JetBrains.Annotations;
 using TMPro;
 using UnityEngine;
@@ -12,14 +13,17 @@ namespace render.ui
         private TextMeshProUGUI _count;
         private Image _sprite;
         private ItemStack _stack;
+        private RectTransform _rectTransform;
         private int _index;
-        [CanBeNull] public InventoryMenu Parent { get; set; } = null;
-        public bool IgnoreClick { get; set; } = false;
+        [CanBeNull] public InventoryMenu Parent { get; set; }
+        [CanBeNull] public Action OnClickBehavior { get; set; }
         
         void Awake()
         {
             _sprite = GetComponent<Image>();
             _count = GetComponentInChildren<TextMeshProUGUI>();
+            _rectTransform = GetComponent<RectTransform>();
+            _rectTransform.pivot = new Vector2(0, 1);
         }
         
         public void Display(ItemStack stack, int index)
@@ -30,22 +34,47 @@ namespace render.ui
             _count.SetText(stack.Stack < 2 || stack.Infinite ? "" : stack.Stack.ToString());
         }
 
+        private static readonly Vector2 Offset = new(20, 20);
+        public void SetPosition(Vector2 position)
+        {
+            _rectTransform.anchoredPosition = position + Offset;
+        }
+
         // Detects clicks on the UI element
         public void OnPointerClick(PointerEventData eventData)
         {
+            if (OnClickBehavior != null)
+            {
+                OnClickBehavior();
+                return;
+            }
             if (_stack.IsEmpty && InventoryMenu.HoldingItem.IsEmpty) return;
-            if (IgnoreClick) return;
             
-            if (eventData.button == PointerEventData.InputButton.Left)
+            if (eventData.button == PointerEventData.InputButton.Middle)
+            {
+                if (_stack.IsEmpty) return;
+                InventoryMenu.HoldingItem = _stack.Max();
+            } else if (_stack.Infinite)
+            {
+                if (_stack.CanStack(InventoryMenu.HoldingItem))
+                {
+                    if (eventData.button == PointerEventData.InputButton.Left) InventoryMenu.HoldingItem.Increase();
+                    else InventoryMenu.HoldingItem.Decrease();
+                }
+                else
+                {
+                    InventoryMenu.HoldingItem = InventoryMenu.HoldingItem.IsEmpty ? _stack.Copy() : ItemStack.EmptyStack();
+                }
+            }
+            else if (eventData.button == PointerEventData.InputButton.Left)
             {
                 if (InventoryMenu.HoldingItem.CanStack(_stack))
                 {
-                    _stack.StackItem(InventoryMenu.HoldingItem);
+                    InventoryMenu.HoldingItem = _stack.StackItem(InventoryMenu.HoldingItem);
                 }
                 else
                 {
                     (_stack, InventoryMenu.HoldingItem) = (InventoryMenu.HoldingItem, _stack);
-                    
                 }
             }
             else if (eventData.button == PointerEventData.InputButton.Right)
@@ -64,11 +93,6 @@ namespace render.ui
                 {
                     (_stack, InventoryMenu.HoldingItem) = (InventoryMenu.HoldingItem, _stack);
                 }
-            }
-            else if (eventData.button == PointerEventData.InputButton.Middle)
-            {
-                if (_stack.IsEmpty) return;
-                InventoryMenu.HoldingItem = _stack;
             }
             
             InventoryMenu.UpdateHoldingItem();

@@ -29,7 +29,7 @@ namespace render.ui
         {
             GameObject go = Instantiate(prefab, transform);
             RectTransform rt = go.GetComponent<RectTransform>();
-            rt.anchoredPosition = new Vector2(rt.anchoredPosition.x + index * 50, rt.anchoredPosition.y);
+            rt.anchoredPosition = new Vector2(rt.anchoredPosition.x + index * 50, rt.anchoredPosition.y + 50);
             _sprites[index] = go.GetComponent<ItemSlot>();
         }
         
@@ -45,6 +45,7 @@ namespace render.ui
         {
             InputSystem.actions.FindAction("Scroll").performed += context =>
             {
+                if (Player.Paused) return;
                 int delta = (int)context.ReadValue<float>();
                 SelectedIndex -= delta;
                 if (SelectedIndex >= 9) SelectedIndex = 0;

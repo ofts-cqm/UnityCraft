@@ -1,4 +1,6 @@
+using JetBrains.Annotations;
 using render;
+using render.screens;
 using render.ui;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -47,7 +49,8 @@ namespace player
         private Vector3Int TargetLocation { get; set; }
         private int TargetFace { get; set; }
         private bool HasTargetLocation { get; set; }
-        private static bool Paused { get; set; }
+        public static bool Paused { get; private set; }
+        [CanBeNull] public static BaseScreen CurrentScreen { get; set; }
 
         public Hotbar hotbar;
         public readonly ItemStack[] inventory = new ItemStack[36];
@@ -61,6 +64,7 @@ namespace player
             _jumpAction = InputSystem.actions.FindAction("Jump");
             _sneakAction = InputSystem.actions.FindAction("Sneak");
             InputSystem.actions.FindAction("Sprint").performed += _ => _sprinting = true;
+            InputSystem.actions.FindAction("Inventory").performed += _ => InventoryScreen.Instance.OpenMenu();
             InputSystem.actions.FindAction("SprintPending").started += _ =>
             {
                 float timeSinceLastClick = Time.time - _sprintLastClickTime;
@@ -108,6 +112,7 @@ namespace player
             Cursor.visible = false;
             Cursor.lockState = CursorLockMode.Locked;
             Paused = false;
+            if (CurrentScreen != null) CurrentScreen.CloseMenu();
         }
 
         private void Update()

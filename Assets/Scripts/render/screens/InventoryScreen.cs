@@ -1,5 +1,4 @@
 using System;
-using player;
 using render.ui;
 using TMPro;
 using UnityEngine;
@@ -34,16 +33,12 @@ namespace render.screens
                 _background = gameObject.transform.parent.GetComponent<Image>();
                 ItemSlot image = gameObject.GetComponent<ItemSlot>();
                 image.Display(new ItemStack(icon, 1), -1);
-                image.IgnoreClick = true;
-                
-                Button button = gameObject.AddComponent<Button>();
-                button.onClick.AddListener(Activate);
-                button.transition = Selectable.Transition.None;
+                image.OnClickBehavior = Activate;
                 
                 if (active)
                 {
                     _activeTab = this;
-                    Screen.titleText.SetText(_name);
+                    Screen.titleText.SetText($"<color=#5C5C5C>{_name}</color>");
                     _background.sprite = _active;
                     _transform.SetSiblingIndex(SiblingIndex + 1);
                 }
@@ -55,10 +50,9 @@ namespace render.screens
                 _activeTab.Deactivate();
                 _activeTab = this;
                 
-                Screen.titleText.SetText(_name);
+                Screen.titleText.SetText($"<color=#5C5C5C>{_name}</color>");
                 _background.sprite = _active;
                 _transform.SetSiblingIndex(SiblingIndex + 1);
-                
                 Screen.inventoryRenderer.UpdateInventory(_itemStacks.AsMemory(0, 45));
             }
 
@@ -81,9 +75,11 @@ namespace render.screens
         
         public InventoryMenu inventoryRenderer;
         public InventoryMenu hotbarRenderer;
+        public static BaseScreen Instance;
         
         void Start()
         {
+            Instance = GetComponent<BaseScreen>();
             InventoryTab.Screen = this;
             InventoryTab.SiblingIndex = inventoryTexture.transform.GetSiblingIndex();
             
@@ -93,23 +89,6 @@ namespace render.screens
             
             _ = new InventoryTab(natureTab, topLeftActive, topLeftInactive, Items.GrassBlock, Items.NatureBlockList.ToArray(), "Natural Blocks", true);
             _ = new InventoryTab(buildingTab, topMiddleActive, topMiddleInactive, Items.OakLog, Items.BuildingBlockList.ToArray(), "Building Blocks");
-        }
-
-        private void Update()
-        {
-            InventoryMenu.UpdateHoldingItem();
-        }
-
-        void OnEnable()
-        {
-            Player.PauseGame();
-            InventoryMenu.HoldingItem = ItemStack.EmptyStack();
-            InventoryMenu.UpdateHoldingItem();
-        }
-
-        void OnDisable()
-        {
-            Player.ResumeGame();
         }
     }
 }

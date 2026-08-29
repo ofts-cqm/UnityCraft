@@ -34,26 +34,27 @@ namespace world.items
         public bool OnDestroy(World.World world, Vector3Int position, int face) => Item.OnDestroy(world, position, face);
         
         public static ItemStack CreativeStack(Item item) => new(item, 1, true);
-        public static ItemStack EmptyStack() => new(Items.Air, 0);
+        public static ItemStack EmptyStack(bool infinite = false) => new(Items.Air, 0, infinite);
 
         public bool CanStack(ItemStack other)
         {
-            if (IsEmpty || other.IsEmpty) return true;
+            if (IsEmpty || other.IsEmpty) return false;
             return Item.ItemId == other.Item.ItemId && Stack < Item.MaxStack;
         }
 
-        public void StackItem(ItemStack other)
+        public ItemStack StackItem(ItemStack other)
         {
             if (Infinite)
             {
                 other.Stack = 0;
-                return;
+                return other;
             }
             int delta = Math.Min(other.Stack, Item.MaxStack - Stack);
 
             if (Stack == 0) Item = other.Item;
             Stack += delta;
             other.Stack -= delta;
+            return other;
         }
 
         public void Increase() => Stack++;
@@ -65,6 +66,15 @@ namespace world.items
             ItemStack newStack = new ItemStack(Item, (Stack + 1) / 2);
             Stack /= 2;
             return newStack;
+        }
+        
+        public ItemStack Copy(){
+            return new(Item, Stack);
+        }
+
+        public ItemStack Max()
+        {
+            return new(Item, Item.MaxStack);
         }
     }
 }
