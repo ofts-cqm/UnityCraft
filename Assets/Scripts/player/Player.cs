@@ -54,6 +54,12 @@ namespace player
 
         public Hotbar hotbar;
         public readonly ItemStack[] inventory = new ItemStack[36];
+        public static Player Instance;
+
+        private void Awake()
+        {
+            Instance = this;
+        }
 
         private void Start()
         {

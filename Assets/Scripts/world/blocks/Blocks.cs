@@ -34,6 +34,7 @@ namespace world.blocks
         public static readonly Block PurpleStainedGlass;
         public static readonly Block MagentaStainedGlass;
         public static readonly Block PinkStainedGlass;
+        public static readonly Block Barrel;
 
         static Blocks()
         {
@@ -63,6 +64,7 @@ namespace world.blocks
             PurpleStainedGlass = new Block(BlockProperty.Default(61).SetTransparent(true));
             MagentaStainedGlass = new Block(BlockProperty.Default(62).SetTransparent(true));
             PinkStainedGlass = new Block(BlockProperty.Default(63).SetTransparent(true));
+            Barrel = new Block(BlockProperty.Pillar(13, 15, 14));
         }
     }
 }
