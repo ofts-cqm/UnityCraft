@@ -110,5 +110,18 @@ InitTestScene*.unity*
 *.meta
 # idea
 *.idea/*
-# texture folder to avoid sharing Minecraft assets
-*/Textures/*
+
+# MacOS's Sh*t
+*.DS_Store
+
+# AI's helper scripts
+Tools
+# For textures, Atlas.png is the source of truth. Keeping the source textures may confuse other developers. 
+[Aa]ssets/Textures/_source
+[Aa]ssets/Textures/atlas_source
+[Aa]ssets/textures/Animated
+[Aa]ssets/Textures/Core
+[Aa]ssets/Textures/Wood
+[Aa]ssets/Textures/Atlas.json
+[Aa]ssets/Textures/Leaves
+
