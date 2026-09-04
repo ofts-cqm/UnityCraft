@@ -67,7 +67,7 @@ namespace render.screens
         private class BackpackTab : InventoryTab
         {
             public BackpackTab(GameObject gameObject, Sprite activeSprite, Sprite inactiveSprite) 
-                : base(gameObject, activeSprite, inactiveSprite,Items.Barrel, Player.Instance.inventory[9..36], "Natural Blocks")
+                : base(gameObject, activeSprite, inactiveSprite,Items.Sand, Player.Instance.inventory[9..36], "Natural Blocks")
             {
                 
             }

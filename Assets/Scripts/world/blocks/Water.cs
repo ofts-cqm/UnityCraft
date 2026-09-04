@@ -5,7 +5,7 @@ using world.blocks;
 
 namespace World.blocks
 {
-    public record Water() : Block(BlockProperty.Default(16).SetSolid(false) with { Collide = false })
+    public record Water() : Block(BlockProperty.Default(32).SetSolid(false) with { Collide = false })
     {
         private static readonly MeshBuilder.CubicModel WaterModel = new(
             new Vector3[]

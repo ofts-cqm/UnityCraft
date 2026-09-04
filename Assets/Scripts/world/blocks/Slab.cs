@@ -15,7 +15,7 @@ namespace world.blocks
         Both
     }
     
-    public record Slab() : Block(BlockProperty.Default(12).SetSolid(false), Parts.Bottom)
+    public record Slab() : Block(BlockProperty.Default(90).SetSolid(false), Parts.Bottom)
     {
         private static readonly MeshBuilder.CubicModel TopModel = new(
             new Vector3[]

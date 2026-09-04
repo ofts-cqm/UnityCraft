@@ -35,7 +35,6 @@ namespace world.items
         public static readonly Item PurpleStainedGlass;
         public static readonly Item MagentaStainedGlass;
         public static readonly Item PinkStainedGlass;
-        public static readonly Item Barrel;
         public static readonly Item OakPlanks;
         public static readonly Item OakSlab;
 
@@ -79,7 +78,6 @@ namespace world.items
             PurpleStainedGlass = new BlockItem(Blocks.PurpleStainedGlass).RegisterBuildingItem();
             MagentaStainedGlass = new BlockItem(Blocks.MagentaStainedGlass).RegisterBuildingItem();
             PinkStainedGlass = new BlockItem(Blocks.PinkStainedGlass).RegisterBuildingItem();
-            Barrel = new BlockItem(Blocks.Barrel);
             OakPlanks = new BlockItem(Blocks.OakPlanks).RegisterBuildingItem();
             OakSlab = new BlockItem(Blocks.OakSlab).RegisterBuildingItem();
             
