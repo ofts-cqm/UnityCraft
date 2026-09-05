@@ -39,7 +39,7 @@ namespace World.blocks
         {
             if (other.Block.BlockId == Blocks.Water.BlockId) return false;
             if (face == ChunkRenderObject.BottomFace) return true;
-            if (other.Block.IsSolid(face)) return false;
+            if (other.Block.IsSolid(other, face)) return false;
             return true;
         }
 

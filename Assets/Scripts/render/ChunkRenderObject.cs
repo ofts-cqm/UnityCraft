@@ -29,6 +29,9 @@ namespace Render
         public const int LeftFace = 4;
         public const int RightFace = 5;
 
+        public const int SideFaceBegin = FrontFace;
+        public const int SideFaceEnd = RightFace;
+
         private const int ChunkSize = Chunk.ChunkSize;
 
         public ChunkRenderObject(World.World world, ChunkCoord coord, int index)

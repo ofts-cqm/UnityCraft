@@ -78,6 +78,13 @@ namespace world.blocks
         private static readonly MeshBuilder.CubicModel TopModelSurface =
             TopModel with { UvsLookup = MeshBuilder.DefaultModel.UvsLookup };
 
+        public override bool IsSolid(BlockState state, int face)
+        {
+            if (face >= ChunkRenderObject.SideFaceBegin && face <= ChunkRenderObject.SideFaceEnd) return false;
+            if (face == ChunkRenderObject.BottomFace) return state.Data is Parts.Bottom || state.Data is Parts.Both;
+            return state.Data is Parts.Top || state.Data is Parts.Both;
+        }
+
         private bool ShouldRenderSlab(BlockState block, int face, Parts state)
         {
             switch (state)
@@ -91,7 +98,7 @@ namespace world.blocks
             }
             
             if (block.Block.Transparent) return block.Block.BlockId != BlockId;
-            return !block.Block.IsSolid(face);
+            return !block.Block.IsSolid(block, face);
         }
         
         public override void Render(BlockState state, IBlockProvider chunk, MeshBuilder builder, Vector3Int position,

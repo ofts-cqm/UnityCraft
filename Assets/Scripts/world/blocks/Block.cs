@@ -18,7 +18,7 @@ namespace World.blocks
         private bool ShouldRender(BlockState block, int face)
         {
             if (block.Block.Transparent) return block.Block.BlockId != BlockId;
-            return !block.Block.IsSolid(face);
+            return !block.Block.IsSolid(block, face);
         }
 
         public virtual void Render(BlockState state, IBlockProvider chunk, MeshBuilder builder, Vector3Int position, Vector3 localPosition)
@@ -53,7 +53,7 @@ namespace World.blocks
         public bool IsAir => BlockId == 0;
         public bool Collide => Property.Collide;
         public bool ReplaceTerrain => Property.ReplaceTerrain;
-        public bool IsSolid(int face) => Property.IsSolid[face];
+        public virtual bool IsSolid(BlockState state, int face) => Property.IsSolid;
         public bool Transparent => Property.Transparent;
         public bool IsAirOrVoid => BlockId == Blocks.Air.BlockId || BlockId == Blocks.Void.BlockId;
         public BlockState AsState(Vector3Int position, [CanBeNull] object data = null) => new(position, this, data ?? DefaultState);
