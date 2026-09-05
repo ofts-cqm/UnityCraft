@@ -45,14 +45,14 @@ namespace World.blocks
 
         private void AddFace(MeshBuilder builder, int face, Vector3 position, MeshBuilder.CubicModel model)
         {
-            builder.AddFace(face, position, this, model, new Vector4(TextureIndex(face), 8, 32, 1), true);
+            builder.AddFace(face, position, this, model, new Vector4(TextureIndex(face), 4, 32, 1), true);
             
             for (int i = 0; i < 4; i++)
             {
                 builder.TransparentVertices.Add(model.VerticesLookup[model.TrianglesLookup[face, i]] + position);
 
                 builder.TransparentUvs.Add(model.UvsLookup[i]);
-                builder.TransparentTextureIndices.Add(new Vector4(TextureIndex(face), 8, 32, 1));
+                builder.TransparentTextureIndices.Add(new Vector4(TextureIndex(face), 4, 32, 1));
             }
             
             builder.TransparentTriangles.Add(builder.TransparentVertIndex + 2);
