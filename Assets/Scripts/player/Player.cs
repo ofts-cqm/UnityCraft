@@ -4,6 +4,7 @@ using render.screens;
 using render.ui;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 using world.items;
 using World.blocks;
 
@@ -16,6 +17,8 @@ namespace player
         public GameObject targetOutline;
         public Camera camera;
         public CharacterController characterController;
+        public Texture2DArray atlas;
+
         private InputAction _moveAction;
         private InputAction _lookAction;
         private InputAction _attackAction;
@@ -51,6 +54,16 @@ namespace player
         private int _lastInteractionTick;
         
         private Vector3 _velocity;
+        private RawImage _underwaterOverlay;
+        private Material _underwaterOverlayMaterial;
+        private int _underwaterOverlayFrame = -1;
+
+        private const float UnderwaterOverlayAlpha = 0.60f;
+        // Atlas.json reserves slots 32-63 for water; this overlay plays the first 16 frames.
+        private const int WaterAtlasFirstFrame = 32;
+        private const int UnderwaterOverlayFrameCount = 16;
+        private const float UnderwaterOverlayFramesPerSecond = 4f;
+        private const float UnderwaterSurfaceHysteresis = 0.06f;
 
         private Vector3Int TargetLocation { get; set; }
         private int TargetFace { get; set; }
@@ -66,6 +79,7 @@ namespace player
         private void Awake()
         {
             Instance = this;
+            CreateUnderwaterOverlay();
         }
 
         private void Start()
@@ -133,6 +147,14 @@ namespace player
             if (Paused) return;
             UpdateRotation();
             UpdateTargetBlock();
+        }
+
+        private void LateUpdate()
+        {
+            if (_underwaterOverlay == null) return;
+            bool submerged = IsCameraSubmerged();
+            _underwaterOverlay.enabled = submerged;
+            if (submerged) UpdateUnderwaterOverlayAnimation();
         }
 
         private void FixedUpdate()
@@ -213,6 +235,66 @@ namespace player
         {
             Vector3 bodyPosition = transform.position + characterController.center;
             return !world.GetFluid(Vector3Int.FloorToInt(bodyPosition)).IsEmpty;
+        }
+
+        private bool IsCameraSubmerged()
+        {
+            Vector3 cameraPosition = cameraTransform.position;
+            Vector3Int fluidPosition = Vector3Int.FloorToInt(cameraPosition);
+            FluidState fluid = world.GetFluid(fluidPosition);
+            if (fluid.IsEmpty) return false;
+
+            float surface = fluidPosition.y + fluid.OwnHeight;
+            float threshold = _underwaterOverlay.enabled ? UnderwaterSurfaceHysteresis : -UnderwaterSurfaceHysteresis;
+            return cameraPosition.y < surface + threshold;
+        }
+
+        private void UpdateUnderwaterOverlayAnimation()
+        {
+            int frame = Mathf.FloorToInt(Time.unscaledTime * UnderwaterOverlayFramesPerSecond) % UnderwaterOverlayFrameCount;
+            if (frame == _underwaterOverlayFrame) return;
+
+            _underwaterOverlayMaterial.SetFloat("_Frame", WaterAtlasFirstFrame + frame);
+            _underwaterOverlayFrame = frame;
+        }
+
+        private void CreateUnderwaterOverlay()
+        {
+            Material overlayMaterialTemplate = Resources.Load<Material>("UnderwaterOverlayMaterial");
+            if (overlayMaterialTemplate == null)
+            {
+                Debug.LogError("Underwater overlay could not load its material.");
+                return;
+            }
+
+            _underwaterOverlayMaterial = new Material(overlayMaterialTemplate);
+            _underwaterOverlayMaterial.SetTexture("_WaterAtlas", atlas);
+            _underwaterOverlayMaterial.SetFloat("_Frame", WaterAtlasFirstFrame);
+
+            GameObject canvasObject = new("Underwater Overlay", typeof(RectTransform), typeof(Canvas));
+            Canvas overlayCanvas = canvasObject.GetComponent<Canvas>();
+            overlayCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            overlayCanvas.overrideSorting = true;
+            overlayCanvas.sortingOrder = -1;
+
+            GameObject imageObject = new("Water Texture", typeof(RectTransform), typeof(RawImage));
+            imageObject.transform.SetParent(canvasObject.transform, false);
+            RectTransform imageTransform = imageObject.GetComponent<RectTransform>();
+            imageTransform.anchorMin = Vector2.zero;
+            imageTransform.anchorMax = Vector2.one;
+            imageTransform.sizeDelta = Vector2.zero;
+
+            _underwaterOverlay = imageObject.GetComponent<RawImage>();
+            _underwaterOverlay.texture = Texture2D.whiteTexture;
+            _underwaterOverlay.material = _underwaterOverlayMaterial;
+            _underwaterOverlay.color = new Color(1f, 1f, 1f, UnderwaterOverlayAlpha);
+            _underwaterOverlay.raycastTarget = false;
+            _underwaterOverlay.enabled = false;
+        }
+
+        private void OnDestroy()
+        {
+            if (_underwaterOverlayMaterial != null) Destroy(_underwaterOverlayMaterial);
         }
 
         private GameObject _lastHitObject;

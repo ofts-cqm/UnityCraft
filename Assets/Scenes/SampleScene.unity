@@ -1163,6 +1163,7 @@ MonoBehaviour:
   targetOutline: {fileID: 2054139011}
   camera: {fileID: 330585545}
   characterController: {fileID: 839279777}
+  atlas: {fileID: 18700000, guid: a06b72e85ebee465e95a2342f9887e62, type: 3}
   hotbar: {fileID: 1434264730}
 --- !u!4 &839279772
 Transform:
