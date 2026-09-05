@@ -30,6 +30,8 @@ namespace player
         private const float FlyingSpeed = 5f;
         private const float Gravity = -20f;
         private const float WaterGravity = -2f;
+        private const float WaterTerminalFallSpeed = -3f;
+        private const float WaterSwimForce = 3.5f;
         private const float WaterMovementMultiplier = 0.4f;
         private const float WaterCurrentSpeed = 1.5f;
         private const float JumpForce = 5f;
@@ -85,7 +87,7 @@ namespace player
             InputSystem.actions.FindAction("Jump").started += _ =>
             {
                 // jump
-                if (!_flying && characterController.isGrounded) _jumping = true;
+                if (!_flying && (characterController.isGrounded || IsInWater())) _jumping = true;
                 
                 // fly check
                 float timeSinceLastClick = Time.time - _flyLastClickTime;
@@ -173,8 +175,7 @@ namespace player
         {
             Vector2 move = _moveAction.ReadValue<Vector2>().normalized;
             Vector3 bodyPosition = transform.position + characterController.center;
-            FluidState fluid = world.GetFluid(Vector3Int.FloorToInt(bodyPosition));
-            bool inWater = !fluid.IsEmpty;
+            bool inWater = IsInWater();
             if (_sprinting && Vector2.Dot(move, Vector2.up) <= 0.1) _sprinting = false;
             if (_sprinting) move *= 1.4f;
             if (_flying) move *= 1.5f;
@@ -195,16 +196,23 @@ namespace player
 
                 if (_jumping)
                 {
-                    _velocity.y = JumpForce;
+                    _velocity.y = inWater ? WaterSwimForce : JumpForce;
                     _jumping = false;
                 }
                 
             }
 
             if (inWater) _velocity += world.GetFluidFlow(Vector3Int.FloorToInt(bodyPosition)) * WaterCurrentSpeed;
+            if (inWater && !_flying) _velocity.y = Mathf.Max(_velocity.y, WaterTerminalFallSpeed);
             
             characterController.Move(_velocity * Time.fixedDeltaTime);
             _verticalMomentum = characterController.isGrounded ? 0 : _velocity.y;
+        }
+
+        private bool IsInWater()
+        {
+            Vector3 bodyPosition = transform.position + characterController.center;
+            return !world.GetFluid(Vector3Int.FloorToInt(bodyPosition)).IsEmpty;
         }
 
         private GameObject _lastHitObject;

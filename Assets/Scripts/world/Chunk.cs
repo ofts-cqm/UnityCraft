@@ -70,6 +70,7 @@ namespace World
 
         public void SetBlock(int x, int y, int z, Block block, [CanBeNull] object state = null)
         {
+            FluidState existingFluid = _fluidData[x, y, z];
             _blockData[x, y, z] = block;
             _stateData[x, y, z] = state;
             _renderObjects[y / 16].Dirty = true;
@@ -80,6 +81,11 @@ namespace World
             if (z == ChunkSize - 1) _world.GetChunk(ChunkPosition.Down())?.SetDirty(y);
             if (y % 16 == 0 && y != 0) _renderObjects[y / 16 - 1].Dirty = true;
             if (y % 16 == 15 && y != ChunkHeight - 1) _renderObjects[y / 16 + 1].Dirty = true;
+            if (!existingFluid.IsEmpty && !CanContainFluid(GetBlock(x, y, z)))
+            {
+                _fluidData[x, y, z] = default;
+                MarkFluidDirty(x, y, z);
+            }
             ScheduleFluidNeighbors(new Vector3Int(x, y, z));
         }
 
@@ -112,7 +118,11 @@ namespace World
             if (_fluidData[x, y, z].RawAmount == state.RawAmount) return;
             _fluidData[x, y, z] = state;
             MarkFluidDirty(x, y, z);
-            if (schedule && !state.IsEmpty) ScheduleFluidTick(new Vector3Int(x, y, z), Water.TickDelay);
+            if (schedule)
+            {
+                if (!state.IsEmpty) ScheduleFluidTick(new Vector3Int(x, y, z), Water.TickDelay);
+                ScheduleFluidNeighbors(new Vector3Int(x, y, z));
+            }
         }
 
         public void ScheduleFluidTick(Vector3Int position, int delay)
@@ -139,7 +149,7 @@ namespace World
                 if (GetFluid(scheduled.Position).RawAmount == scheduled.ExpectedRawAmount && scheduled.ExpectedRawAmount != 0) Water.Tick(this, scheduled.Position);
         }
 
-        private void ScheduleFluidNeighbors(Vector3Int position)
+        internal void ScheduleFluidNeighbors(Vector3Int position)
         {
             ScheduleFluidIfPresent(position);
             ScheduleFluidIfPresent(position + Vector3Int.left); ScheduleFluidIfPresent(position + Vector3Int.right);
@@ -155,6 +165,13 @@ namespace World
                 return;
             }
             if (!GetFluid(position).IsEmpty) ScheduleFluidTick(position, Water.TickDelay);
+        }
+
+        private static bool CanContainFluid(BlockState state)
+        {
+            for (int face = ChunkRenderObject.TopFace; face <= ChunkRenderObject.RightFace; face++)
+                if (state.Block.GetFlowingAmountLimit(state, face).max > 0) return true;
+            return false;
         }
 
         private void MarkFluidDirty(int x, int y, int z)

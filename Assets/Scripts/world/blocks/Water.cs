@@ -12,11 +12,11 @@ namespace World.blocks
         public byte Amount { get => _amount == 10 ? (byte)8 : _amount; set => _amount = value; }
         internal byte RawAmount => _amount;
         public bool IsEmpty => _amount == 0;
-        public bool IsSource => _amount == 9;
+        public bool IsSource => _amount == 8;
         public bool IsFalling => _amount == 10;
         public float OwnHeight => Amount / 9f;
         public Vector3 GetFlow(Chunk chunk, Vector3Int position) => Water.GetFlow(chunk, position);
-        public static FluidState Source => new() { Amount = 9 };
+        public static FluidState Source => new() { Amount = 8 };
         public static FluidState FallingState() => new() { _amount = 10 };
     }
 
@@ -62,8 +62,9 @@ namespace World.blocks
                 {
                     chunk.SetFluid(p, next, false);
                     current = next;
+                    if (!current.IsEmpty) chunk.ScheduleFluidTick(p, TickDelay);
+                    chunk.ScheduleFluidNeighbors(p);
                     if (current.IsEmpty) return;
-                    chunk.ScheduleFluidTick(p, TickDelay);
                 }
             }
             Spread(chunk, p, current);
@@ -154,7 +155,8 @@ namespace World.blocks
                 d == Vector3Int.right ? new[] { new Vector3(1 - Offset, 0, 1 - Offset), new Vector3(1 - Offset, 0, Offset), new Vector3(1 - Offset, z, 1 - Offset), new Vector3(1 - Offset, a, Offset) } :
                 d == Vector3Int.forward ? new[] { new Vector3(Offset, 0, 1 - Offset), new Vector3(1 - Offset, 0, 1 - Offset), new Vector3(Offset, a, 1 - Offset), new Vector3(1 - Offset, z, 1 - Offset) } :
                 new[] { new Vector3(1 - Offset, 0, Offset), new Vector3(Offset, 0, Offset), new Vector3(1 - Offset, z, Offset), new Vector3(Offset, a, Offset) };
-            Add(b, v, local, SquareUvs(), FlowingTexture); Add(b, v, local, SquareUvs(), FlowingTexture, true);
+            Vector2[] uvs = SideUvs(a, z);
+            Add(b, v, local, uvs, FlowingTexture); Add(b, v, local, uvs, FlowingTexture, true);
         }
 
         private static float[] CornerHeights(Chunk c, Vector3Int p)
@@ -183,8 +185,10 @@ namespace World.blocks
         }
         private static bool Solid(Chunk c, Vector3Int p, int face) { BlockState b=c.GetBlock(p); return b.Block.IsSolid(b,face); }
         private static void Add(MeshBuilder b, Vector3[] vertices, Vector3 local, Vector2[] uvs, Vector4 texture, bool reverse=false) { for (int i=0;i<4;i++) vertices[i]+=local; b.AddTransparentQuad(vertices,uvs,texture,reverse); }
+        // Top vertices are ordered x/z as (0,0), (0,1), (1,0), (1,1).
         private static Vector2[] SquareUvs() => new[] { new Vector2(0,0), new Vector2(0,1), new Vector2(1,0), new Vector2(1,1) };
-        private static Vector2[] TopUvs(Vector3 flow) { if (flow == Vector3.zero) return SquareUvs(); float angle=Mathf.Atan2(flow.z,flow.x)-Mathf.PI/2; Vector2 Rotate(Vector2 v) { v-=Vector2.one*.5f; float s=Mathf.Sin(angle),co=Mathf.Cos(angle); return new Vector2(v.x*co-v.y*s,v.x*s+v.y*co)+Vector2.one*.5f; } return new[] {Rotate(new(0,0)),Rotate(new(0,1)),Rotate(new(1,0)),Rotate(new(1,1))}; }
+        private static Vector2[] SideUvs(float firstHeight, float secondHeight) => new[] { new Vector2(0,0), new Vector2(1,0), new Vector2(0,firstHeight), new Vector2(1,secondHeight) };
+        private static Vector2[] TopUvs(Vector3 flow) { if (flow == Vector3.zero) return SquareUvs(); float angle=Mathf.Atan2(-flow.z,flow.x)-Mathf.PI/2; Vector2 Rotate(Vector2 v) { v-=Vector2.one*.5f; float s=Mathf.Sin(angle),co=Mathf.Cos(angle); return new Vector2(v.x*co-v.y*s,v.x*s+v.y*co)+Vector2.one*.5f; } return new[] {Rotate(new(0,0)),Rotate(new(0,1)),Rotate(new(1,0)),Rotate(new(1,1))}; }
         private static int Face(Vector3Int d) => d==Vector3Int.left?ChunkRenderObject.LeftFace:d==Vector3Int.right?ChunkRenderObject.RightFace:d==Vector3Int.forward?ChunkRenderObject.FrontFace:d==Vector3Int.back?ChunkRenderObject.BackFace:d==Vector3Int.up?ChunkRenderObject.TopFace:ChunkRenderObject.BottomFace;
         private static int Opposite(int f) => f==ChunkRenderObject.LeftFace?ChunkRenderObject.RightFace:f==ChunkRenderObject.RightFace?ChunkRenderObject.LeftFace:f==ChunkRenderObject.FrontFace?ChunkRenderObject.BackFace:f==ChunkRenderObject.BackFace?ChunkRenderObject.FrontFace:f==ChunkRenderObject.TopFace?ChunkRenderObject.BottomFace:ChunkRenderObject.TopFace;
     }
