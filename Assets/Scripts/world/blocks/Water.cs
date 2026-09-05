@@ -24,8 +24,8 @@ namespace World.blocks
     {
         public const int TickDelay = 12;
         private const float Offset = .001f;
-        private static readonly Vector4 StillTexture = new(32, 4, 16, 1);
-        private static readonly Vector4 FlowingTexture = new(48, 4, 16, 1);
+        private static readonly Vector4 StillTexture = new(32, 8, 16, 1);
+        private static readonly Vector4 FlowingTexture = new(48, 8, 16, 1);
         private static readonly Vector3Int[] Horizontal = { Vector3Int.left, Vector3Int.right, Vector3Int.forward, Vector3Int.back };
 
         public static float OwnHeight(FluidState state) => state.Amount / 9f;
