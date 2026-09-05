@@ -20,6 +20,7 @@ namespace World
         public static World Instance;
         
         private ChunkCoord _playerLastChunkCoord;
+        internal int FluidTick { get; private set; }
         
         // Start is called once before the first execution of Update after the MonoBehaviour is created
         private void Start()
@@ -36,6 +37,12 @@ namespace World
                 CheckViewDistance();
             ChunkLoader.ProcessCompletedLoads();
             foreach (Chunk chunk in ChunkMap.Values) chunk.UpdateDirtyRenderObjects();
+        }
+
+        private void FixedUpdate()
+        {
+            FluidTick++;
+            foreach (Chunk chunk in ChunkMap.Values) chunk.TickFluid(FluidTick);
         }
 
         private void CheckViewDistance()
@@ -71,6 +78,35 @@ namespace World
         public BlockState GetBlock(Vector3Int position)
         {
             return GetBlock(position.x, position.y, position.z);
+        }
+
+        public FluidState GetFluid(int x, int y, int z)
+        {
+            return ChunkMap.TryGetValue(ChunkCoord.ToChunkCoord(x, z), out Chunk chunk)
+                ? chunk.GetFluid(ToCoordInChunk(x, y, z))
+                : default;
+        }
+
+        public FluidState GetFluid(Vector3Int position) => GetFluid(position.x, position.y, position.z);
+
+        public Vector3 GetFluidFlow(Vector3Int position)
+        {
+            return ChunkMap.TryGetValue(ChunkCoord.ToChunkCoord(position.x, position.z), out Chunk chunk)
+                ? Water.GetFlow(chunk, ToCoordInChunk(position.x, position.y, position.z))
+                : Vector3.zero;
+        }
+
+        public void SetFluid(int x, int y, int z, FluidState state)
+        {
+            if (ChunkMap.TryGetValue(ChunkCoord.ToChunkCoord(x, z), out Chunk chunk)) chunk.SetFluid(ToCoordInChunk(x, y, z), state);
+        }
+
+        public void SetFluid(Vector3Int position, FluidState state) => SetFluid(position.x, position.y, position.z, state);
+
+        internal void ScheduleFluidTick(Vector3Int position, int delay)
+        {
+            if (ChunkMap.TryGetValue(ChunkCoord.ToChunkCoord(position.x, position.z), out Chunk chunk))
+                chunk.ScheduleFluidTick(ToCoordInChunk(position.x, position.y, position.z), delay);
         }
 
         public void SetBlock(int x, int y, int z, Block block, [CanBeNull] object state = null)

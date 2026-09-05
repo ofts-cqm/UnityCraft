@@ -119,5 +119,13 @@ namespace render
                 TriangleFace.Add(face);
             }
         }
+
+        public void AddTransparentQuad(Vector3[] vertices, Vector2[] uvs, Vector4 texture, bool reverse = false)
+        {
+            for (int i = 0; i < 4; i++) { TransparentVertices.Add(vertices[i]); TransparentUvs.Add(uvs[i]); TransparentTextureIndices.Add(texture); }
+            if (reverse) { TransparentTriangles.Add(TransparentVertIndex + 2); TransparentTriangles.Add(TransparentVertIndex + 1); TransparentTriangles.Add(TransparentVertIndex); TransparentTriangles.Add(TransparentVertIndex + 3); TransparentTriangles.Add(TransparentVertIndex + 1); TransparentTriangles.Add(TransparentVertIndex + 2); }
+            else { TransparentTriangles.Add(TransparentVertIndex); TransparentTriangles.Add(TransparentVertIndex + 1); TransparentTriangles.Add(TransparentVertIndex + 2); TransparentTriangles.Add(TransparentVertIndex + 2); TransparentTriangles.Add(TransparentVertIndex + 1); TransparentTriangles.Add(TransparentVertIndex + 3); }
+            TransparentVertIndex += 4;
+        }
     }
 }

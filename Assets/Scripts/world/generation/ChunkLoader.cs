@@ -47,6 +47,7 @@ namespace world.generation
                 World.World.Instance.GetChunk(coord.Right())?.MarkDirty();
                 World.World.Instance.GetChunk(coord.Up())?.MarkDirty();
                 World.World.Instance.GetChunk(coord.Down())?.MarkDirty();
+                WakeFluidBorders(chunk);
                 return;
             }
 
@@ -65,6 +66,7 @@ namespace world.generation
                 World.World.Instance.GetChunk(coord.Right())?.MarkDirty();
                 World.World.Instance.GetChunk(coord.Up())?.MarkDirty();
                 World.World.Instance.GetChunk(coord.Down())?.MarkDirty();
+                WakeFluidBorders(newChunk);
                 return;
             }
             
@@ -165,9 +167,19 @@ namespace world.generation
                 World.World.Instance.GetChunk(coord.Right())?.MarkDirty();
                 World.World.Instance.GetChunk(coord.Up())?.MarkDirty();
                 World.World.Instance.GetChunk(coord.Down())?.MarkDirty();
+                WakeFluidBorders(chunk);
 
                 installedThisFrame++;
             }
+        }
+
+        private static void WakeFluidBorders(Chunk chunk)
+        {
+            chunk.ScheduleBorderFluidTicks();
+            World.World.Instance.GetChunk(chunk.ChunkPosition.Left())?.ScheduleBorderFluidTicks();
+            World.World.Instance.GetChunk(chunk.ChunkPosition.Right())?.ScheduleBorderFluidTicks();
+            World.World.Instance.GetChunk(chunk.ChunkPosition.Up())?.ScheduleBorderFluidTicks();
+            World.World.Instance.GetChunk(chunk.ChunkPosition.Down())?.ScheduleBorderFluidTicks();
         }
     }
 }

@@ -109,9 +109,8 @@ namespace Render
                         Vector3Int position = new Vector3Int(i, j + _heightIndex, k);
                         Vector3 localPosition = new Vector3(i, j, k);
                         BlockState block = chunk.GetBlock(position);
-                        if (block.IsAir) continue;
-                        
-                        block.Block.Render(block, chunk, meshBuilder, position, localPosition);
+                        if (!block.IsAir) block.Block.Render(block, chunk, meshBuilder, position, localPosition);
+                        if (!chunk.GetFluid(position).IsEmpty) Water.Render(chunk, meshBuilder, position, localPosition);
                     }
                 }
             }

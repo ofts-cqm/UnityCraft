@@ -54,6 +54,8 @@ namespace World.blocks
         public bool Collide => Property.Collide;
         public bool ReplaceTerrain => Property.ReplaceTerrain;
         public virtual bool IsSolid(BlockState state, int face) => Property.IsSolid;
+        // Blocks are dry by default. Blocks that can hold or transmit fluid opt in explicitly.
+        public virtual (int max, int min) GetFlowingAmountLimit(BlockState state, int face) => (0, 10);
         public bool Transparent => Property.Transparent;
         public bool IsAirOrVoid => BlockId == Blocks.Air.BlockId || BlockId == Blocks.Void.BlockId;
         public BlockState AsState(Vector3Int position, [CanBeNull] object data = null) => new(position, this, data ?? DefaultState);

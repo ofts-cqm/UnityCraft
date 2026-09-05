@@ -120,7 +120,7 @@ namespace world.generation
             if (y < height && y > height - 3 && y > SeaLevel - 3) return Blocks.Gravel;
             if (y < height) return Blocks.Stone;
             if (y == height) return Blocks.Gravel;
-            return y < SeaLevel ? Blocks.Water : Blocks.Air;
+            return y < SeaLevel ? Blocks.GenerationWater : Blocks.Air;
         }
 
         private static Block PlacePlainBlocks(int y, int height)
@@ -128,20 +128,20 @@ namespace world.generation
             if (y < height - 3) return Blocks.Stone;
             if (y < height) return Blocks.Dirt;
             if (y == height) return Blocks.GrassBlock;
-            return y < SeaLevel ? Blocks.Water : Blocks.Air;
+            return y < SeaLevel ? Blocks.GenerationWater : Blocks.Air;
         }
 
         private static Block PlaceMountainBlocks(int y, int height)
         {
             if (y <= height) return Blocks.Stone;
-            return y < SeaLevel ? Blocks.Water : Blocks.Air;
+            return y < SeaLevel ? Blocks.GenerationWater : Blocks.Air;
         }
 
         private static Block PlaceDesertBlocks(int y, int height)
         {
             if (y < height - 3) return Blocks.Stone;
             if (y <= height) return Blocks.Sand;
-            return y < SeaLevel ? Blocks.Water : Blocks.Air;
+            return y < SeaLevel ? Blocks.GenerationWater : Blocks.Air;
         }
 
         private static void PlaceOutOfBoundBlocks(Block[,,] blocks, ChunkCoord chunk)

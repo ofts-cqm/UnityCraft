@@ -6,6 +6,11 @@ namespace world.blocks
 {
     public static class Blocks
     {
+        private record AirBlock() : Block(BlockProperty.Default(0).SetSolid(false) with { Collide = false })
+        {
+            public override (int max, int min) GetFlowingAmountLimit(BlockState state, int face) => (10, 0);
+        }
+
         public static readonly List<Block> BlockList = new();
 
         public static readonly Block Air;
@@ -13,7 +18,8 @@ namespace world.blocks
         public static readonly Block GrassBlock;
         public static readonly Block Dirt;
         public static readonly Block Stone;
-        public static readonly Block Water;
+        // Generation-only marker; Chunk converts it to source fluid before the chunk is visible.
+        internal static readonly Block GenerationWater;
         public static readonly Block Sand;
         public static readonly Block OakLog;
         public static readonly Block OakLeave;
@@ -39,12 +45,12 @@ namespace world.blocks
 
         static Blocks()
         {
-            Air = new Block(BlockProperty.Default(0).SetSolid(false) with { Collide = false });
+            Air = new AirBlock();
             Void = new Block(BlockProperty.Default(0));
             GrassBlock = new Block(BlockProperty.Pillar(3, 0, 2));
             Dirt = new Block(BlockProperty.Default(0));
             Stone = new Block(BlockProperty.Default(7));
-            Water = new Water();
+            GenerationWater = new Block(BlockProperty.Default(32).SetSolid(false) with { Collide = false });
             Sand = new Block(BlockProperty.Default(5));
             OakLog = new Block(BlockProperty.Pillar(88, 88, 89));
             OakLeave = new Block(BlockProperty.Default(108) with { ReplaceTerrain = false, Transparent = true, IsSolid = false });

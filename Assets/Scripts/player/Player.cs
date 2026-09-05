@@ -5,6 +5,7 @@ using render.ui;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using world.items;
+using World.blocks;
 
 namespace player
 {
@@ -28,6 +29,9 @@ namespace player
         private const float MoveSpeed = 4.317f;
         private const float FlyingSpeed = 5f;
         private const float Gravity = -20f;
+        private const float WaterGravity = -2f;
+        private const float WaterMovementMultiplier = 0.4f;
+        private const float WaterCurrentSpeed = 1.5f;
         private const float JumpForce = 5f;
         private const float DoubleClickDelay = 0.3f;
         private const int MinimumInteractionDelay = 10;
@@ -168,9 +172,13 @@ namespace player
         private void UpdateInput()
         {
             Vector2 move = _moveAction.ReadValue<Vector2>().normalized;
+            Vector3 bodyPosition = transform.position + characterController.center;
+            FluidState fluid = world.GetFluid(Vector3Int.FloorToInt(bodyPosition));
+            bool inWater = !fluid.IsEmpty;
             if (_sprinting && Vector2.Dot(move, Vector2.up) <= 0.1) _sprinting = false;
             if (_sprinting) move *= 1.4f;
             if (_flying) move *= 1.5f;
+            if (inWater) move *= WaterMovementMultiplier;
             
             camera.fieldOfView = Mathf.MoveTowards(camera.fieldOfView, _sprinting ? 100 : 80, 180 * Time.deltaTime);
             _velocity = (transform.forward * move.y + transform.right * move.x) * MoveSpeed;
@@ -183,7 +191,7 @@ namespace player
             }
             else
             {
-                _velocity.y = _verticalMomentum + Time.deltaTime * Gravity;
+                _velocity.y = _verticalMomentum + Time.deltaTime * (inWater ? WaterGravity : Gravity);
 
                 if (_jumping)
                 {
@@ -192,6 +200,8 @@ namespace player
                 }
                 
             }
+
+            if (inWater) _velocity += world.GetFluidFlow(Vector3Int.FloorToInt(bodyPosition)) * WaterCurrentSpeed;
             
             characterController.Move(_velocity * Time.fixedDeltaTime);
             _verticalMomentum = characterController.isGrounded ? 0 : _velocity.y;
