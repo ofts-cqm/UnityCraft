@@ -117,6 +117,8 @@ InitTestScene*.unity*
 Tools
 # For textures, Atlas.png is the source of truth. Keeping the source textures may confuse other developers. 
 [Aa]ssets/Textures/_source
+[Aa]ssets/Textures/ui/_source
+[Aa]ssets/Textures/ui/_source.meta
 [Aa]ssets/Textures/atlas_source
 [Aa]ssets/textures/Animated
 [Aa]ssets/Textures/Core

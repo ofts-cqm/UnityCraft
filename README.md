@@ -33,15 +33,4 @@ Inventory icons are baked at runtime before the game starts. A temporary camera 
 
 NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT
 
-This project uses some assets from Minecraft; however, it is for personal practice only and isn't built for commercial use, nor is it intended to make any money. 
-
-According to the [EULA](https://www.minecraft.net/en-us/eula), the following behaviors are forbidden:
-
-- give copies of our game software or content to anyone else;
-- make commercial use of anything we've made;
-- try to make money from anything we've made; or
-- let other people get access to anything we've made in a way that is unfair or unreasonable.
-
-This game does not include any of the above-mentioned behaviors. 
-
-Notably, this repository does not include the texture folder to avoid sharing Minecraft content. 
+This project does not contain any Minecraft assets. All textures used are recreated. 

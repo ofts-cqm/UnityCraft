@@ -39,7 +39,7 @@ namespace render.screens
                 if (active)
                 {
                     ActiveTab = this;
-                    Screen.titleText.SetText($"<color=#5C5C5C>{_name}</color>");
+                    Screen.titleText.SetText(_name);
                     Background.sprite = Active;
                     Transform.SetSiblingIndex(SiblingIndex + 1);
                 }
@@ -51,7 +51,7 @@ namespace render.screens
                 ActiveTab.Deactivate();
                 ActiveTab = this;
                 
-                Screen.titleText.SetText($"<color=#5C5C5C>{_name}</color>");
+                Screen.titleText.SetText(_name);
                 Background.sprite = Active;
                 Transform.SetSiblingIndex(SiblingIndex + 1);
                 Screen.inventoryRenderer.UpdateInventory(ItemStacks.AsMemory(0, 45));
