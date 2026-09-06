@@ -11,13 +11,19 @@ namespace World
     public class World : MonoBehaviour
     {
         public Material material;
+        public Material transparentMaterial;
         public Material waterMaterial;
+        public Material waterMobileMaterial;
         private const int ViewDistance = 8;
         
         public readonly Dictionary<ChunkCoord, Chunk> ChunkMap = new();
         
         public Transform player;
         public static World Instance;
+
+        public Material ActiveWaterMaterial => QualitySettings.names[QualitySettings.GetQualityLevel()] == "PC" || waterMobileMaterial == null
+            ? waterMaterial
+            : waterMobileMaterial;
         
         private ChunkCoord _playerLastChunkCoord;
         internal int FluidTick { get; private set; }

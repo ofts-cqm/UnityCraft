@@ -134,6 +134,8 @@ namespace render.screens
             _ = new InventoryTab(natureTab, topLeftActive, topLeftInactive, Items.GrassBlock, Items.NatureBlockList.ToArray(), "Natural Blocks", true);
             _ = new InventoryTab(buildingTab, topMiddleActive, topMiddleInactive, Items.OakLog, Items.BuildingBlockList.ToArray(), "Building Blocks");
             _ = new BackpackTab(backpackTab, bottomRightActive, bottomRightInactive);
+            
+            gameObject.SetActive(false);
         }
     }
 }

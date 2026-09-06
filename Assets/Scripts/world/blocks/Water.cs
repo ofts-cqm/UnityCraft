@@ -128,7 +128,7 @@ namespace World.blocks
             float[] h = CornerHeights(chunk, p);
             if (chunk.GetFluid(p + Vector3Int.up).IsEmpty && !TopOccluded(chunk, p, h))
             {
-                Vector3[] top = { new(Offset, h[0], Offset), new(Offset, h[1], 1 - Offset), new(1 - Offset, h[2], Offset), new(1 - Offset, h[3], 1 - Offset) };
+                Vector3[] top = { new(0, h[0] - Offset, 0), new(0, h[1] - Offset, 1), new(1, h[2] - Offset, 0), new(1, h[3] - Offset, 1) };
                 Vector3 flow = GetFlow(chunk, p);
                 Vector4 texture = flow == Vector3.zero ? StillTexture : FlowingTexture;
                 Add(builder, top, local, TopUvs(flow), texture);
@@ -142,19 +142,19 @@ namespace World.blocks
             if (chunk.GetFluid(p + Vector3Int.down).IsEmpty &&
                 !own.Block.IsSolid(own, ChunkRenderObject.BottomFace) &&
                 !below.Block.IsSolid(below, ChunkRenderObject.TopFace))
-                Add(builder, new[] { new Vector3(Offset, Offset, Offset), new Vector3(1 - Offset, Offset, Offset), new Vector3(Offset, Offset, 1 - Offset), new Vector3(1 - Offset, Offset, 1 - Offset) }, local, SquareUvs(), FlowingTexture, true);
+                Add(builder, new[] { new Vector3(0, Offset, 0), new Vector3(1, Offset, 0), new Vector3(0, Offset, 1), new Vector3(1, Offset, 1) }, local, SquareUvs(), FlowingTexture, true);
         }
 
         private static void AddSide(Chunk c, MeshBuilder b, Vector3Int p, Vector3 local, Vector3Int d, float a, float z)
         {
             Vector3Int q = p + d;
             if (!c.GetFluid(q).IsEmpty || Solid(c, p, Face(d)) || Solid(c, q, Opposite(Face(d)))) return;
-            Vector3[] v = d == Vector3Int.left ? new[] { new Vector3(Offset, 0, Offset), new Vector3(Offset, 0, 1 - Offset), new Vector3(Offset, a, Offset), new Vector3(Offset, z, 1 - Offset) } :
-                d == Vector3Int.right ? new[] { new Vector3(1 - Offset, 0, 1 - Offset), new Vector3(1 - Offset, 0, Offset), new Vector3(1 - Offset, z, 1 - Offset), new Vector3(1 - Offset, a, Offset) } :
-                d == Vector3Int.forward ? new[] { new Vector3(Offset, 0, 1 - Offset), new Vector3(1 - Offset, 0, 1 - Offset), new Vector3(Offset, a, 1 - Offset), new Vector3(1 - Offset, z, 1 - Offset) } :
-                new[] { new Vector3(1 - Offset, 0, Offset), new Vector3(Offset, 0, Offset), new Vector3(1 - Offset, z, Offset), new Vector3(Offset, a, Offset) };
+            Vector3[] v = d == Vector3Int.left ? new[] { new Vector3(Offset, 0, 0), new Vector3(Offset, 0, 1), new Vector3(Offset, a, 0), new Vector3(Offset, z, 1) } :
+                d == Vector3Int.right ? new[] { new Vector3(1 - Offset, 0, 1), new Vector3(1 - Offset, 0, 0), new Vector3(1 - Offset, z, 1), new Vector3(1 - Offset, a, 0) } :
+                d == Vector3Int.forward ? new[] { new Vector3(0, 0, 1 - Offset), new Vector3(1, 0, 1 - Offset), new Vector3(0, a, 1 - Offset), new Vector3(1, z, 1 - Offset) } :
+                new[] { new Vector3(1, 0, Offset), new Vector3(0, 0, Offset), new Vector3(1, z, Offset), new Vector3(0, a, Offset) };
             Vector2[] uvs = SideUvs(a, z);
-            Add(b, v, local, uvs, FlowingTexture); Add(b, v, local, uvs, FlowingTexture, true);
+            Add(b, v, local, uvs, FlowingTexture);
         }
 
         private static float[] CornerHeights(Chunk c, Vector3Int p)
@@ -182,7 +182,7 @@ namespace World.blocks
             return center.y - half.y <= p.y + 1.001f;
         }
         private static bool Solid(Chunk c, Vector3Int p, int face) { BlockState b=c.GetBlock(p); return b.Block.IsSolid(b,face); }
-        private static void Add(MeshBuilder b, Vector3[] vertices, Vector3 local, Vector2[] uvs, Vector4 texture, bool reverse=false) { for (int i=0;i<4;i++) vertices[i]+=local; b.AddQuad(vertices,uvs,texture,MeshBuilder.MeshTargets.Transparent,reverse); }
+        private static void Add(MeshBuilder b, Vector3[] vertices, Vector3 local, Vector2[] uvs, Vector4 texture, bool reverse=false) { for (int i=0;i<4;i++) vertices[i]+=local; b.AddQuad(vertices,uvs,texture,MeshBuilder.MeshTargets.Water,reverse); }
         // Top vertices are ordered x/z as (0,0), (0,1), (1,0), (1,1).
         private static Vector2[] SquareUvs() => new[] { new Vector2(0,0), new Vector2(0,1), new Vector2(1,0), new Vector2(1,1) };
         private static Vector2[] SideUvs(float firstHeight, float secondHeight) => new[] { new Vector2(0,0), new Vector2(1,0), new Vector2(0,firstHeight), new Vector2(1,secondHeight) };

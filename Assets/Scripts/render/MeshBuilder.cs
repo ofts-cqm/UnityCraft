@@ -13,7 +13,8 @@ namespace render
             None = 0,
             Opaque = 1 << 0,
             Transparent = 1 << 1,
-            Collider = 1 << 2
+            Collider = 1 << 2,
+            Water = 1 << 3
         }
 
         public class MeshHolder
@@ -68,6 +69,7 @@ namespace render
 
         public readonly TexturedMeshHolder OpaqueMesh = new();
         public readonly TexturedMeshHolder TransparentMesh = new();
+        public readonly TexturedMeshHolder WaterMesh = new();
         public readonly MeshHolder ColliderMesh = new();
         public readonly List<int> TriangleCoordinate = new();
         public readonly List<int> TriangleFace = new();
@@ -140,6 +142,7 @@ namespace render
         {
             if ((targets & MeshTargets.Opaque) != 0) OpaqueMesh.AddQuad(vertices, uvs, texture, reverse);
             if ((targets & MeshTargets.Transparent) != 0) TransparentMesh.AddQuad(vertices, uvs, texture, reverse);
+            if ((targets & MeshTargets.Water) != 0) WaterMesh.AddQuad(vertices, uvs, texture, reverse);
             if ((targets & MeshTargets.Collider) != 0) ColliderMesh.AddQuad(vertices, reverse);
         }
 

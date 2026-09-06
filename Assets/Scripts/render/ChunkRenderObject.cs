@@ -16,6 +16,9 @@ namespace Render
         private MeshFilter _transparentMesh;
         private GameObject _transparentObject;
 
+        private MeshFilter _waterMesh;
+        private GameObject _waterObject;
+
         private readonly int _heightIndex;
         private readonly Vector3Int _chunkPosition;
         
@@ -70,10 +73,23 @@ namespace Render
             };
             
             var meshRenderer2 = _transparentObject.AddComponent<MeshRenderer>();
-            meshRenderer2.material = World.World.Instance.waterMaterial;
+            meshRenderer2.material = World.World.Instance.transparentMaterial;
             
             _transparentMesh = _transparentObject.AddComponent<MeshFilter>();
-            _chunkObject.AddComponent<RenderObjectProperty>().RenderObject = this;
+
+            _waterObject = new GameObject
+            {
+                transform =
+                {
+                    position = _chunkPosition,
+                    parent = _chunkObject.transform
+                },
+                name = "Water Render"
+            };
+
+            var waterRenderer = _waterObject.AddComponent<MeshRenderer>();
+            waterRenderer.material = World.World.Instance.ActiveWaterMaterial;
+            _waterMesh = _waterObject.AddComponent<MeshFilter>();
         }
         
         public bool Active {
@@ -115,7 +131,7 @@ namespace Render
                 }
             }
 
-            bool targetState = !(meshBuilder.OpaqueMesh.IsEmpty && meshBuilder.TransparentMesh.IsEmpty);
+            bool targetState = !(meshBuilder.OpaqueMesh.IsEmpty && meshBuilder.TransparentMesh.IsEmpty && meshBuilder.WaterMesh.IsEmpty);
             if (targetState != Active) Active = targetState;
 
             _triangleCoordinate = meshBuilder.TriangleCoordinate;
@@ -151,6 +167,17 @@ namespace Render
             
             transparentMesh.RecalculateNormals();
             _transparentMesh.mesh = transparentMesh;
+
+            Mesh waterMesh = new Mesh
+            {
+                vertices = meshBuilder.WaterMesh.Vertices.ToArray(),
+                triangles = meshBuilder.WaterMesh.Triangles.ToArray(),
+                uv = meshBuilder.WaterMesh.Uvs.ToArray()
+            };
+            waterMesh.SetUVs(1, meshBuilder.WaterMesh.TextureIndices.ToArray());
+
+            waterMesh.RecalculateNormals();
+            _waterMesh.mesh = waterMesh;
         }
 
         public Vector3Int GetBlockPositionOfTriangle(int index)
