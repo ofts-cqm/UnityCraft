@@ -124,7 +124,6 @@ namespace player
             for (int i = 0; i < inventory.Length; i++) inventory[i] = ItemStack.EmptyStack();
             
             hotbar.LoadFromPlayer(this);
-            PauseGame();
         }
 
         public static void PauseGame()

@@ -73,21 +73,17 @@ namespace render.ui
             MeshBuilder meshBuilder = new MeshBuilder();
             if (!block.IsAir) block.Render(block.AsState(Vector3Int.zero), Chunk, meshBuilder, Vector3Int.zero, Vector3.zero);
             
-            Mesh renderMesh = block.Transparent ? new Mesh{
-                    vertices = meshBuilder.TransparentVertices.ToArray(),
-                    triangles = meshBuilder.TransparentTriangles.ToArray(),
-                    uv = meshBuilder.TransparentUvs.ToArray()
-            } : 
-            new Mesh
+            MeshBuilder.TexturedMeshHolder meshHolder = block.Transparent ? meshBuilder.TransparentMesh : meshBuilder.OpaqueMesh;
+            Mesh renderMesh = new Mesh
             {
-                vertices = meshBuilder.Vertices.ToArray(),
-                triangles = meshBuilder.Triangles.ToArray(),
-                uv = meshBuilder.Uvs.ToArray()
+                vertices = meshHolder.Vertices.ToArray(),
+                triangles = meshHolder.Triangles.ToArray(),
+                uv = meshHolder.Uvs.ToArray()
             };
             
             _meshRenderer.material = block.Transparent ? _transparentMaterial : _material;
             
-            renderMesh.SetUVs(1, block.Transparent ? meshBuilder.TransparentTextureIndices.ToArray() : meshBuilder.TextureIndices.ToArray());
+            renderMesh.SetUVs(1, meshHolder.TextureIndices.ToArray());
             renderMesh.RecalculateNormals();
             
             return BakeToSprite(renderMesh);

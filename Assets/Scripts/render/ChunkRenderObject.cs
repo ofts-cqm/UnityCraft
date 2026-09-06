@@ -115,30 +115,27 @@ namespace Render
                 }
             }
 
-            bool targetState = !(meshBuilder.VertIndex == 0 && meshBuilder.TransparentVertIndex == 0);
+            bool targetState = !(meshBuilder.OpaqueMesh.IsEmpty && meshBuilder.TransparentMesh.IsEmpty);
             if (targetState != Active) Active = targetState;
-            //if (_vertIndex == 0) Active = false;
-            //if (meshBuilder.VertIndex == 0 && meshBuilder.TransparentVertIndex == 0 && Active) Active = false;
-            //else if (meshBuilder.VertIndex != 0 && meshBuilder.TransparentVertIndex != 0 && !Active) Active = true;
 
             _triangleCoordinate = meshBuilder.TriangleCoordinate;
             _triangleFace = meshBuilder.TriangleFace;
 
             Mesh renderMesh = new Mesh
             {
-                vertices = meshBuilder.Vertices.ToArray(),
-                triangles = meshBuilder.Triangles.ToArray(),
-                uv = meshBuilder.Uvs.ToArray()
+                vertices = meshBuilder.OpaqueMesh.Vertices.ToArray(),
+                triangles = meshBuilder.OpaqueMesh.Triangles.ToArray(),
+                uv = meshBuilder.OpaqueMesh.Uvs.ToArray()
             };
-            renderMesh.SetUVs(1, meshBuilder.TextureIndices.ToArray());
+            renderMesh.SetUVs(1, meshBuilder.OpaqueMesh.TextureIndices.ToArray());
             
             renderMesh.RecalculateNormals();
             _meshFilter.mesh = renderMesh;
             
             Mesh colliderMesh = new Mesh
             {
-                vertices = meshBuilder.ColliderVertices.ToArray(),
-                triangles = meshBuilder.ColliderTriangles.ToArray()
+                vertices = meshBuilder.ColliderMesh.Vertices.ToArray(),
+                triangles = meshBuilder.ColliderMesh.Triangles.ToArray()
             };
             
             colliderMesh.RecalculateNormals();
@@ -146,11 +143,11 @@ namespace Render
 
             Mesh transparentMesh = new Mesh
             {
-                vertices = meshBuilder.TransparentVertices.ToArray(),
-                triangles = meshBuilder.TransparentTriangles.ToArray(),
-                uv = meshBuilder.TransparentUvs.ToArray()
+                vertices = meshBuilder.TransparentMesh.Vertices.ToArray(),
+                triangles = meshBuilder.TransparentMesh.Triangles.ToArray(),
+                uv = meshBuilder.TransparentMesh.Uvs.ToArray()
             };
-            transparentMesh.SetUVs(1, meshBuilder.TransparentTextureIndices.ToArray());
+            transparentMesh.SetUVs(1, meshBuilder.TransparentMesh.TextureIndices.ToArray());
             
             transparentMesh.RecalculateNormals();
             _transparentMesh.mesh = transparentMesh;

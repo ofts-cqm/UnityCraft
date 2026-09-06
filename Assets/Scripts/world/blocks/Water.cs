@@ -182,7 +182,7 @@ namespace World.blocks
             return center.y - half.y <= p.y + 1.001f;
         }
         private static bool Solid(Chunk c, Vector3Int p, int face) { BlockState b=c.GetBlock(p); return b.Block.IsSolid(b,face); }
-        private static void Add(MeshBuilder b, Vector3[] vertices, Vector3 local, Vector2[] uvs, Vector4 texture, bool reverse=false) { for (int i=0;i<4;i++) vertices[i]+=local; b.AddTransparentQuad(vertices,uvs,texture,reverse); }
+        private static void Add(MeshBuilder b, Vector3[] vertices, Vector3 local, Vector2[] uvs, Vector4 texture, bool reverse=false) { for (int i=0;i<4;i++) vertices[i]+=local; b.AddQuad(vertices,uvs,texture,MeshBuilder.MeshTargets.Transparent,reverse); }
         // Top vertices are ordered x/z as (0,0), (0,1), (1,0), (1,1).
         private static Vector2[] SquareUvs() => new[] { new Vector2(0,0), new Vector2(0,1), new Vector2(1,0), new Vector2(1,1) };
         private static Vector2[] SideUvs(float firstHeight, float secondHeight) => new[] { new Vector2(0,0), new Vector2(1,0), new Vector2(0,firstHeight), new Vector2(1,secondHeight) };
