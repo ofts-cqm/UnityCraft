@@ -53,7 +53,7 @@ namespace world.blocks
             GenerationWater = new Block(BlockProperty.Default(32).SetSolid(false) with { Collide = false });
             Sand = new Block(BlockProperty.Default(5));
             OakLog = new Block(BlockProperty.Pillar(88, 88, 89));
-            OakLeave = new Block(BlockProperty.Default(108) with { ReplaceTerrain = false, Transparent = true, IsSolid = false });
+            OakLeave = new Block(BlockProperty.Default(108) with { ReplaceTerrain = false, IsSolid = false });
             Gravel = new Block(BlockProperty.Default(4));
             WhiteStainedGlass = new Block(BlockProperty.Default(16).SetTransparent(true));
             LightGrayStainedGlass = new Block(BlockProperty.Default(17).SetTransparent(true));
