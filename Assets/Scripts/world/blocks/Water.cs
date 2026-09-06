@@ -1,7 +1,6 @@
 using UnityEngine;
 using render;
 using Render;
-using World;
 using world.blocks;
 
 namespace World.blocks
@@ -9,13 +8,12 @@ namespace World.blocks
     public struct FluidState
     {
         private byte _amount;
-        public byte Amount { get => _amount == 10 ? (byte)8 : _amount; set => _amount = value; }
+        public byte Amount { get => _amount == 10 ? (byte)8 : _amount; init => _amount = value; }
         internal byte RawAmount => _amount;
         public bool IsEmpty => _amount == 0;
         public bool IsSource => _amount == 8;
         public bool IsFalling => _amount == 10;
         public float OwnHeight => Amount / 9f;
-        public Vector3 GetFlow(Chunk chunk, Vector3Int position) => Water.GetFlow(chunk, position);
         public static FluidState Source => new() { Amount = 8 };
         public static FluidState FallingState() => new() { _amount = 10 };
     }
@@ -67,7 +65,7 @@ namespace World.blocks
                     if (current.IsEmpty) return;
                 }
             }
-            Spread(chunk, p, current);
+            Spread(chunk, p);
         }
 
         private static FluidState Recalculate(Chunk chunk, Vector3Int p)
@@ -86,7 +84,7 @@ namespace World.blocks
             return new FluidState { Amount = (byte)best };
         }
 
-        private static void Spread(Chunk chunk, Vector3Int p, FluidState current)
+        private static void Spread(Chunk chunk, Vector3Int p)
         {
             Vector3Int down = p + Vector3Int.down;
             int downwardAmount = ComputeFlowAmount(chunk, p, down, ChunkRenderObject.BottomFace);
@@ -110,7 +108,7 @@ namespace World.blocks
             }
         }
 
-        internal static int ComputeFlowAmount(Chunk chunk, Vector3Int source, Vector3Int target, int sourceFace)
+        private static int ComputeFlowAmount(Chunk chunk, Vector3Int source, Vector3Int target, int sourceFace)
         {
             FluidState from = chunk.GetFluid(source);
             if (from.IsEmpty) return 0;

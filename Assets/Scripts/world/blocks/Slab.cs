@@ -80,9 +80,9 @@ namespace world.blocks
 
         public override bool IsSolid(BlockState state, int face)
         {
-            if (face >= ChunkRenderObject.SideFaceBegin && face <= ChunkRenderObject.SideFaceEnd) return false;
-            if (face == ChunkRenderObject.BottomFace) return state.Data is Parts.Bottom || state.Data is Parts.Both;
-            return state.Data is Parts.Top || state.Data is Parts.Both;
+            if (face is >= ChunkRenderObject.SideFaceBegin and <= ChunkRenderObject.SideFaceEnd) return false;
+            if (face == ChunkRenderObject.BottomFace) return state.Data is Parts.Bottom or Parts.Both;
+            return state.Data is Parts.Top or Parts.Both;
         }
 
         public override (int max, int min) GetFlowingAmountLimit(BlockState state, int face)
@@ -91,10 +91,10 @@ namespace world.blocks
             if (parts == Parts.Both) return base.GetFlowingAmountLimit(state, face);
             if (parts == Parts.Top)
             {
-                if (face >= ChunkRenderObject.SideFaceBegin && face <= ChunkRenderObject.SideFaceEnd) return (4, 0);
+                if (face is >= ChunkRenderObject.SideFaceBegin and <= ChunkRenderObject.SideFaceEnd) return (4, 0);
                 return face == ChunkRenderObject.TopFace ? (0, 10) : (10, 0);
             }
-            if (face >= ChunkRenderObject.SideFaceBegin && face <= ChunkRenderObject.SideFaceEnd) return (9, 5);
+            if (face is >= ChunkRenderObject.SideFaceBegin and <= ChunkRenderObject.SideFaceEnd) return (9, 5);
             return face == ChunkRenderObject.TopFace ? (10, 0) : (0, 10);
         }
 
