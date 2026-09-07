@@ -172,7 +172,7 @@ namespace world.blocks
             return current != SlabPart.Both && placement == SlabPart.Both;
         }
 
-        private static object GetVerticalStateToPlace(int face, Vector3Int position)
+        private object GetVerticalStateToPlace(int face, Vector3Int position)
         {
             SlabPart desired = face switch
             {
