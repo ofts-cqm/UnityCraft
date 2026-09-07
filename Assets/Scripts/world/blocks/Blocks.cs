@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using World.blocks;
 
@@ -6,12 +7,13 @@ namespace world.blocks
 {
     public static class Blocks
     {
-        private record AirBlock() : Block(BlockProperty.Default(0).SetSolid(false) with { Collide = false })
+        private record AirBlock() : Block(0, BlockProperty.Default(0).SetSolid(false) with { Collide = false })
         {
             public override (int max, int min) GetFlowingAmountLimit(BlockState state, int face) => (10, 0);
         }
 
         public static readonly List<Block> BlockList = new();
+        private static readonly Dictionary<int, Block> BlocksById = new();
 
         public static readonly Block Air;
         public static readonly Block Void;
@@ -46,33 +48,46 @@ namespace world.blocks
         static Blocks()
         {
             Air = new AirBlock();
-            Void = new Block(BlockProperty.Default(0));
-            GrassBlock = new Block(BlockProperty.Pillar(3, 0, 2));
-            Dirt = new Block(BlockProperty.Default(0));
-            Stone = new Block(BlockProperty.Default(7));
-            GenerationWater = new Block(BlockProperty.Default(32).SetSolid(false) with { Collide = false });
-            Sand = new Block(BlockProperty.Default(5));
-            OakLog = new Block(BlockProperty.Pillar(88, 88, 89));
-            OakLeave = new Block(BlockProperty.Default(108) with { ReplaceTerrain = false, IsSolid = false });
-            Gravel = new Block(BlockProperty.Default(4));
-            WhiteStainedGlass = new Block(BlockProperty.Default(16).SetTransparent(true));
-            LightGrayStainedGlass = new Block(BlockProperty.Default(17).SetTransparent(true));
-            GrayStainedGlass = new Block(BlockProperty.Default(18).SetTransparent(true));
-            BlackStainedGlass = new Block(BlockProperty.Default(19).SetTransparent(true));
-            BrownStainedGlass = new Block(BlockProperty.Default(20).SetTransparent(true));
-            RedStainedGlass = new Block(BlockProperty.Default(21).SetTransparent(true));
-            OrangeStainedGlass = new Block(BlockProperty.Default(22).SetTransparent(true));
-            YellowStainedGlass = new Block(BlockProperty.Default(23).SetTransparent(true));
-            LimeStainedGlass = new Block(BlockProperty.Default(24).SetTransparent(true));
-            GreenStainedGlass = new Block(BlockProperty.Default(25).SetTransparent(true));
-            CyanStainedGlass = new Block(BlockProperty.Default(26).SetTransparent(true));
-            LightBlueStainedGlass = new Block(BlockProperty.Default(27).SetTransparent(true));
-            BlueStainedGlass = new Block(BlockProperty.Default(28).SetTransparent(true));
-            PurpleStainedGlass = new Block(BlockProperty.Default(29).SetTransparent(true));
-            MagentaStainedGlass = new Block(BlockProperty.Default(30).SetTransparent(true));
-            PinkStainedGlass = new Block(BlockProperty.Default(31).SetTransparent(true));
-            OakPlanks = new Block(BlockProperty.Default(90));
-            OakSlab = new Slab();
+            Void = new Block(1, BlockProperty.Default(0));
+            GrassBlock = new Block(2, BlockProperty.Pillar(3, 0, 2));
+            Dirt = new Block(3, BlockProperty.Default(0));
+            Stone = new Block(4, BlockProperty.Default(7));
+            GenerationWater = new Block(5, BlockProperty.Default(32).SetSolid(false) with { Collide = false });
+            Sand = new Block(6, BlockProperty.Default(5));
+            OakLog = new Block(7, BlockProperty.Pillar(88, 88, 89));
+            OakLeave = new Block(8, BlockProperty.Default(108) with { ReplaceTerrain = false, IsSolid = false });
+            Gravel = new Block(9, BlockProperty.Default(4));
+            WhiteStainedGlass = new Block(10, BlockProperty.Default(16).SetTransparent(true));
+            LightGrayStainedGlass = new Block(11, BlockProperty.Default(17).SetTransparent(true));
+            GrayStainedGlass = new Block(12, BlockProperty.Default(18).SetTransparent(true));
+            BlackStainedGlass = new Block(13, BlockProperty.Default(19).SetTransparent(true));
+            BrownStainedGlass = new Block(14, BlockProperty.Default(20).SetTransparent(true));
+            RedStainedGlass = new Block(15, BlockProperty.Default(21).SetTransparent(true));
+            OrangeStainedGlass = new Block(16, BlockProperty.Default(22).SetTransparent(true));
+            YellowStainedGlass = new Block(17, BlockProperty.Default(23).SetTransparent(true));
+            LimeStainedGlass = new Block(18, BlockProperty.Default(24).SetTransparent(true));
+            GreenStainedGlass = new Block(19, BlockProperty.Default(25).SetTransparent(true));
+            CyanStainedGlass = new Block(20, BlockProperty.Default(26).SetTransparent(true));
+            LightBlueStainedGlass = new Block(21, BlockProperty.Default(27).SetTransparent(true));
+            BlueStainedGlass = new Block(22, BlockProperty.Default(28).SetTransparent(true));
+            PurpleStainedGlass = new Block(23, BlockProperty.Default(29).SetTransparent(true));
+            MagentaStainedGlass = new Block(24, BlockProperty.Default(30).SetTransparent(true));
+            PinkStainedGlass = new Block(25, BlockProperty.Default(31).SetTransparent(true));
+            OakPlanks = new Block(26, BlockProperty.Default(90));
+            OakSlab = new Slab(27);
+        }
+
+        internal static void Register(Block block)
+        {
+            if (BlocksById.ContainsKey(block.BlockId)) throw new InvalidDataException($"Duplicate block ID {block.BlockId}.");
+            BlocksById.Add(block.BlockId, block);
+            BlockList.Add(block);
+        }
+
+        public static bool TryGetById(int blockId, out Block block)
+        {
+            _ = Air; // Ensure the registry's static constructor has completed.
+            return BlocksById.TryGetValue(blockId, out block);
         }
     }
 }

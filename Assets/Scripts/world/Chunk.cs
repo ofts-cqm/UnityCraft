@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using JetBrains.Annotations;
 using UnityEngine;
 using Render;
 using world.blocks;
 using World.blocks;
 using world.generation;
+using world.persistence;
 
 namespace World
 {
@@ -23,6 +25,9 @@ namespace World
         private readonly object[,,] _stateData;
         private readonly FluidState[,,] _fluidData;
         private readonly List<ScheduledFluidTick> _scheduledFluidTicks = new();
+        private long _persistenceRevision;
+        private long _lastSavedRevision;
+        private long _lastQueuedRevision;
 
         private readonly struct ScheduledFluidTick
         {
@@ -33,20 +38,87 @@ namespace World
         }
 
         public Chunk(ChunkCoord coord, World world)
+            : this(coord, world, LoadOrGenerate(coord, world))
+        {
+        }
+
+        internal Chunk(ChunkCoord coord, World world, ChunkSnapshot snapshot)
         {
             ChunkPosition = coord;
-            
             _world = world;
-            _blockData = ChunkGenerator.GenerateChunk(coord);
+            _blockData = new Block[ChunkSize, ChunkHeight, ChunkSize];
             _stateData = new object[ChunkSize, ChunkHeight, ChunkSize];
             _fluidData = new FluidState[ChunkSize, ChunkHeight, ChunkSize];
+
+            if (snapshot == null) InitializeGeneratedData(ChunkGenerator.GenerateChunk(coord));
+            else
+            {
+                try { Hydrate(snapshot); }
+                catch (CorruptSaveException) { throw; }
+                catch (Exception exception)
+                {
+                    throw new CorruptSaveException($"Chunk ({coord.X}, {coord.Z}) contains invalid data.", exception);
+                }
+            }
+
+            for (int i = 0; i < ChunkSectionCount; i++) _renderObjects[i] = new ChunkRenderObject(world, coord, i);
+            if (snapshot != null) ScheduleRestoredFluidTicks();
+        }
+
+        private static ChunkSnapshot LoadOrGenerate(ChunkCoord coord, World world)
+        {
+            return world.Persistence != null && world.Persistence.TryLoadChunk(coord, out ChunkSnapshot snapshot)
+                ? snapshot
+                : null;
+        }
+
+        private void InitializeGeneratedData(Block[,,] generated)
+        {
             for (int x = 0; x < ChunkSize; x++) for (int y = 0; y < ChunkHeight; y++) for (int z = 0; z < ChunkSize; z++)
             {
-                if (_blockData[x, y, z].BlockId != Blocks.GenerationWater.BlockId) continue;
-                _blockData[x, y, z] = Blocks.Air;
-                _fluidData[x, y, z] = FluidState.Source;
+                Block block = generated[x, y, z];
+                if (block.BlockId == Blocks.GenerationWater.BlockId)
+                {
+                    _blockData[x, y, z] = Blocks.Air;
+                    _fluidData[x, y, z] = FluidState.Source;
+                }
+                else _blockData[x, y, z] = block;
             }
-            for (int i = 0; i < ChunkSectionCount; i++) _renderObjects[i] = new ChunkRenderObject(world, coord, i);
+        }
+
+        private void Hydrate(ChunkSnapshot snapshot)
+        {
+            if (!snapshot.Coord.Equals(ChunkPosition)) throw new InvalidDataException("Chunk snapshot coordinates do not match the requested chunk.");
+            bool replacedUnknownContent = false;
+            for (int x = 0; x < ChunkSize; x++) for (int y = 0; y < ChunkHeight; y++) for (int z = 0; z < ChunkSize; z++)
+            {
+                int index = ChunkSnapshot.Index(x, y, z);
+                if (!Blocks.TryGetById(snapshot.BlockIds[index], out Block block))
+                {
+                    // A player may explicitly admit the risk of loading newer content.
+                    // Unknown blocks are intentionally replaced with Air.
+                    block = Blocks.Air;
+                    _stateData[x, y, z] = block.DefaultState;
+                    replacedUnknownContent = true;
+                }
+                else
+                {
+                    if (block.BlockId == Blocks.GenerationWater.BlockId)
+                        throw new InvalidDataException("A save contains the generation-only water marker.");
+                    _stateData[x, y, z] = block.DecodeState(snapshot.StateIds[index]);
+                }
+                _blockData[x, y, z] = block;
+                _fluidData[x, y, z] = new FluidState { Amount = snapshot.FluidAmounts[index] };
+            }
+            // Once the player has accepted the load, the next save makes Air replacement explicit.
+            if (replacedUnknownContent) _persistenceRevision = 1;
+        }
+
+        private void ScheduleRestoredFluidTicks()
+        {
+            for (int x = 0; x < ChunkSize; x++) for (int y = 0; y < ChunkHeight; y++) for (int z = 0; z < ChunkSize; z++)
+                if (!_fluidData[x, y, z].IsEmpty && !_fluidData[x, y, z].IsSource)
+                    ScheduleFluidTick(new Vector3Int(x, y, z), Water.TickDelay);
         }
         
         public bool Active {
@@ -73,6 +145,7 @@ namespace World
             FluidState existingFluid = _fluidData[x, y, z];
             _blockData[x, y, z] = block;
             _stateData[x, y, z] = state;
+            _persistenceRevision++;
             _renderObjects[y / 16].Dirty = true;
             
             if (x == 0) _world.GetChunk(ChunkPosition.Left())?.SetDirty(y);
@@ -117,6 +190,7 @@ namespace World
             if (x < 0 || x >= ChunkSize || z < 0 || z >= ChunkSize) { _world.SetFluid(ChunkPosition.X * ChunkSize + x, y, ChunkPosition.Z * ChunkSize + z, state); return; }
             if (_fluidData[x, y, z].RawAmount == state.RawAmount) return;
             _fluidData[x, y, z] = state;
+            _persistenceRevision++;
             MarkFluidDirty(x, y, z);
             if (schedule)
             {
@@ -215,6 +289,36 @@ namespace World
         public void MarkDirty()
         {
             foreach (ChunkRenderObject obj in _renderObjects) obj.Dirty = true;
+        }
+
+        public bool TryCreatePersistenceSnapshot(out ChunkSnapshot snapshot)
+        {
+            if (_persistenceRevision <= _lastQueuedRevision)
+            {
+                snapshot = null;
+                return false;
+            }
+
+            int[] blocks = new int[ChunkSnapshot.CellCount];
+            int[] states = new int[ChunkSnapshot.CellCount];
+            byte[] fluids = new byte[ChunkSnapshot.CellCount];
+            for (int x = 0; x < ChunkSize; x++) for (int y = 0; y < ChunkHeight; y++) for (int z = 0; z < ChunkSize; z++)
+            {
+                int index = ChunkSnapshot.Index(x, y, z);
+                Block block = _blockData[x, y, z];
+                blocks[index] = block.BlockId;
+                states[index] = block.EncodeState(_stateData[x, y, z] ?? block.DefaultState);
+                fluids[index] = _fluidData[x, y, z].RawAmount;
+            }
+            _lastQueuedRevision = _persistenceRevision;
+            snapshot = new ChunkSnapshot(ChunkPosition, blocks, states, fluids, _persistenceRevision);
+            return true;
+        }
+
+        internal void CompletePersistenceSave(long revision, bool succeeded)
+        {
+            if (succeeded) _lastSavedRevision = Math.Max(_lastSavedRevision, revision);
+            else if (_lastQueuedRevision <= revision) _lastQueuedRevision = _lastSavedRevision;
         }
     }
     

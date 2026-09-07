@@ -4,15 +4,14 @@ namespace world.items
 {
     public abstract class Item
     {
-        private static int _registered;
         public int MaxStack { get; }
         public int ItemId { get; }
         
-        protected Item(int maxStack = 64)
+        protected Item(int itemId, int maxStack = 64)
         {
-            Items.ItemList.Add(this);
-            ItemId = _registered++;
+            ItemId = itemId;
             MaxStack = maxStack;
+            Items.Register(this);
         }
         
         public abstract bool OnUse(World.World world, Vector3Int position, int face);

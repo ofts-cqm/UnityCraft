@@ -12,7 +12,7 @@ namespace world.items
 
         private readonly int _allLayer = LayerMask.GetMask("Ignore Raycast");
 
-        public BlockItem(Block block)
+        public BlockItem(int itemId, Block block) : base(itemId)
         {
             Block = block;
             Sprite = SpriteBaker.BakeToSprite(Block);

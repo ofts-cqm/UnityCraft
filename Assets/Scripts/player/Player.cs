@@ -1,3 +1,4 @@
+using System.IO;
 using JetBrains.Annotations;
 using render;
 using render.screens;
@@ -6,6 +7,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using world.items;
+using world.persistence;
 using World.blocks;
 
 namespace player
@@ -79,6 +81,7 @@ namespace player
         private void Awake()
         {
             Instance = this;
+            InitializeEmptyInventory();
             CreateUnderwaterOverlay();
         }
 
@@ -121,9 +124,54 @@ namespace player
             Cursor.visible = false;
             _defaultLayer = LayerMask.GetMask("Default");
             
-            for (int i = 0; i < inventory.Length; i++) inventory[i] = ItemStack.EmptyStack();
-            
             hotbar.LoadFromPlayer(this);
+        }
+
+        private bool _inventoryInitialized;
+
+        private void InitializeEmptyInventory()
+        {
+            if (_inventoryInitialized) return;
+            for (int i = 0; i < inventory.Length; i++) inventory[i] = ItemStack.EmptyStack();
+            _inventoryInitialized = true;
+        }
+
+        public void ApplyPersistenceSnapshot(PlayerSnapshot snapshot)
+        {
+            if (snapshot == null) throw new System.ArgumentNullException(nameof(snapshot));
+            for (int i = 0; i < inventory.Length; i++)
+            {
+                InventorySlotSnapshot saved = snapshot.Inventory[i];
+                if (!Items.TryGetById(saved.ItemId, out Item item))
+                {
+                    inventory[i] = ItemStack.EmptyStack();
+                    continue;
+                }
+                if (!saved.Infinite && saved.Count > item.MaxStack)
+                    throw new InvalidDataException($"Inventory slot {i} exceeds item {saved.ItemId}'s maximum stack size.");
+                inventory[i] = item.ItemId == Items.Air.ItemId
+                    ? ItemStack.EmptyStack(saved.Infinite)
+                    : new ItemStack(item, saved.Count, saved.Infinite);
+            }
+            _inventoryInitialized = true;
+
+            bool controllerWasEnabled = characterController != null && characterController.enabled;
+            if (controllerWasEnabled) characterController.enabled = false;
+            transform.position = new Vector3(snapshot.X, snapshot.Y, snapshot.Z);
+            if (controllerWasEnabled) characterController.enabled = true;
+        }
+
+        public PlayerSnapshot CreatePersistenceSnapshot()
+        {
+            InitializeEmptyInventory();
+            InventorySlotSnapshot[] slots = new InventorySlotSnapshot[inventory.Length];
+            for (int i = 0; i < inventory.Length; i++)
+            {
+                ItemStack stack = inventory[i];
+                slots[i] = new InventorySlotSnapshot(stack.Item.ItemId, stack.Stack, stack.Infinite);
+            }
+            Vector3 position = transform.position;
+            return new PlayerSnapshot(position.x, position.y, position.z, slots);
         }
 
         public static void PauseGame()
@@ -131,6 +179,7 @@ namespace player
             Cursor.visible = true;
             Cursor.lockState = CursorLockMode.None;
             Paused = true;
+            World.World.Instance?.RequestSave();
         }
 
         public static void ResumeGame()

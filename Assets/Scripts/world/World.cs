@@ -1,10 +1,12 @@
+using System;
 using System.Collections.Generic;
-using System.Threading;
 using JetBrains.Annotations;
+using player;
 using UnityEngine;
 using world.blocks;
 using World.blocks;
 using world.generation;
+using world.persistence;
 
 namespace World
 {
@@ -15,11 +17,15 @@ namespace World
         public Material waterMaterial;
         public Material waterMobileMaterial;
         private const int ViewDistance = 8;
+        private const float AutosaveIntervalSeconds = 30f;
         
         public readonly Dictionary<ChunkCoord, Chunk> ChunkMap = new();
         
         public Transform player;
         public static World Instance;
+        public WorldSaveCoordinator Persistence { get; private set; }
+        public IWorldStorage Storage { get; private set; }
+        public WorldLoadAuthorization LoadAuthorization { get; private set; }
 
         public Material ActiveWaterMaterial => QualitySettings.names[QualitySettings.GetQualityLevel()] == "PC" || waterMobileMaterial == null
             ? waterMaterial
@@ -27,22 +33,70 @@ namespace World
         
         private ChunkCoord _playerLastChunkCoord;
         internal int FluidTick { get; private set; }
+        private Player _playerComponent;
+        private float _nextAutosaveTime;
+        private bool _persistenceReady;
+        private bool _shuttingDown;
+
+        private void Awake()
+        {
+            Instance = this;
+            try
+            {
+                Storage = new FileWorldStorage(Application.persistentDataPath);
+                LoadAuthorization = WorldSession.SelectedWorld;
+                if (LoadAuthorization == null)
+                {
+                    WorldDescriptor descriptor = Storage.CreateWorld(WorldSession.DefaultWorldId, WorldSession.DefaultWorldName);
+                    LoadAuthorization = SaveVersionPolicy.Authorize(descriptor);
+                }
+
+                _playerComponent = player.GetComponent<Player>();
+                if (_playerComponent == null) throw new InvalidOperationException("The World player transform has no Player component.");
+                if (Storage.TryLoadPlayer(LoadAuthorization, out PlayerSnapshot savedPlayer))
+                    _playerComponent.ApplyPersistenceSnapshot(savedPlayer);
+
+                Persistence = new WorldSaveCoordinator(Storage, LoadAuthorization);
+                _persistenceReady = true;
+                _nextAutosaveTime = Time.unscaledTime + AutosaveIntervalSeconds;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError($"Could not open saved world: {exception}");
+                enabled = false;
+                Player.PauseGame();
+            }
+        }
         
         // Start is called once before the first execution of Update after the MonoBehaviour is created
         private void Start()
         {
-            Instance = this;
-            new Thread(ChunkLoader.WorkerLoop).Start();
-            ChunkLoader.SyncLoading = true;
-            CheckViewDistance();
-            ChunkLoader.SyncLoading = false;
+            if (!_persistenceReady) return;
+            try
+            {
+                ChunkLoader.StartWorker();
+                ChunkLoader.SyncLoading = true;
+                CheckViewDistance();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError($"Could not load the initial world area: {exception}");
+                AbortWorldLoad();
+            }
+            finally { ChunkLoader.SyncLoading = false; }
         }
         
         private void Update() {
+            ProcessSaveCompletions();
             if (!new ChunkCoord(player.transform.position).Equals(_playerLastChunkCoord))
                 CheckViewDistance();
             ChunkLoader.ProcessCompletedLoads();
             foreach (Chunk chunk in ChunkMap.Values) chunk.UpdateDirtyRenderObjects();
+            if (Time.unscaledTime >= _nextAutosaveTime)
+            {
+                RequestSave();
+                _nextAutosaveTime = Time.unscaledTime + AutosaveIntervalSeconds;
+            }
         }
 
         private void FixedUpdate()
@@ -70,6 +124,74 @@ namespace World
             foreach (ChunkCoord coord in previouslyActiveChunks) ChunkLoader.UnloadChunk(coord);
             
             foreach (ChunkCoord coord in loadQueue) ChunkLoader.LoadChunk(coord);
+        }
+
+        public void RequestSave()
+        {
+            if (!_persistenceReady || _shuttingDown || Persistence == null) return;
+            if (_playerComponent != null) Persistence.QueuePlayer(_playerComponent.CreatePersistenceSnapshot());
+            foreach (Chunk chunk in ChunkMap.Values) QueueChunkSave(chunk);
+        }
+
+        internal void QueueChunkSave(Chunk chunk)
+        {
+            if (!_persistenceReady || _shuttingDown || Persistence == null || chunk == null) return;
+            if (chunk.TryCreatePersistenceSnapshot(out ChunkSnapshot snapshot)) Persistence.QueueChunk(chunk, snapshot);
+        }
+
+        private void ProcessSaveCompletions()
+        {
+            if (Persistence == null) return;
+            while (Persistence.TryDequeueCompletion(out WorldSaveCoordinator.SaveCompletion completion))
+            {
+                if (completion.Chunk != null) completion.Chunk.CompletePersistenceSave(completion.Revision, completion.Error == null);
+                if (completion.Error != null) Debug.LogError($"Could not save world data: {completion.Error}");
+            }
+        }
+
+        internal void HandleChunkLoadFailure(ChunkCoord coord, Exception exception)
+        {
+            Debug.LogError($"Could not load chunk ({coord.X}, {coord.Z}): {exception}");
+            AbortWorldLoad();
+        }
+
+        private void AbortWorldLoad()
+        {
+            if (_shuttingDown) return;
+            enabled = false;
+            _shuttingDown = true;
+            ChunkLoader.StopWorker();
+            Persistence?.FlushAndStop();
+            ProcessSaveCompletions();
+            _persistenceReady = false;
+            Player.PauseGame();
+        }
+
+        private void OnApplicationPause(bool paused)
+        {
+            if (!paused || !_persistenceReady || _shuttingDown) return;
+            RequestSave();
+            Persistence.Flush();
+            ProcessSaveCompletions();
+        }
+
+        private void OnApplicationQuit() => ShutdownPersistence();
+
+        private void OnDestroy()
+        {
+            ShutdownPersistence();
+            if (Instance == this) Instance = null;
+        }
+
+        private void ShutdownPersistence()
+        {
+            if (!_persistenceReady || _shuttingDown) return;
+            RequestSave();
+            _shuttingDown = true;
+            ChunkLoader.StopWorker();
+            Persistence.FlushAndStop();
+            ProcessSaveCompletions();
+            _persistenceReady = false;
         }
         
         [CanBeNull] public Chunk GetChunk(ChunkCoord coord) => ChunkMap.GetValueOrDefault(coord);
