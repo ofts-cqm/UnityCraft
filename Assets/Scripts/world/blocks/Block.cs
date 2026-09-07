@@ -20,7 +20,7 @@ namespace World.blocks
             Blocks.Register(this);
         }
 
-        private bool ShouldRender(BlockState block, int face)
+        protected bool ShouldRender(BlockState block, int face)
         {
             if (block.Block.Transparent) return block.Block.BlockId != BlockId;
             return !block.Block.IsSolid(block, face);
@@ -46,6 +46,11 @@ namespace World.blocks
         {
             return DefaultState;
         }
+
+        /// <summary>
+        /// Gives stateful blocks a chance to reject a placement that would otherwise replace an instance of themselves.
+        /// </summary>
+        public virtual bool CanPlace(BlockState existing, object placementData) => true;
 
         /// <summary>
         /// Converts runtime block state to the stable numeric representation used by save files.

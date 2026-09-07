@@ -125,10 +125,16 @@ namespace render
 
         public void AddFace(int face, Vector3 position, Block block, CubicModel model, Vector4 texture, MeshTargets targets)
         {
+            AddFace(face, position, block, model, model.UvsLookup, texture, targets);
+        }
+
+        public void AddFace(int face, Vector3 position, Block block, CubicModel model, Vector2[] uvs, Vector4 texture,
+            MeshTargets targets)
+        {
             Vector3[] vertices = new Vector3[4];
             for (int i = 0; i < 4; i++) vertices[i] = model.VerticesLookup[model.TrianglesLookup[face, i]] + position;
 
-            AddQuad(vertices, model.UvsLookup, texture, targets);
+            AddQuad(vertices, uvs, texture, targets);
 
             if ((targets & MeshTargets.Collider) == 0) return;
 
