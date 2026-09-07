@@ -16,6 +16,7 @@ namespace world.blocks
         Both
     }
     
+    // ReSharper disable once NotAccessedPositionalProperty.Global
     public record Slab(int Id) : Block(Id, BlockProperty.Default(90).SetSolid(false), Parts.Bottom)
     {
         private static readonly MeshBuilder.CubicModel TopModel = new(

@@ -26,8 +26,8 @@ namespace World
         public Transform player;
         public static World Instance;
         public WorldSaveCoordinator Persistence { get; private set; }
-        public IWorldStorage Storage { get; private set; }
-        public WorldLoadAuthorization LoadAuthorization { get; private set; }
+        private IWorldStorage Storage { get; set; }
+        private WorldLoadAuthorization LoadAuthorization { get; set; }
 
         public Material ActiveWaterMaterial => QualitySettings.names[QualitySettings.GetQualityLevel()] == "PC" || waterMobileMaterial == null
             ? waterMaterial

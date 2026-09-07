@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.IO;
-using UnityEngine;
 using World.blocks;
 
 namespace world.blocks
@@ -79,8 +78,7 @@ namespace world.blocks
 
         internal static void Register(Block block)
         {
-            if (BlocksById.ContainsKey(block.BlockId)) throw new InvalidDataException($"Duplicate block ID {block.BlockId}.");
-            BlocksById.Add(block.BlockId, block);
+            if (!BlocksById.TryAdd(block.BlockId, block)) throw new InvalidDataException($"Duplicate block ID {block.BlockId}.");
             BlockList.Add(block);
         }
 

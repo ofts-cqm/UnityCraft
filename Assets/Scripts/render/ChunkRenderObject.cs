@@ -37,7 +37,7 @@ namespace Render
 
         private const int ChunkSize = Chunk.ChunkSize;
 
-        public ChunkRenderObject(World.World world, ChunkCoord coord, int index)
+        public ChunkRenderObject(ChunkCoord coord, int index)
         {
             _heightIndex = index * 16;
             _chunkPosition = new Vector3Int(coord.X * ChunkSize, index * 16, coord.Z * ChunkSize);

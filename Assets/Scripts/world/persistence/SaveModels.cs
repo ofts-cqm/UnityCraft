@@ -169,8 +169,8 @@ namespace world.persistence
 
     public class SaveDataException : Exception
     {
-        public SaveDataException(string message) : base(message) { }
-        public SaveDataException(string message, Exception innerException) : base(message, innerException) { }
+        protected SaveDataException(string message) : base(message) { }
+        protected SaveDataException(string message, Exception innerException) : base(message, innerException) { }
     }
 
     public sealed class CorruptSaveException : SaveDataException

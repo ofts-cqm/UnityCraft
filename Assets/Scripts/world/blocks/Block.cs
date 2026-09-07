@@ -9,7 +9,7 @@ namespace World.blocks
     public record Block
     {
         public int BlockId { get; }
-        public BlockProperty Property { get; }
+        private BlockProperty Property { get; }
         public object DefaultState { get; }
 
         public Block(int blockId, BlockProperty property, [CanBeNull] object defaultState = null)

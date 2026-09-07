@@ -8,7 +8,6 @@ namespace world.items
 {
     public static class Items
     {
-        public static readonly List<Item> ItemList = new();
         private static readonly Dictionary<int, Item> ItemsById = new();
         public static readonly List<ItemStack> BuildingBlockList = new();
         public static readonly List<ItemStack> NatureBlockList = new();
@@ -91,9 +90,7 @@ namespace world.items
 
         internal static void Register(Item item)
         {
-            if (ItemsById.ContainsKey(item.ItemId)) throw new InvalidDataException($"Duplicate item ID {item.ItemId}.");
-            ItemsById.Add(item.ItemId, item);
-            ItemList.Add(item);
+            if (!ItemsById.TryAdd(item.ItemId, item)) throw new InvalidDataException($"Duplicate item ID {item.ItemId}.");
         }
 
         public static bool TryGetById(int itemId, out Item item)

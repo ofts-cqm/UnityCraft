@@ -61,7 +61,7 @@ namespace World
                 }
             }
 
-            for (int i = 0; i < ChunkSectionCount; i++) _renderObjects[i] = new ChunkRenderObject(world, coord, i);
+            for (int i = 0; i < ChunkSectionCount; i++) _renderObjects[i] = new ChunkRenderObject(coord, i);
             if (snapshot != null) ScheduleRestoredFluidTicks();
         }
 

@@ -32,7 +32,7 @@ namespace world.generation
         {
             lock (LoadQueueLock)
             {
-                if (_worker != null && _worker.IsAlive) return;
+                if (_worker is { IsAlive: true }) return;
                 _stopping = false;
                 _worker = new Thread(WorkerLoop) { IsBackground = true, Name = "UnityCraft Chunk Loader" };
                 _worker.Start();
@@ -90,11 +90,10 @@ namespace world.generation
             }
 
             // Case 2: It is already being generated or loaded.
-            if (PendingLoad.Contains(coord)) return;
+            if (!PendingLoad.Add(coord)) return;
             
             // Case 3: Enqueue loading request. Initial world loading also uses this path so
             // the loading screen can remain responsive while the full view is prepared.
-            PendingLoad.Add(coord);
 
             // LOCK REQUIRED:
             // The main thread writes to loadQueue while worker threads read it.
@@ -146,8 +145,8 @@ namespace world.generation
                 oldestChunk.DestroyChunk();
             }
         }
-        
-        public static void WorkerLoop()
+
+        private static void WorkerLoop()
         {
             while (true)
             {

@@ -82,6 +82,8 @@ namespace player
         public Hotbar hotbar;
         public readonly ItemStack[] inventory = new ItemStack[36];
         public static Player Instance;
+        private static readonly int Frame = Shader.PropertyToID("_Frame");
+        private static readonly int WaterAtlas = Shader.PropertyToID("_WaterAtlas");
 
         private void Awake()
         {
@@ -306,7 +308,7 @@ namespace player
             int frame = Mathf.FloorToInt(Time.unscaledTime * UnderwaterOverlayFramesPerSecond) % UnderwaterOverlayFrameCount;
             if (frame == _underwaterOverlayFrame) return;
 
-            _underwaterOverlayMaterial.SetFloat("_Frame", WaterAtlasFirstFrame + frame);
+            _underwaterOverlayMaterial.SetFloat(Frame, WaterAtlasFirstFrame + frame);
             _underwaterOverlayFrame = frame;
         }
 
@@ -320,8 +322,8 @@ namespace player
             }
 
             _underwaterOverlayMaterial = new Material(overlayMaterialTemplate);
-            _underwaterOverlayMaterial.SetTexture("_WaterAtlas", atlas);
-            _underwaterOverlayMaterial.SetFloat("_Frame", WaterAtlasFirstFrame);
+            _underwaterOverlayMaterial.SetTexture(WaterAtlas, atlas);
+            _underwaterOverlayMaterial.SetFloat(Frame, WaterAtlasFirstFrame);
 
             GameObject canvasObject = new("Underwater Overlay", typeof(RectTransform), typeof(Canvas));
             Canvas overlayCanvas = canvasObject.GetComponent<Canvas>();

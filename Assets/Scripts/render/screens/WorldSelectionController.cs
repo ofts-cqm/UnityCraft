@@ -388,7 +388,7 @@ namespace render.screens
 
         private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            if (scene.name != GameScenes.WorldSelection || UnityEngine.Object.FindFirstObjectByType<WorldSelectionController>() != null) return;
+            if (scene.name != GameScenes.WorldSelection || UnityEngine.Object.FindAnyObjectByType<WorldSelectionController>() != null) return;
             new GameObject("World Selection Controller").AddComponent<WorldSelectionController>();
         }
     }

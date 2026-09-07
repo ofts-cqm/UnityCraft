@@ -1,5 +1,3 @@
-using UnityEngine;
-
 namespace world.blocks
 {
     public record BlockProperty(bool IsSolid, int[] Texture, bool Collide, bool ReplaceTerrain, bool Transparent)

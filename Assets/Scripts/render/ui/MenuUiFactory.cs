@@ -12,6 +12,9 @@ namespace render.ui
         public static readonly Color PanelColor = new(0.08f, 0.08f, 0.08f, 0.88f);
         public static readonly Color ButtonColor = new(0.34f, 0.34f, 0.34f, 1f);
         public static readonly Color SelectedColor = new(0.48f, 0.48f, 0.48f, 1f);
+        private static readonly int TerrainTextures = Shader.PropertyToID("_TerrainTextures");
+        private static readonly int Atlas = Shader.PropertyToID("_Atlas");
+        private static readonly int Slice = Shader.PropertyToID("_Slice");
 
         public static Canvas CreateCanvas(string name, int sortingOrder = 0)
         {
@@ -29,8 +32,8 @@ namespace render.ui
 
         public static void EnsureEventSystem()
         {
-            if (UnityEngine.Object.FindFirstObjectByType<EventSystem>() != null) return;
-            new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
+            if (UnityEngine.Object.FindAnyObjectByType<EventSystem>() != null) return;
+            _ = new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
         }
 
         public static Material CreateAtlasMaterial(int slice)
@@ -38,12 +41,12 @@ namespace render.ui
             Material terrainMaterial = Resources.Load<Material>("VoxelMaterial");
             Shader shader = Shader.Find("UnityCraft/UI/Atlas Tile");
             if (terrainMaterial == null || shader == null) return null;
-            Texture atlas = terrainMaterial.GetTexture("_TerrainTextures");
+            Texture atlas = terrainMaterial.GetTexture(TerrainTextures);
             if (atlas == null) return null;
 
             Material material = new(shader);
-            material.SetTexture("_Atlas", atlas);
-            material.SetFloat("_Slice", slice);
+            material.SetTexture(Atlas, atlas);
+            material.SetFloat(Slice, slice);
             return material;
         }
 
@@ -81,7 +84,7 @@ namespace render.ui
             text.fontSize = size;
             text.alignment = alignment;
             text.color = Color.white;
-            text.enableWordWrapping = true;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
             return text;
         }
 
@@ -100,7 +103,7 @@ namespace render.ui
             button.colors = colors;
             if (onClick != null) button.onClick.AddListener(() => onClick());
 
-            TextMeshProUGUI text = CreateText(button.transform, "Label", label, 24, TextAlignmentOptions.Center);
+            TextMeshProUGUI text = CreateText(button.transform, "Label", label, 24);
             Stretch(text.rectTransform, 8, 8, 4, 4);
             return button;
         }
@@ -118,7 +121,7 @@ namespace render.ui
 
             TextMeshProUGUI value = CreateText(viewport, "Text", string.Empty, 23, TextAlignmentOptions.MidlineLeft);
             Stretch(value.rectTransform);
-            value.enableWordWrapping = false;
+            value.textWrappingMode = TextWrappingModes.NoWrap;
 
             TextMeshProUGUI hint = CreateText(viewport, "Placeholder", placeholder, 23, TextAlignmentOptions.MidlineLeft);
             Stretch(hint.rectTransform);

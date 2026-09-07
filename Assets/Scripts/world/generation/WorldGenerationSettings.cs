@@ -7,7 +7,7 @@ namespace world.generation
 {
     public readonly struct WorldGenerationSettings : IEquatable<WorldGenerationSettings>
     {
-        public string WorldSeed { get; }
+        private string WorldSeed { get; }
         public int ContinentalSeed { get; }
         public int HeightSeed { get; }
         public int FeatureSeed { get; }
