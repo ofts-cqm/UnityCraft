@@ -11,8 +11,6 @@ namespace world.persistence
 {
     public interface IWorldStorage
     {
-        IReadOnlyList<string> ListWorldIds();
-        WorldDescriptor CreateWorld(string worldId, string displayName, string worldSeed = null);
         WorldDescriptor ReadWorldDescriptor(string worldId);
         void UpdateWorldVersion(string worldId, SaveVersion version);
         bool TryLoadPlayer(WorldLoadAuthorization authorization, out PlayerSnapshot snapshot);
