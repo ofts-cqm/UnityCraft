@@ -15,10 +15,11 @@ namespace world.generation
         private const float Root = 1/5f;
         private const int SeaLevel = 64;
 
-        private static readonly PerlinNoise ContinentalNoise = new(114514, FirstLevelFrequency, new[]{ 3, 1, 0, 0, 1 });
-        private static readonly PerlinNoise HeightNoise = new(1919810, SecondLevelFrequency, new[] { 3, 1, 0, 0, 1 });
-        private static readonly PerlinNoise FeatureNoise = new(6767, FeatureFrequency, new[] { 1, 1, 4, 2 });
-        private static readonly PerlinNoise TemperatureNoise = new(7676, TemperatureFrequency, new[] { 5, 3, 0, 0, 1, 1, 1 });
+        private static PerlinNoise ContinentalNoise;
+        private static PerlinNoise HeightNoise;
+        private static PerlinNoise FeatureNoise;
+        private static PerlinNoise TemperatureNoise;
+        private static bool _initialized;
         
         private static readonly Dictionary<ChunkCoord, List<BlockState>> _outOfBoundsStates = new();
 
@@ -33,6 +34,17 @@ namespace world.generation
         
         public record ChunkGenerationContext(Block[,,] Blocks, int[,] HeightMap, float[,] Height, float[,] Continental, float[,] Temperature, BiomeEnum[,] Biome);
 
+        public static void Initialize(WorldGenerationSettings settings)
+        {
+            ContinentalNoise = new PerlinNoise(settings.ContinentalSeed, FirstLevelFrequency, new[] { 3, 1, 0, 0, 1 });
+            HeightNoise = new PerlinNoise(settings.HeightSeed, SecondLevelFrequency, new[] { 3, 1, 0, 0, 1 });
+            FeatureNoise = new PerlinNoise(settings.FeatureSeed, FeatureFrequency, new[] { 1, 1, 4, 2 });
+            TemperatureNoise = new PerlinNoise(settings.TemperatureSeed, TemperatureFrequency, new[] { 5, 3, 0, 0, 1, 1, 1 });
+            _outOfBoundsStates.Clear();
+            StructureGenerator.Initialize(settings);
+            _initialized = true;
+        }
+
         private static float BiasNoise(float noise)
         {
             return noise > 0 ? Mathf.Pow(noise, Root) : -Mathf.Pow(-noise, Root);
@@ -40,6 +52,7 @@ namespace world.generation
 
         public static Block[,,] GenerateChunk(ChunkCoord chunk)
         {
+            if (!_initialized) throw new System.InvalidOperationException("ChunkGenerator must be initialized with the selected world's generation settings.");
             ChunkGenerationContext context = GenerateNoise(chunk.X, chunk.Z);
             GenerateFromHeightMap(context);
             PlaceOutOfBoundBlocks(context.Blocks, chunk);

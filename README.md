@@ -8,6 +8,8 @@ Currently, we have the following features ready:
 
 - Movement (WASD & fly)
 - Perlin Noise chunk generation
+- Seeded world creation and world selection
+- Persistent world, chunk, player, and inventory saves
 - Biome generation based on continentality and temperature
 - Async chunk loading
 - Water rendering
@@ -16,7 +18,6 @@ Currently, we have the following features ready:
 
 *The following features are planned:*
 
-- Saving & save selection
 - Inventory
 - More blocks
 

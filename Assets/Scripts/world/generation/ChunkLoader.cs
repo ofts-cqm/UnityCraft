@@ -24,7 +24,6 @@ namespace world.generation
         private static bool _stopping;
 
         private const int MaxInactiveChunks = 20;
-        public static bool SyncLoading = false;
         
         public static bool TryGetInactiveChunk(ChunkCoord coord, out Chunk chunk) => InactiveMap.TryGetValue(coord, out chunk);
         public static bool TryGetQueuedChunk(ChunkCoord coord, out Chunk chunk) => CompletedMap.TryGetValue(coord, out chunk);
@@ -93,22 +92,8 @@ namespace world.generation
             // Case 2: It is already being generated or loaded.
             if (PendingLoad.Contains(coord)) return;
             
-            // Case 3: Enqueue Loading Request
-            // If Sync Loading is required
-            if(SyncLoading)
-            {
-                Chunk newChunk = new Chunk(coord, World.World.Instance);
-                newChunk.FinalizeLoading();
-                World.World.Instance.ChunkMap.Add(coord, newChunk);
-                
-                World.World.Instance.GetChunk(coord.Left())?.MarkDirty();
-                World.World.Instance.GetChunk(coord.Right())?.MarkDirty();
-                World.World.Instance.GetChunk(coord.Up())?.MarkDirty();
-                World.World.Instance.GetChunk(coord.Down())?.MarkDirty();
-                WakeFluidBorders(newChunk);
-                return;
-            }
-            
+            // Case 3: Enqueue loading request. Initial world loading also uses this path so
+            // the loading screen can remain responsive while the full view is prepared.
             PendingLoad.Add(coord);
 
             // LOCK REQUIRED:

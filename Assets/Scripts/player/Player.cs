@@ -27,6 +27,10 @@ namespace player
         private InputAction _interactAction;
         private InputAction _jumpAction;
         private InputAction _sneakAction;
+        private InputAction _sprintAction;
+        private InputAction _inventoryAction;
+        private InputAction _sprintPendingAction;
+        private InputAction _pauseAction;
         
         private int _defaultLayer;
         
@@ -47,6 +51,7 @@ namespace player
         private bool _sprinting;
         private bool _jumping;
         private bool _flying;
+        private bool _gameplayReady;
         
         private float _sprintLastClickTime;
         private float _flyLastClickTime;
@@ -81,6 +86,9 @@ namespace player
         private void Awake()
         {
             Instance = this;
+            Paused = false;
+            CurrentScreen = null;
+            Time.timeScale = 1f;
             InitializeEmptyInventory();
             CreateUnderwaterOverlay();
         }
@@ -93,35 +101,17 @@ namespace player
             _interactAction = InputSystem.actions.FindAction("Interact");
             _jumpAction = InputSystem.actions.FindAction("Jump");
             _sneakAction = InputSystem.actions.FindAction("Sneak");
-            InputSystem.actions.FindAction("Sprint").performed += _ => _sprinting = true;
-            InputSystem.actions.FindAction("Inventory").performed += _ => InventoryScreen.Instance.OpenMenu();
-            InputSystem.actions.FindAction("SprintPending").started += _ =>
-            {
-                float timeSinceLastClick = Time.time - _sprintLastClickTime;
-                if (timeSinceLastClick <= DoubleClickDelay) _sprinting = true;
-                _sprintLastClickTime = Time.time;
-            };
-            InputSystem.actions.FindAction("Jump").started += _ =>
-            {
-                // jump
-                if (!_flying && (characterController.isGrounded || IsInWater())) _jumping = true;
-                
-                // fly check
-                float timeSinceLastClick = Time.time - _flyLastClickTime;
-                if (timeSinceLastClick <= DoubleClickDelay) _flying = !_flying;
-
-                if (!_flying) _verticalMomentum = 0;
-                else _jumping = false;
-                
-                _flyLastClickTime = Time.time;
-            };
-            InputSystem.actions.FindAction("Pause").started += _ =>
-            {
-                if (Paused) ResumeGame();
-                else PauseGame();
-            };
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
+            _sprintAction = InputSystem.actions.FindAction("Sprint");
+            _inventoryAction = InputSystem.actions.FindAction("Inventory");
+            _sprintPendingAction = InputSystem.actions.FindAction("SprintPending");
+            _pauseAction = InputSystem.actions.FindAction("Pause");
+            _sprintAction.performed += OnSprintPerformed;
+            _inventoryAction.performed += OnInventoryPerformed;
+            _sprintPendingAction.started += OnSprintPendingStarted;
+            _jumpAction.started += OnJumpStarted;
+            _pauseAction.started += OnPauseStarted;
+            Cursor.lockState = _gameplayReady ? CursorLockMode.Locked : CursorLockMode.None;
+            Cursor.visible = !_gameplayReady;
             _defaultLayer = LayerMask.GetMask("Default");
             
             hotbar.LoadFromPlayer(this);
@@ -176,23 +166,37 @@ namespace player
 
         public static void PauseGame()
         {
+            if (Paused) return;
             Cursor.visible = true;
             Cursor.lockState = CursorLockMode.None;
             Paused = true;
+            Time.timeScale = 0f;
             World.World.Instance?.RequestSave();
         }
 
         public static void ResumeGame()
         {
-            Cursor.visible = false;
-            Cursor.lockState = CursorLockMode.Locked;
             Paused = false;
-            if (CurrentScreen != null) CurrentScreen.CloseMenu();
+            Time.timeScale = 1f;
+            bool ready = Instance != null && Instance._gameplayReady;
+            Cursor.visible = !ready;
+            Cursor.lockState = ready ? CursorLockMode.Locked : CursorLockMode.None;
+        }
+
+        public void SetGameplayReady(bool ready)
+        {
+            _gameplayReady = ready;
+            if (ready) ResumeGame();
+            else
+            {
+                Cursor.visible = true;
+                Cursor.lockState = CursorLockMode.None;
+            }
         }
 
         private void Update()
         {
-            if (Paused) return;
+            if (!_gameplayReady || Paused) return;
             UpdateRotation();
             UpdateTargetBlock();
         }
@@ -207,7 +211,7 @@ namespace player
 
         private void FixedUpdate()
         {
-            if (Paused) return;
+            if (!_gameplayReady || Paused) return;
             _tick++;
             UpdateInput();
             UpdateInteraction();
@@ -340,9 +344,57 @@ namespace player
             _underwaterOverlay.enabled = false;
         }
 
+        private void OnSprintPerformed(InputAction.CallbackContext context)
+        {
+            if (_gameplayReady && !Paused) _sprinting = true;
+        }
+
+        private void OnInventoryPerformed(InputAction.CallbackContext context)
+        {
+            if (_gameplayReady && !Paused && InventoryScreen.Instance != null) InventoryScreen.Instance.OpenMenu();
+        }
+
+        private void OnSprintPendingStarted(InputAction.CallbackContext context)
+        {
+            if (!_gameplayReady || Paused) return;
+            float timeSinceLastClick = Time.time - _sprintLastClickTime;
+            if (timeSinceLastClick <= DoubleClickDelay) _sprinting = true;
+            _sprintLastClickTime = Time.time;
+        }
+
+        private void OnJumpStarted(InputAction.CallbackContext context)
+        {
+            if (!_gameplayReady || Paused) return;
+            if (!_flying && (characterController.isGrounded || IsInWater())) _jumping = true;
+            float timeSinceLastClick = Time.time - _flyLastClickTime;
+            if (timeSinceLastClick <= DoubleClickDelay) _flying = !_flying;
+            if (!_flying) _verticalMomentum = 0;
+            else _jumping = false;
+            _flyLastClickTime = Time.time;
+        }
+
+        private void OnPauseStarted(InputAction.CallbackContext context)
+        {
+            if (!_gameplayReady) return;
+            if (CurrentScreen != null)
+            {
+                CurrentScreen.CloseMenu();
+                return;
+            }
+            if (GameplayMenuController.Instance == null) return;
+            if (GameplayMenuController.Instance.PauseVisible) GameplayMenuController.Instance.Resume();
+            else GameplayMenuController.Instance.ShowPause();
+        }
+
         private void OnDestroy()
         {
+            if (_sprintAction != null) _sprintAction.performed -= OnSprintPerformed;
+            if (_inventoryAction != null) _inventoryAction.performed -= OnInventoryPerformed;
+            if (_sprintPendingAction != null) _sprintPendingAction.started -= OnSprintPendingStarted;
+            if (_jumpAction != null) _jumpAction.started -= OnJumpStarted;
+            if (_pauseAction != null) _pauseAction.started -= OnPauseStarted;
             if (_underwaterOverlayMaterial != null) Destroy(_underwaterOverlayMaterial);
+            if (Instance == this) Instance = null;
         }
 
         private GameObject _lastHitObject;

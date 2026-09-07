@@ -4,7 +4,9 @@ using System.Linq;
 using NUnit.Framework;
 using world.blocks;
 using world.persistence;
+using world.generation;
 using World;
+using UnityEngine;
 
 namespace Tests.Editor
 {
@@ -52,6 +54,70 @@ namespace Tests.Editor
 
             WorldDescriptor otherSchema = Descriptor(SaveVersionPolicy.Current.Schema + 1, SaveVersionPolicy.Current.Content);
             Assert.Throws<IncompatibleSaveException>(() => SaveVersionPolicy.Authorize(otherSchema, true));
+        }
+
+        [Test]
+        public void WorldCreationPersistsProvidedAndRandomSeeds()
+        {
+            WorldDescriptor provided = _storage.CreateWorld("seeded-world", "Seeded World", "Glacier Village");
+            Assert.AreEqual("Glacier Village", provided.worldSeed);
+            Assert.AreEqual(SaveVersionPolicy.Current.Content, provided.contentVersion);
+            Assert.AreEqual("Glacier Village", _storage.ReadWorldDescriptor("seeded-world").worldSeed);
+
+            WorldDescriptor random = _storage.CreateWorld("random-world", "Random World", "   ");
+            Assert.IsFalse(string.IsNullOrWhiteSpace(random.worldSeed));
+            Assert.IsTrue(long.TryParse(random.worldSeed, out _));
+        }
+
+        [Test]
+        public void SeedExpansionIsStableAndSeparatesNoiseSources()
+        {
+            WorldGenerationSettings first = WorldGenerationSettings.FromSeed("same seed");
+            WorldGenerationSettings second = WorldGenerationSettings.FromSeed("same seed");
+            WorldGenerationSettings different = WorldGenerationSettings.FromSeed("different seed");
+
+            Assert.AreEqual(first, second);
+            Assert.AreNotEqual(first, different);
+            int[] derived =
+            {
+                first.ContinentalSeed, first.HeightSeed, first.FeatureSeed, first.TemperatureSeed,
+                first.StructureSeed, first.StructureReplaceSeed
+            };
+            Assert.AreEqual(derived.Length, derived.Distinct().Count());
+        }
+
+        [Test]
+        public void LegacyDescriptorReceivesOnePersistentSeedAndContentUpgrade()
+        {
+            const string worldId = "legacy-world";
+            string worldDirectory = Path.Combine(_temporaryRoot, "saves", worldId);
+            Directory.CreateDirectory(worldDirectory);
+            WorldDescriptor legacy = new()
+            {
+                worldId = worldId,
+                displayName = "Legacy World",
+                schemaVersion = SaveVersionPolicy.Current.Schema,
+                contentVersion = 1,
+                createdUtc = "2024-01-01T00:00:00.0000000Z",
+                lastSavedUtc = "2024-02-01T00:00:00.0000000Z"
+            };
+            File.WriteAllText(Path.Combine(worldDirectory, "world.json"), JsonUtility.ToJson(legacy, true));
+
+            WorldDescriptor migrated = _storage.ReadWorldDescriptor(worldId);
+            WorldDescriptor reread = _storage.ReadWorldDescriptor(worldId);
+            Assert.AreEqual(SaveVersionPolicy.Current.Content, migrated.contentVersion);
+            Assert.IsFalse(string.IsNullOrWhiteSpace(migrated.worldSeed));
+            Assert.AreEqual(migrated.worldSeed, reread.worldSeed);
+            Assert.AreEqual(legacy.createdUtc, migrated.createdUtc);
+            Assert.AreEqual(legacy.lastSavedUtc, migrated.lastSavedUtc);
+        }
+
+        [Test]
+        public void WorldIdsAreCleanAndCollisionSafe()
+        {
+            Assert.AreEqual("my-cool-world", WorldIdUtility.FromDisplayName("  My Cool_World!!  "));
+            Assert.AreEqual("world", WorldIdUtility.FromDisplayName("世界"));
+            Assert.AreEqual("my-world-3", WorldIdUtility.CreateUnique("My World", new[] { "my-world", "my-world-2" }));
         }
 
         [Test]
@@ -153,7 +219,8 @@ namespace Tests.Editor
                 schemaVersion = schema,
                 contentVersion = content,
                 createdUtc = DateTime.UtcNow.ToString("O"),
-                lastSavedUtc = DateTime.UtcNow.ToString("O")
+                lastSavedUtc = DateTime.UtcNow.ToString("O"),
+                worldSeed = "version-test-seed"
             };
         }
     }

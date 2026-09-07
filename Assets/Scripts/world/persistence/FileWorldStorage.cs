@@ -5,13 +5,14 @@ using System.IO.Compression;
 using System.Text;
 using UnityEngine;
 using World;
+using world.generation;
 
 namespace world.persistence
 {
     public interface IWorldStorage
     {
         IReadOnlyList<string> ListWorldIds();
-        WorldDescriptor CreateWorld(string worldId, string displayName);
+        WorldDescriptor CreateWorld(string worldId, string displayName, string worldSeed = null);
         WorldDescriptor ReadWorldDescriptor(string worldId);
         void UpdateWorldVersion(string worldId, SaveVersion version);
         bool TryLoadPlayer(WorldLoadAuthorization authorization, out PlayerSnapshot snapshot);
@@ -44,9 +45,11 @@ namespace world.persistence
             return result;
         }
 
-        public WorldDescriptor CreateWorld(string worldId, string displayName)
+        public WorldDescriptor CreateWorld(string worldId, string displayName, string worldSeed = null)
         {
             ValidateWorldId(worldId);
+            displayName = displayName?.Trim();
+            if (string.IsNullOrWhiteSpace(displayName)) throw new ArgumentException("A display name is required.", nameof(displayName));
             string descriptorPath = DescriptorPath(worldId);
             if (File.Exists(descriptorPath)) return ReadWorldDescriptor(worldId);
 
@@ -58,7 +61,8 @@ namespace world.persistence
                 schemaVersion = SaveVersionPolicy.Current.Schema,
                 contentVersion = SaveVersionPolicy.Current.Content,
                 createdUtc = now,
-                lastSavedUtc = now
+                lastSavedUtc = now,
+                worldSeed = WorldGenerationSettings.NormalizeOrCreateSeed(worldSeed)
             };
             WriteDescriptor(descriptor);
             return descriptor;
@@ -75,6 +79,18 @@ namespace world.persistence
                 if (descriptor == null || descriptor.magic != DescriptorMagic || descriptor.worldId != worldId ||
                     string.IsNullOrWhiteSpace(descriptor.displayName) || descriptor.schemaVersion <= 0 || descriptor.contentVersion <= 0)
                     throw new CorruptSaveException($"World descriptor '{path}' is invalid.");
+
+                if (string.IsNullOrWhiteSpace(descriptor.worldSeed))
+                {
+                    if (descriptor.schemaVersion != SaveVersionPolicy.Current.Schema || descriptor.contentVersion > 1)
+                        throw new CorruptSaveException($"World descriptor '{path}' does not contain a generation seed.");
+
+                    // Content version 1 predated seeded world descriptors. Assign the seed once and
+                    // persist it without changing the displayed last-save time.
+                    descriptor.worldSeed = WorldGenerationSettings.NormalizeOrCreateSeed(null);
+                    descriptor.contentVersion = SaveVersionPolicy.Current.Content;
+                    WriteDescriptor(descriptor);
+                }
                 return descriptor;
             }
             catch (SaveDataException) { throw; }

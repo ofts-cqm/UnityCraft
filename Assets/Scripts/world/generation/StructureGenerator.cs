@@ -6,8 +6,14 @@ namespace world.generation
 {
     public static class StructureGenerator
     {
-        private static readonly PerlinNoise StructureNoise = new(12345, 0.5f, new[]{ 1 });
-        private static readonly PerlinNoise ReplaceNoise = new(54321, 0.5f, new[]{ 1 });
+        private static PerlinNoise StructureNoise;
+        private static PerlinNoise ReplaceNoise;
+
+        public static void Initialize(WorldGenerationSettings settings)
+        {
+            StructureNoise = new PerlinNoise(settings.StructureSeed, 0.5f, new[] { 1 });
+            ReplaceNoise = new PerlinNoise(settings.StructureReplaceSeed, 0.5f, new[] { 1 });
+        }
 
         private static readonly Block[,,] TreeStructure = {
             {

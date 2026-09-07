@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using JetBrains.Annotations;
 using player;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using world.blocks;
 using World.blocks;
 using world.generation;
 using world.persistence;
+using render.screens;
 
 namespace World
 {
@@ -37,22 +39,28 @@ namespace World
         private float _nextAutosaveTime;
         private bool _persistenceReady;
         private bool _shuttingDown;
+        private bool _gameplayReady;
+        private HashSet<ChunkCoord> _initialChunks;
+        private GameplayMenuController _menus;
+        private Exception _lastPersistenceError;
 
         private void Awake()
         {
             Instance = this;
             try
             {
-                Storage = new FileWorldStorage(Application.persistentDataPath);
-                LoadAuthorization = WorldSession.SelectedWorld;
-                if (LoadAuthorization == null)
-                {
-                    WorldDescriptor descriptor = Storage.CreateWorld(WorldSession.DefaultWorldId, WorldSession.DefaultWorldName);
-                    LoadAuthorization = SaveVersionPolicy.Authorize(descriptor);
-                }
-
                 _playerComponent = player.GetComponent<Player>();
                 if (_playerComponent == null) throw new InvalidOperationException("The World player transform has no Player component.");
+                _playerComponent.SetGameplayReady(false);
+                _menus = GameplayMenuController.Create(this);
+
+                Storage = new FileWorldStorage(Application.persistentDataPath);
+                LoadAuthorization = WorldSession.SelectedWorld;
+                if (LoadAuthorization == null) throw new InvalidOperationException("Select a world before opening gameplay.");
+
+                WorldDescriptor descriptor = Storage.ReadWorldDescriptor(LoadAuthorization.WorldId);
+                ChunkGenerator.Initialize(WorldGenerationSettings.FromSeed(descriptor.worldSeed));
+
                 if (Storage.TryLoadPlayer(LoadAuthorization, out PlayerSnapshot savedPlayer))
                     _playerComponent.ApplyPersistenceSnapshot(savedPlayer);
 
@@ -63,8 +71,7 @@ namespace World
             catch (Exception exception)
             {
                 Debug.LogError($"Could not open saved world: {exception}");
-                enabled = false;
-                Player.PauseGame();
+                AbortWorldLoad(exception.Message);
             }
         }
         
@@ -75,23 +82,33 @@ namespace World
             try
             {
                 ChunkLoader.StartWorker();
-                ChunkLoader.SyncLoading = true;
-                CheckViewDistance();
+                BeginInitialLoad();
             }
             catch (Exception exception)
             {
                 Debug.LogError($"Could not load the initial world area: {exception}");
-                AbortWorldLoad();
+                AbortWorldLoad(exception.Message);
             }
-            finally { ChunkLoader.SyncLoading = false; }
         }
         
         private void Update() {
+            if (!_persistenceReady || _shuttingDown) return;
             ProcessSaveCompletions();
-            if (!new ChunkCoord(player.transform.position).Equals(_playerLastChunkCoord))
-                CheckViewDistance();
             ChunkLoader.ProcessCompletedLoads();
+            if (_shuttingDown) return;
             foreach (Chunk chunk in ChunkMap.Values) chunk.UpdateDirtyRenderObjects();
+
+            if (!_gameplayReady)
+            {
+                int loaded = 0;
+                foreach (ChunkCoord coord in _initialChunks)
+                    if (ChunkMap.ContainsKey(coord)) loaded++;
+                _menus.SetLoadingProgress(loaded, _initialChunks.Count);
+                if (loaded == _initialChunks.Count) CompleteInitialLoad();
+                return;
+            }
+
+            if (!new ChunkCoord(player.transform.position).Equals(_playerLastChunkCoord)) CheckViewDistance();
             if (Time.unscaledTime >= _nextAutosaveTime)
             {
                 RequestSave();
@@ -101,8 +118,32 @@ namespace World
 
         private void FixedUpdate()
         {
+            if (!_gameplayReady || _shuttingDown) return;
             FluidTick++;
             foreach (Chunk chunk in ChunkMap.Values) chunk.TickFluid(FluidTick);
+        }
+
+        private void BeginInitialLoad()
+        {
+            ChunkCoord centerCoord = new(player.transform.position);
+            _playerLastChunkCoord = centerCoord;
+            _initialChunks = new HashSet<ChunkCoord>();
+            for (int x = centerCoord.X - ViewDistance; x <= centerCoord.X + ViewDistance; x++)
+            for (int z = centerCoord.Z - ViewDistance; z <= centerCoord.Z + ViewDistance; z++)
+            {
+                ChunkCoord coord = new(x, z);
+                _initialChunks.Add(coord);
+                ChunkLoader.LoadChunk(coord);
+            }
+            _menus.SetLoadingProgress(0, _initialChunks.Count);
+        }
+
+        private void CompleteInitialLoad()
+        {
+            _gameplayReady = true;
+            _nextAutosaveTime = Time.unscaledTime + AutosaveIntervalSeconds;
+            _menus.CompleteLoading();
+            _playerComponent.SetGameplayReady(true);
         }
 
         private void CheckViewDistance()
@@ -145,17 +186,21 @@ namespace World
             while (Persistence.TryDequeueCompletion(out WorldSaveCoordinator.SaveCompletion completion))
             {
                 if (completion.Chunk != null) completion.Chunk.CompletePersistenceSave(completion.Revision, completion.Error == null);
-                if (completion.Error != null) Debug.LogError($"Could not save world data: {completion.Error}");
+                if (completion.Error != null)
+                {
+                    _lastPersistenceError = completion.Error;
+                    Debug.LogError($"Could not save world data: {completion.Error}");
+                }
             }
         }
 
         internal void HandleChunkLoadFailure(ChunkCoord coord, Exception exception)
         {
             Debug.LogError($"Could not load chunk ({coord.X}, {coord.Z}): {exception}");
-            AbortWorldLoad();
+            AbortWorldLoad($"Chunk ({coord.X}, {coord.Z}) could not be loaded. {exception.Message}");
         }
 
-        private void AbortWorldLoad()
+        private void AbortWorldLoad(string message)
         {
             if (_shuttingDown) return;
             enabled = false;
@@ -164,7 +209,30 @@ namespace World
             Persistence?.FlushAndStop();
             ProcessSaveCompletions();
             _persistenceReady = false;
-            Player.PauseGame();
+            WorldSession.ReportError(message);
+            WorldSession.ClearSelection();
+            Time.timeScale = 1f;
+            SceneManager.LoadScene(GameScenes.WorldSelection);
+        }
+
+        public void SaveAndQuitToWorldSelection()
+        {
+            if (_shuttingDown) return;
+            string error = null;
+            try
+            {
+                ShutdownPersistence();
+                if (_lastPersistenceError != null) error = $"The world could not be fully saved. {_lastPersistenceError.Message}";
+            }
+            catch (Exception exception)
+            {
+                error = $"The world could not be fully saved. {exception.Message}";
+                Debug.LogError(error);
+            }
+            WorldSession.ClearSelection();
+            if (error != null) WorldSession.ReportError(error);
+            Time.timeScale = 1f;
+            SceneManager.LoadScene(GameScenes.WorldSelection);
         }
 
         private void OnApplicationPause(bool paused)

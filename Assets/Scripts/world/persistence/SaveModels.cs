@@ -29,7 +29,7 @@ namespace world.persistence
 
     public static class SaveVersionPolicy
     {
-        public static readonly SaveVersion Current = new(1, 1);
+        public static readonly SaveVersion Current = new(1, 2);
 
         public static VersionCompatibility Validate(SaveVersion savedVersion)
         {
@@ -62,6 +62,7 @@ namespace world.persistence
         public int contentVersion;
         public string createdUtc;
         public string lastSavedUtc;
+        public string worldSeed;
 
         public SaveVersion Version => new(schemaVersion, contentVersion);
         public string WorldId => worldId;
@@ -84,15 +85,10 @@ namespace world.persistence
         }
     }
 
-    /// <summary>
-    /// Future world-selection UI can set an authorization before loading the gameplay scene.
-    /// With no selection, the gameplay scene opens the built-in "My World" placeholder.
-    /// </summary>
     public static class WorldSession
     {
-        public const string DefaultWorldId = "my-world";
-        public const string DefaultWorldName = "My World";
         public static WorldLoadAuthorization SelectedWorld { get; private set; }
+        private static string _pendingError;
 
         public static void Select(WorldLoadAuthorization authorization)
         {
@@ -100,6 +96,18 @@ namespace world.persistence
         }
 
         public static void ClearSelection() => SelectedWorld = null;
+
+        public static void ReportError(string message)
+        {
+            _pendingError = message;
+        }
+
+        public static string ConsumeError()
+        {
+            string message = _pendingError;
+            _pendingError = null;
+            return message;
+        }
     }
 
     public readonly struct InventorySlotSnapshot
