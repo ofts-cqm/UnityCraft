@@ -6,8 +6,14 @@ namespace world.generation
 {
     public static class StructureGenerator
     {
-        private static readonly PerlinNoise StructureNoise = new(12345, 0.5f, new[]{ 1 });
-        private static readonly PerlinNoise ReplaceNoise = new(54321, 0.5f, new[]{ 1 });
+        private static PerlinNoise _structureNoise;
+        private static PerlinNoise _replaceNoise;
+
+        public static void Initialize(WorldGenerationSettings settings)
+        {
+            _structureNoise = new PerlinNoise(settings.StructureSeed, 0.5f, new[] { 1 });
+            _replaceNoise = new PerlinNoise(settings.StructureReplaceSeed, 0.5f, new[] { 1 });
+        }
 
         private static readonly Block[,,] TreeStructure = {
             {
@@ -80,7 +86,7 @@ namespace world.generation
                         {
                             // use a noise to detect if replace or not
                             // we do not have y so we use a simple xor to randomize and see if last three digit is 001
-                            if (ReplaceNoise.At(xStart + i, zStart + k) < -0.02f && (((yStart + j) ^ 91) & 7) == 1) continue;
+                            if (_replaceNoise.At(xStart + i, zStart + k) < -0.02f && (((yStart + j) ^ 91) & 7) == 1) continue;
                         }
                         
                         ChunkGenerator.PlaceStructureBlock(new BlockState(xStart + i, yStart + j, zStart + k, structure[i, j, k]), coord, context);
@@ -98,7 +104,7 @@ namespace world.generation
                 for (int j = 0; j < 16; j++)
                 {
                     if (context.Biome[i, j] != ChunkGenerator.BiomeEnum.Forest) continue;
-                    if (StructureNoise.At(xStart + i, zStart + j) < -0.45f) PlaceStructure(TreeStructure, i - 2, j - 2, i, j, coord, context, Blocks.OakLeave);
+                    if (_structureNoise.At(xStart + i, zStart + j) < -0.45f) PlaceStructure(TreeStructure, i - 2, j - 2, i, j, coord, context, Blocks.OakLeave);
                 }
             }
         }

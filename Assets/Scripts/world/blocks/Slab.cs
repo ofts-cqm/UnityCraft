@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using player;
 using render;
 using Render;
@@ -15,7 +16,8 @@ namespace world.blocks
         Both
     }
     
-    public record Slab() : Block(BlockProperty.Default(90).SetSolid(false), Parts.Bottom)
+    // ReSharper disable once NotAccessedPositionalProperty.Global
+    public record Slab(int Id) : Block(Id, BlockProperty.Default(90).SetSolid(false), Parts.Bottom)
     {
         private static readonly MeshBuilder.CubicModel TopModel = new(
             new Vector3[]
@@ -167,6 +169,28 @@ namespace world.blocks
             float impactY = Player.Instance.ImpactPoint.y;
             impactY -= (int) impactY;
             return impactY > 0.5f ? Parts.Top : Parts.Bottom;
+        }
+
+        public override int EncodeState(object state)
+        {
+            return state is Parts parts ? parts switch
+            {
+                Parts.Bottom => 0,
+                Parts.Top => 1,
+                Parts.Both => 2,
+                _ => throw new InvalidDataException($"Unknown slab state {state}.")
+            } : throw new InvalidDataException("Slab state is missing or invalid.");
+        }
+
+        public override object DecodeState(int stateId)
+        {
+            return stateId switch
+            {
+                0 => Parts.Bottom,
+                1 => Parts.Top,
+                2 => Parts.Both,
+                _ => throw new InvalidDataException($"Unknown slab state ID {stateId}.")
+            };
         }
         
         public override (Vector3 half, Vector3 center) GetBoundingBox(Vector3Int position, object state)

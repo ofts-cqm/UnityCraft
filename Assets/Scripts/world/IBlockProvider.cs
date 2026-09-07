@@ -7,7 +7,5 @@ namespace World
     public interface IBlockProvider
     {
         public BlockState GetBlock(Vector3Int position);
-
-        public BlockState GetBlock(int x, int y, int z);
     }
 }

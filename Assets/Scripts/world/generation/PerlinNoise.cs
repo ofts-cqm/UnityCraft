@@ -59,10 +59,8 @@ namespace world.generation
             float result = 0f;
             float octaveFrequency = _frequency;
 
-            for (int octave = 0; octave < _octaves.Length; octave++)
+            foreach (var weight in _octaves)
             {
-                int weight = _octaves[octave];
-
                 if (weight != 0)
                 {
                     float value = Sample(

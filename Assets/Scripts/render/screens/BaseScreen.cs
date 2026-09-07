@@ -45,8 +45,9 @@ namespace render.screens
 
         protected void OnDisable()
         {
-            Player.CurrentScreen = null;
-            Player.ResumeGame();
+            if (Player.CurrentScreen == this) Player.CurrentScreen = null;
+            if (GameplayMenuController.Instance == null || !GameplayMenuController.Instance.PauseVisible)
+                Player.ResumeGame();
             _holdingItemSlot.transform.gameObject.SetActive(false);
             InventoryMenu.HoldingItemSlot = null;
         }

@@ -15,12 +15,13 @@ namespace world.generation
         private const float Root = 1/5f;
         private const int SeaLevel = 64;
 
-        private static readonly PerlinNoise ContinentalNoise = new(114514, FirstLevelFrequency, new[]{ 3, 1, 0, 0, 1 });
-        private static readonly PerlinNoise HeightNoise = new(1919810, SecondLevelFrequency, new[] { 3, 1, 0, 0, 1 });
-        private static readonly PerlinNoise FeatureNoise = new(6767, FeatureFrequency, new[] { 1, 1, 4, 2 });
-        private static readonly PerlinNoise TemperatureNoise = new(7676, TemperatureFrequency, new[] { 5, 3, 0, 0, 1, 1, 1 });
+        private static PerlinNoise _continentalNoise;
+        private static PerlinNoise _heightNoise;
+        private static PerlinNoise _featureNoise;
+        private static PerlinNoise _temperatureNoise;
+        private static bool _initialized;
         
-        private static readonly Dictionary<ChunkCoord, List<BlockState>> _outOfBoundsStates = new();
+        private static readonly Dictionary<ChunkCoord, List<BlockState>> OutOfBoundsStates = new();
 
         public enum BiomeEnum
         {
@@ -33,6 +34,17 @@ namespace world.generation
         
         public record ChunkGenerationContext(Block[,,] Blocks, int[,] HeightMap, float[,] Height, float[,] Continental, float[,] Temperature, BiomeEnum[,] Biome);
 
+        public static void Initialize(WorldGenerationSettings settings)
+        {
+            _continentalNoise = new PerlinNoise(settings.ContinentalSeed, FirstLevelFrequency, new[] { 3, 1, 0, 0, 1 });
+            _heightNoise = new PerlinNoise(settings.HeightSeed, SecondLevelFrequency, new[] { 3, 1, 0, 0, 1 });
+            _featureNoise = new PerlinNoise(settings.FeatureSeed, FeatureFrequency, new[] { 1, 1, 4, 2 });
+            _temperatureNoise = new PerlinNoise(settings.TemperatureSeed, TemperatureFrequency, new[] { 5, 3, 0, 0, 1, 1, 1 });
+            OutOfBoundsStates.Clear();
+            StructureGenerator.Initialize(settings);
+            _initialized = true;
+        }
+
         private static float BiasNoise(float noise)
         {
             return noise > 0 ? Mathf.Pow(noise, Root) : -Mathf.Pow(-noise, Root);
@@ -40,6 +52,7 @@ namespace world.generation
 
         public static Block[,,] GenerateChunk(ChunkCoord chunk)
         {
+            if (!_initialized) throw new System.InvalidOperationException("ChunkGenerator must be initialized with the selected world's generation settings.");
             ChunkGenerationContext context = GenerateNoise(chunk.X, chunk.Z);
             GenerateFromHeightMap(context);
             PlaceOutOfBoundBlocks(context.Blocks, chunk);
@@ -60,16 +73,16 @@ namespace world.generation
             {
                 for (int j = 0; j < Chunk.ChunkSize; j++)
                 {
-                    float firstLevel = BiasNoise(ContinentalNoise.At(x + i, z + j)) / 2;
-                    float secondLevel = BiasNoise(HeightNoise.At(x + i, z + j)) / 4;
+                    float firstLevel = BiasNoise(_continentalNoise.At(x + i, z + j)) / 2;
+                    float secondLevel = BiasNoise(_heightNoise.At(x + i, z + j)) / 4;
                     float preliminaryHeight = firstLevel + secondLevel;
-                    float featureLevel = FeatureNoise.At(x + i, z + j);
+                    float featureLevel = _featureNoise.At(x + i, z + j);
                     featureLevel *= Mathf.Clamp(preliminaryHeight / 2 + 0.5f, 0, 1) * 0.25f;
 
                     levelMap[i, j] = preliminaryHeight;
                     height[i, j] = preliminaryHeight + featureLevel;
                     
-                    temperatureMap[i, j] = TemperatureNoise.At(x + i, z + j);
+                    temperatureMap[i, j] = _temperatureNoise.At(x + i, z + j);
                 }
             }
             
@@ -146,7 +159,7 @@ namespace world.generation
 
         private static void PlaceOutOfBoundBlocks(Block[,,] blocks, ChunkCoord chunk)
         {
-            foreach (BlockState blockState in _outOfBoundsStates.GetValueOrDefault(chunk, new List<BlockState>()))
+            foreach (BlockState blockState in OutOfBoundsStates.GetValueOrDefault(chunk, new List<BlockState>()))
             {
                 int x = blockState.Position.x % Chunk.ChunkSize;
                 if (x < 0) x += Chunk.ChunkSize;
@@ -196,10 +209,10 @@ namespace world.generation
                 }
                 
                 // store this as an out of bound block
-                if (!_outOfBoundsStates.TryGetValue(targetChunk, out List<BlockState> blocks))
+                if (!OutOfBoundsStates.TryGetValue(targetChunk, out List<BlockState> blocks))
                 {
                     blocks = new List<BlockState>();
-                    _outOfBoundsStates[targetChunk] = blocks;
+                    OutOfBoundsStates[targetChunk] = blocks;
                 }
                 blocks.Add(blockState);
             }

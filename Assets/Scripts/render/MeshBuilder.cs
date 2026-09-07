@@ -10,7 +10,6 @@ namespace render
         [Flags]
         public enum MeshTargets
         {
-            None = 0,
             Opaque = 1 << 0,
             Transparent = 1 << 1,
             Collider = 1 << 2,

@@ -6,13 +6,18 @@ using world.blocks;
 
 namespace World.blocks
 {
-    public record Block(int BlockId, BlockProperty Property, object DefaultState)
+    public record Block
     {
-        private static int _registered;
+        public int BlockId { get; }
+        private BlockProperty Property { get; }
+        public object DefaultState { get; }
 
-        public Block(BlockProperty property, [CanBeNull] object defaultState = null) : this(_registered++, property, defaultState ?? new object())
+        public Block(int blockId, BlockProperty property, [CanBeNull] object defaultState = null)
         {
-            Blocks.BlockList.Add(this);
+            BlockId = blockId;
+            Property = property;
+            DefaultState = defaultState ?? new object();
+            Blocks.Register(this);
         }
 
         private bool ShouldRender(BlockState block, int face)
@@ -39,6 +44,18 @@ namespace World.blocks
 
         public virtual object GetStateToPlace(int face, Vector3Int original, ref Vector3Int position)
         {
+            return DefaultState;
+        }
+
+        /// <summary>
+        /// Converts runtime block state to the stable numeric representation used by save files.
+        /// Stateful block types must override both state conversion methods.
+        /// </summary>
+        public virtual int EncodeState(object state) => 0;
+
+        public virtual object DecodeState(int stateId)
+        {
+            if (stateId != 0) throw new System.IO.InvalidDataException($"Block {BlockId} does not define state {stateId}.");
             return DefaultState;
         }
 
