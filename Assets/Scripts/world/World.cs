@@ -9,6 +9,7 @@ using World.blocks;
 using world.generation;
 using world.persistence;
 using render.screens;
+using settings;
 
 namespace World
 {
@@ -18,9 +19,6 @@ namespace World
         public Material transparentMaterial;
         public Material waterMaterial;
         public Material waterMobileMaterial;
-        private const int ViewDistance = 8;
-        private const float AutosaveIntervalSeconds = 30f;
-        
         public readonly Dictionary<ChunkCoord, Chunk> ChunkMap = new();
         
         public Transform player;
@@ -41,12 +39,15 @@ namespace World
         private bool _shuttingDown;
         private bool _gameplayReady;
         private HashSet<ChunkCoord> _initialChunks;
+        private HashSet<ChunkCoord> _desiredChunks = new();
         private GameplayMenuController _menus;
         private Exception _lastPersistenceError;
 
         private void Awake()
         {
+            GameSettings.EnsureLoaded();
             Instance = this;
+            GameSettings.Applied += OnSettingsApplied;
             try
             {
                 _playerComponent = player.GetComponent<Player>();
@@ -66,7 +67,7 @@ namespace World
 
                 Persistence = new WorldSaveCoordinator(Storage, LoadAuthorization);
                 _persistenceReady = true;
-                _nextAutosaveTime = Time.unscaledTime + AutosaveIntervalSeconds;
+                _nextAutosaveTime = Time.unscaledTime + GameSettings.AutosaveInterval;
             }
             catch (Exception exception)
             {
@@ -112,7 +113,7 @@ namespace World
             if (Time.unscaledTime >= _nextAutosaveTime)
             {
                 RequestSave();
-                _nextAutosaveTime = Time.unscaledTime + AutosaveIntervalSeconds;
+                _nextAutosaveTime = Time.unscaledTime + GameSettings.AutosaveInterval;
             }
         }
 
@@ -128,43 +129,48 @@ namespace World
             ChunkCoord centerCoord = new(player.transform.position);
             _playerLastChunkCoord = centerCoord;
             _initialChunks = new HashSet<ChunkCoord>();
-            for (int x = centerCoord.X - ViewDistance; x <= centerCoord.X + ViewDistance; x++)
-            for (int z = centerCoord.Z - ViewDistance; z <= centerCoord.Z + ViewDistance; z++)
+            int viewDistance = GameSettings.ViewDistance;
+            for (int x = centerCoord.X - viewDistance; x <= centerCoord.X + viewDistance; x++)
+            for (int z = centerCoord.Z - viewDistance; z <= centerCoord.Z + viewDistance; z++)
             {
                 ChunkCoord coord = new(x, z);
                 _initialChunks.Add(coord);
                 ChunkLoader.LoadChunk(coord);
             }
+            _desiredChunks = new HashSet<ChunkCoord>(_initialChunks);
             _menus.SetLoadingProgress(0, _initialChunks.Count);
         }
 
         private void CompleteInitialLoad()
         {
             _gameplayReady = true;
-            _nextAutosaveTime = Time.unscaledTime + AutosaveIntervalSeconds;
+            _nextAutosaveTime = Time.unscaledTime + GameSettings.AutosaveInterval;
             _menus.CompleteLoading();
             _playerComponent.SetGameplayReady(true);
         }
 
         private void CheckViewDistance()
         {
-            HashSet<ChunkCoord> previouslyActiveChunks = new HashSet<ChunkCoord>(ChunkMap.Keys);
-            List<ChunkCoord> loadQueue = new List<ChunkCoord>();
             ChunkCoord centerCoord = new ChunkCoord(player.transform.position);
             _playerLastChunkCoord = centerCoord;
+            int viewDistance = GameSettings.ViewDistance;
+            HashSet<ChunkCoord> desiredChunks = new();
 
-            for (int x = centerCoord.X - ViewDistance; x < centerCoord.X + ViewDistance + 1; x++) {
-                for (int z = centerCoord.Z - ViewDistance; z < centerCoord.Z + ViewDistance + 1; z++) {
+            for (int x = centerCoord.X - viewDistance; x < centerCoord.X + viewDistance + 1; x++) {
+                for (int z = centerCoord.Z - viewDistance; z < centerCoord.Z + viewDistance + 1; z++) {
                     ChunkCoord thisChunk = new ChunkCoord(x, z);
-
-                    if (!ChunkMap.ContainsKey(thisChunk)) loadQueue.Add(thisChunk);
-                    previouslyActiveChunks.Remove(thisChunk);
+                    desiredChunks.Add(thisChunk);
                 }
             }
 
-            foreach (ChunkCoord coord in previouslyActiveChunks) ChunkLoader.UnloadChunk(coord);
-            
-            foreach (ChunkCoord coord in loadQueue) ChunkLoader.LoadChunk(coord);
+            // Cancel obsolete pending requests as well as unload chunks that have already arrived.
+            foreach (ChunkCoord coord in _desiredChunks)
+                if (!desiredChunks.Contains(coord)) ChunkLoader.UnloadChunk(coord);
+            foreach (ChunkCoord coord in new List<ChunkCoord>(ChunkMap.Keys))
+                if (!desiredChunks.Contains(coord)) ChunkLoader.UnloadChunk(coord);
+            foreach (ChunkCoord coord in desiredChunks)
+                if (!ChunkMap.ContainsKey(coord)) ChunkLoader.LoadChunk(coord);
+            _desiredChunks = desiredChunks;
         }
 
         public void RequestSave()
@@ -247,8 +253,15 @@ namespace World
 
         private void OnDestroy()
         {
+            GameSettings.Applied -= OnSettingsApplied;
             ShutdownPersistence();
             if (Instance == this) Instance = null;
+        }
+
+        private void OnSettingsApplied()
+        {
+            _nextAutosaveTime = Time.unscaledTime + GameSettings.AutosaveInterval;
+            if (_gameplayReady && !_shuttingDown) CheckViewDistance();
         }
 
         private void ShutdownPersistence()

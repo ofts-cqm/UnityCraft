@@ -6,6 +6,7 @@ using render.ui;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
+using settings;
 using world.items;
 using world.persistence;
 using World.blocks;
@@ -34,7 +35,6 @@ namespace player
         
         private int _defaultLayer;
         
-        private const float Sensitivity = 0.3f;
         private const float MoveSpeed = 4.317f;
         private const float FlyingSpeed = 5f;
         private const float Gravity = -20f;
@@ -87,6 +87,7 @@ namespace player
 
         private void Awake()
         {
+            GameSettings.EnsureLoaded();
             Instance = this;
             Paused = false;
             CurrentScreen = null;
@@ -221,7 +222,7 @@ namespace player
 
         private void UpdateRotation()
         {
-            Vector2 look = _lookAction.ReadValue<Vector2>() * Sensitivity;
+            Vector2 look = _lookAction.ReadValue<Vector2>() * GameSettings.Sensitivity;
             transform.Rotate(Vector3.up * look.x);
             
             float xRotation = cameraTransform.rotation.eulerAngles.x - look.y;

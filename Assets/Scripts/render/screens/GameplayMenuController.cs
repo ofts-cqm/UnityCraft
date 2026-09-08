@@ -37,6 +37,8 @@ namespace render.screens
         private GameObject _pauseOverlay;
         private Button _resumeButton;
         private Button _quitButton;
+        private Button _settingsButton;
+        private SettingsMenuController _settingsMenu;
         private TextMeshProUGUI _pauseStatus;
         private Material _backgroundMaterial;
         private bool _quitting;
@@ -66,6 +68,7 @@ namespace render.screens
             canvas.transform.SetParent(transform, false);
             BuildLoadingOverlay(canvas.transform);
             BuildPauseOverlay(canvas.transform);
+            _settingsMenu = SettingsMenuController.Create(canvas.transform, OnSettingsClosed);
         }
 
         private void BuildLoadingOverlay(Transform parent)
@@ -130,7 +133,7 @@ namespace render.screens
 
             Image panel = MenuUiFactory.CreatePanel(root.transform, "Pause Panel", MenuUiFactory.PanelColor);
             MenuUiFactory.SetAnchoredRect(panel.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(-300, -190), new Vector2(300, 190));
+                new Vector2(-300, -225), new Vector2(300, 225));
             TextMeshProUGUI title = MenuUiFactory.CreateText(panel.transform, "Title", "GAME PAUSED", 38);
             MenuUiFactory.SetAnchoredRect(title.rectTransform, new Vector2(0, 1), new Vector2(1, 1),
                 new Vector2(30, -80), new Vector2(-30, -24));
@@ -139,9 +142,12 @@ namespace render.screens
             _resumeButton = MenuUiFactory.CreateButton(panel.transform, "Resume", "RESUME GAME", Resume);
             MenuUiFactory.SetAnchoredRect(_resumeButton.GetComponent<RectTransform>(), new Vector2(0, 1), new Vector2(1, 1),
                 new Vector2(45, -164), new Vector2(-45, -106));
+            _settingsButton = MenuUiFactory.CreateButton(panel.transform, "Settings", "SETTINGS", OpenSettings);
+            MenuUiFactory.SetAnchoredRect(_settingsButton.GetComponent<RectTransform>(), new Vector2(0, 1), new Vector2(1, 1),
+                new Vector2(45, -238), new Vector2(-45, -180));
             _quitButton = MenuUiFactory.CreateButton(panel.transform, "Save and Quit", "SAVE & QUIT TO WORLD SELECTION", BeginSaveAndQuit);
             MenuUiFactory.SetAnchoredRect(_quitButton.GetComponent<RectTransform>(), new Vector2(0, 1), new Vector2(1, 1),
-                new Vector2(45, -238), new Vector2(-45, -180));
+                new Vector2(45, -312), new Vector2(-45, -254));
 
             _pauseStatus = MenuUiFactory.CreateText(panel.transform, "Status", string.Empty, 18);
             MenuUiFactory.SetAnchoredRect(_pauseStatus.rectTransform, new Vector2(0, 0), new Vector2(1, 0),
@@ -174,9 +180,21 @@ namespace render.screens
 
         public void Resume()
         {
-            if (_quitting) return;
+            if (_quitting || (_settingsMenu != null && _settingsMenu.IsOpen)) return;
             _pauseOverlay.SetActive(false);
             Player.ResumeGame();
+        }
+
+        private void OpenSettings()
+        {
+            if (_quitting) return;
+            _pauseOverlay.SetActive(false);
+            _settingsMenu.Open();
+        }
+
+        private void OnSettingsClosed()
+        {
+            if (!_quitting) _pauseOverlay.SetActive(true);
         }
 
         private void BeginSaveAndQuit()
@@ -184,6 +202,7 @@ namespace render.screens
             if (_quitting) return;
             _quitting = true;
             _resumeButton.interactable = false;
+            _settingsButton.interactable = false;
             _quitButton.interactable = false;
             _pauseStatus.text = "Saving world...";
             StartCoroutine(SaveAndQuitNextFrame());

@@ -31,6 +31,7 @@ namespace render.screens
         private TextMeshProUGUI _emptyMessage;
         private TextMeshProUGUI _statusText;
         private Button _playButton;
+        private SettingsMenuController _settingsMenu;
         private readonly List<WorldEntry> _entries = new();
         private WorldEntry _selected;
 
@@ -87,12 +88,16 @@ namespace render.screens
 
             _playButton = MenuUiFactory.CreateButton(canvas.transform, "Play Selected", "PLAY SELECTED", PlaySelected);
             MenuUiFactory.SetAnchoredRect(_playButton.GetComponent<RectTransform>(), new Vector2(0.5f, 0), new Vector2(0.5f, 0),
-                new Vector2(-465, 32), new Vector2(-8, 88));
+                new Vector2(-465, 32), new Vector2(-163, 88));
             _playButton.interactable = false;
 
             Button createButton = MenuUiFactory.CreateButton(canvas.transform, "Create World", "CREATE NEW WORLD", OpenCreate);
             MenuUiFactory.SetAnchoredRect(createButton.GetComponent<RectTransform>(), new Vector2(0.5f, 0), new Vector2(0.5f, 0),
-                new Vector2(8, 32), new Vector2(465, 88));
+                new Vector2(-151, 32), new Vector2(151, 88));
+
+            Button settingsButton = MenuUiFactory.CreateButton(canvas.transform, "Settings", "SETTINGS", OpenSettings);
+            MenuUiFactory.SetAnchoredRect(settingsButton.GetComponent<RectTransform>(), new Vector2(0.5f, 0), new Vector2(0.5f, 0),
+                new Vector2(163, 32), new Vector2(465, 88));
 
             _statusText = MenuUiFactory.CreateText(canvas.transform, "Status", string.Empty, 18);
             MenuUiFactory.SetAnchoredRect(_statusText.rectTransform, new Vector2(0.5f, 0), new Vector2(0.5f, 0),
@@ -101,7 +106,10 @@ namespace render.screens
 
             BuildCreateOverlay(canvas.transform);
             BuildDialogOverlay(canvas.transform);
+            _settingsMenu = SettingsMenuController.Create(canvas.transform, null);
         }
+
+        private void OpenSettings() => _settingsMenu.Open();
 
         private void BuildWorldList(Transform parent)
         {
