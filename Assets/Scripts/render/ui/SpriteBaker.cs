@@ -13,6 +13,8 @@ namespace render.ui
         private static Camera _bakeCam;
         private static MeshRenderer _meshRenderer;
         private static RenderTexture _rt;
+        private static Mesh _bakeMesh;
+        private static readonly MeshBuilder Builder = new();
         
         private static Material _material;
         private static Material _transparentMaterial;
@@ -43,7 +45,8 @@ namespace render.ui
 
             _meshRenderer = _spawnedModel.AddComponent<MeshRenderer>(); 
             _modelMesh = _spawnedModel.AddComponent<MeshFilter>();
-            _modelMesh = _spawnedModel.GetComponent<MeshFilter>();
+            _bakeMesh = new Mesh { name = "Inventory Sprite Bake Mesh" };
+            _bakeMesh.MarkDynamic();
             
             _material = Resources.Load<Material>("VoxelMaterial");
             _transparentMaterial = Resources.Load<Material>("TransparentVoxelMaterial");
@@ -70,34 +73,26 @@ namespace render.ui
 
         public static Sprite BakeToSprite(Block block)
         {
-            MeshBuilder meshBuilder = new MeshBuilder();
-            if (!block.IsAir) block.Render(block.AsState(Vector3Int.zero), Chunk, meshBuilder, Vector3Int.zero, Vector3.zero);
+            Builder.Clear();
+            if (!block.IsAir) block.Render(block.AsState(Vector3Int.zero), Chunk, Builder, Vector3Int.zero, Vector3.zero);
             
-            MeshBuilder.TexturedMeshHolder meshHolder = block.Transparent ? meshBuilder.TransparentMesh : meshBuilder.OpaqueMesh;
-            Mesh renderMesh = new Mesh
-            {
-                vertices = meshHolder.Vertices.ToArray(),
-                triangles = meshHolder.Triangles.ToArray(),
-                uv = meshHolder.Uvs.ToArray()
-            };
+            MeshBuilder.TexturedMeshHolder meshHolder = block.Transparent ? Builder.TransparentMesh : Builder.OpaqueMesh;
+            meshHolder.UploadTo(_bakeMesh);
             
-            _meshRenderer.material = block.Transparent ? _transparentMaterial : _material;
-            
-            renderMesh.SetUVs(1, meshHolder.TextureIndices.ToArray());
-            renderMesh.RecalculateNormals();
-            
-            return BakeToSprite(renderMesh);
+            _meshRenderer.sharedMaterial = block.Transparent ? _transparentMaterial : _material;
+            return BakeToSprite(_bakeMesh);
         }
 
         public static Sprite BakeToSprite(Mesh mesh)
         {
-            _modelMesh.mesh = mesh;
+            _modelMesh.sharedMesh = mesh;
             _bakeCam.Render();
             
             Texture2D texture = new Texture2D(Resolution, Resolution, TextureFormat.RGBA32, false);
             texture.ReadPixels(new Rect(0, 0, Resolution, Resolution), 0, 0);
             texture.Apply();
-        
+            _modelMesh.sharedMesh = null;
+
             return Sprite.Create(
                 texture, 
                 new Rect(0, 0, Resolution, Resolution), 
@@ -109,7 +104,11 @@ namespace render.ui
         public static void FinalizeBaking()
         {
             RenderTexture.active = null;
-            RenderTexture.ReleaseTemporary(_rt);
+            if (_rt != null) RenderTexture.ReleaseTemporary(_rt);
+
+            if (_modelMesh != null) _modelMesh.sharedMesh = null;
+            if (_bakeMesh != null) Destroy(_bakeMesh);
+            _bakeMesh = null;
             
             Destroy(_camObj);
             Destroy(_spawnedModel);

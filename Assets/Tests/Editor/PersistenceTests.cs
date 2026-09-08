@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using NUnit.Framework;
 using Render;
 using render;
@@ -275,6 +276,100 @@ namespace Tests.Editor
         public void BlockIdsAreUnique()
         {
             Assert.AreEqual(Blocks.BlockList.Count, Blocks.BlockList.Select(block => block.BlockId).Distinct().Count());
+        }
+
+        [Test]
+        public void BlockStateIsAValueWithRecordEquality()
+        {
+            BlockState first = Blocks.OakSlab.AsState(new Vector3Int(1, 2, 3), SlabPart.Top);
+            BlockState equal = Blocks.OakSlab.AsState(new Vector3Int(1, 2, 3), SlabPart.Top);
+            BlockState different = Blocks.OakSlab.AsState(new Vector3Int(1, 2, 3), SlabPart.Bottom);
+
+            Assert.IsTrue(typeof(BlockState).IsValueType);
+            Assert.AreEqual(first, equal);
+            Assert.AreNotEqual(first, different);
+        }
+
+        [Test]
+        public void NegativeChunkCoordinatesHaveWellDistributedHashesAndStableEquality()
+        {
+            ChunkCoord[] coordinates = Enumerable.Range(-128, 257).Select(x => new ChunkCoord(x, -1)).ToArray();
+
+            Assert.AreEqual(coordinates.Length, coordinates.Select(coord => coord.GetHashCode()).Distinct().Count());
+            Assert.AreEqual(new ChunkCoord(-17, -1), new ChunkCoord(-17, -1));
+            Assert.AreNotEqual(new ChunkCoord(-17, -1), new ChunkCoord(-16, -1));
+        }
+
+        [Test]
+        public void RepeatingAnEquivalentBlockAssignmentDoesNotCreateANewRevision()
+        {
+            Chunk chunk = CreateEmptyChunk();
+            Assert.IsFalse(chunk.TryCreatePersistenceSnapshot(out _), "Hydrating a clean chunk should not mark it modified.");
+
+            chunk.SetBlock(8, 64, 8, Blocks.OakSlab, SlabPart.Top);
+            Assert.IsTrue(chunk.TryCreatePersistenceSnapshot(out _));
+
+            chunk.SetBlock(8, 64, 8, Blocks.OakSlab, SlabPart.Top);
+            Assert.IsFalse(chunk.TryCreatePersistenceSnapshot(out _),
+                "An assignment with the same block ID and encoded state must be a no-op.");
+        }
+
+        [Test]
+        public void RepeatingABlockAssignmentStillRepairsIncompatibleFluid()
+        {
+            int[] blocks = new int[ChunkSnapshot.CellCount];
+            int[] states = new int[ChunkSnapshot.CellCount];
+            byte[] fluids = new byte[ChunkSnapshot.CellCount];
+            int index = ChunkSnapshot.Index(8, 64, 8);
+            blocks[index] = Blocks.Stone.BlockId;
+            fluids[index] = World.blocks.FluidState.Source.Amount;
+            Chunk chunk = CreateChunk(new ChunkSnapshot(new ChunkCoord(0, 0), blocks, states, fluids));
+
+            chunk.SetBlock(8, 64, 8, Blocks.Stone);
+
+            Assert.IsTrue(chunk.GetFluid(8, 64, 8).IsEmpty);
+            Assert.IsTrue(chunk.TryCreatePersistenceSnapshot(out _));
+        }
+
+        [Test]
+        public void TexturedMeshUploadProvidesNormalsAndReusesTheTargetMesh()
+        {
+            MeshBuilder builder = new();
+            Mesh mesh = new();
+            try
+            {
+                builder.AddFace(ChunkRenderObject.TopFace, Vector3.zero, Blocks.Stone,
+                    MeshBuilder.MeshTargets.Opaque);
+                builder.OpaqueMesh.UploadTo(mesh);
+
+                Assert.AreEqual(4, mesh.vertexCount);
+                Assert.AreEqual(4, builder.OpaqueMesh.Normals.Count);
+                Assert.AreEqual(Vector3.up, builder.OpaqueMesh.Normals[0]);
+
+                builder.Clear();
+                builder.OpaqueMesh.UploadTo(mesh);
+                Assert.AreEqual(0, mesh.vertexCount);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(mesh);
+            }
+        }
+
+        private static Chunk CreateEmptyChunk()
+        {
+            int[] blocks = new int[ChunkSnapshot.CellCount];
+            int[] states = new int[ChunkSnapshot.CellCount];
+            byte[] fluids = new byte[ChunkSnapshot.CellCount];
+            return CreateChunk(new ChunkSnapshot(new ChunkCoord(0, 0), blocks, states, fluids));
+        }
+
+        private static Chunk CreateChunk(ChunkSnapshot snapshot)
+        {
+            ConstructorInfo constructor = typeof(Chunk).GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic,
+                null, new[] { typeof(ChunkCoord), typeof(World.World), typeof(ChunkSnapshot) }, null);
+            Assert.IsNotNull(constructor);
+            return (Chunk)constructor.Invoke(new object[] { snapshot.Coord, null, snapshot });
         }
 
         private static WorldDescriptor Descriptor(int schema, int content)

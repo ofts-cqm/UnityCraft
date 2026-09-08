@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using render;
 using UnityEngine;
@@ -7,23 +8,51 @@ using World.blocks;
 
 namespace Render
 {
+    [Flags]
+    public enum ChunkRenderDirtyFlags
+    {
+        None = 0,
+        Blocks = 1 << 0,
+        Water = 1 << 1,
+        All = Blocks | Water
+    }
+
     public class ChunkRenderObject
     {
+        // Builds run serially on the main thread. One reusable builder avoids per-rebuild
+        // list allocation without retaining a second full copy of every section mesh.
+        private static readonly MeshBuilder SharedMeshBuilder = new();
+
+        private readonly Chunk _owner;
+        private MeshRenderer _opaqueRenderer;
         private MeshFilter _meshFilter;
         private MeshCollider _meshCollider;
         private GameObject _chunkObject;
-        
-        private MeshFilter _transparentMesh;
-        private GameObject _transparentObject;
+        private Mesh _opaqueMesh;
+        private Mesh _colliderMesh;
 
-        private MeshFilter _waterMesh;
+        private MeshRenderer _transparentRenderer;
+        private MeshFilter _transparentMeshFilter;
+        private GameObject _transparentObject;
+        private Mesh _transparentMesh;
+
+        private MeshRenderer _waterRenderer;
+        private MeshFilter _waterMeshFilter;
         private GameObject _waterObject;
+        private Mesh _waterMesh;
 
         private readonly int _heightIndex;
         private readonly Vector3Int _chunkPosition;
-        
-        private List<int> _triangleCoordinate = new();
-        private List<int> _triangleFace = new();
+
+        private readonly List<int> _triangleCoordinate = new();
+        private readonly List<int> _triangleFace = new();
+        private readonly object _dirtyLock = new();
+        private ChunkRenderDirtyFlags _dirtyFlags = ChunkRenderDirtyFlags.All;
+        private bool _queued;
+        private bool _finalized;
+        private bool _destroyed;
+        private bool _hasBlockGeometry;
+        private bool _hasWaterGeometry;
 
         public const int TopFace = 0;
         public const int BottomFace = 1;
@@ -37,14 +66,27 @@ namespace Render
 
         private const int ChunkSize = Chunk.ChunkSize;
 
-        public ChunkRenderObject(ChunkCoord coord, int index)
+        public ChunkRenderObject(Chunk owner, ChunkCoord coord, int index)
         {
-            _heightIndex = index * 16;
-            _chunkPosition = new Vector3Int(coord.X * ChunkSize, index * 16, coord.Z * ChunkSize);
+            _owner = owner;
+            SectionIndex = index;
+            _heightIndex = index * ChunkSize;
+            _chunkPosition = new Vector3Int(coord.X * ChunkSize, index * ChunkSize, coord.Z * ChunkSize);
+        }
+
+        internal int SectionIndex { get; }
+        public bool Dirty
+        {
+            get
+            {
+                lock (_dirtyLock) return _dirtyFlags != ChunkRenderDirtyFlags.None;
+            }
         }
 
         public void FinalizeGeneration()
         {
+            if (_finalized || _destroyed) return;
+
             _chunkObject = new GameObject
             {
                 transform =
@@ -53,10 +95,10 @@ namespace Render
                 },
                 name = $"Chunk @{_chunkPosition.x / ChunkSize},{_chunkPosition.z / ChunkSize} height {_heightIndex / ChunkSize}"
             };
-            
-            var meshRenderer1 = _chunkObject.AddComponent<MeshRenderer>();
-            meshRenderer1.material = World.World.Instance.material;
-            
+
+            _opaqueRenderer = _chunkObject.AddComponent<MeshRenderer>();
+            _opaqueRenderer.sharedMaterial = World.World.Instance.material;
+
             _meshFilter = _chunkObject.AddComponent<MeshFilter>();
             _meshCollider = _chunkObject.AddComponent<MeshCollider>();
             _chunkObject.AddComponent<RenderObjectProperty>().RenderObject = this;
@@ -67,15 +109,14 @@ namespace Render
                 transform =
                 {
                     position = _chunkPosition,
-                    parent = _chunkObject.transform  
+                    parent = _chunkObject.transform
                 },
                 name = "Transparent Render"
             };
-            
-            var meshRenderer2 = _transparentObject.AddComponent<MeshRenderer>();
-            meshRenderer2.material = World.World.Instance.transparentMaterial;
-            
-            _transparentMesh = _transparentObject.AddComponent<MeshFilter>();
+
+            _transparentRenderer = _transparentObject.AddComponent<MeshRenderer>();
+            _transparentRenderer.sharedMaterial = World.World.Instance.transparentMaterial;
+            _transparentMeshFilter = _transparentObject.AddComponent<MeshFilter>();
 
             _waterObject = new GameObject
             {
@@ -87,104 +128,170 @@ namespace Render
                 name = "Water Render"
             };
 
-            var waterRenderer = _waterObject.AddComponent<MeshRenderer>();
-            waterRenderer.material = World.World.Instance.ActiveWaterMaterial;
-            _waterMesh = _waterObject.AddComponent<MeshFilter>();
+            _waterRenderer = _waterObject.AddComponent<MeshRenderer>();
+            _waterRenderer.sharedMaterial = World.World.Instance.ActiveWaterMaterial;
+            _waterMeshFilter = _waterObject.AddComponent<MeshFilter>();
+
+            _opaqueMesh = CreatePersistentMesh("Opaque");
+            _colliderMesh = CreatePersistentMesh("Collider");
+            _transparentMesh = CreatePersistentMesh("Transparent");
+            _waterMesh = CreatePersistentMesh("Water");
+            _meshFilter.sharedMesh = _opaqueMesh;
+            _transparentMeshFilter.sharedMesh = _transparentMesh;
+            _waterMeshFilter.sharedMesh = _waterMesh;
+
+            _opaqueRenderer.enabled = false;
+            _transparentRenderer.enabled = false;
+            _waterRenderer.enabled = false;
+            _finalized = true;
+            MarkDirty(ChunkRenderDirtyFlags.All);
         }
-        
-        public bool Active {
-            get => _chunkObject.activeSelf;
+
+        private Mesh CreatePersistentMesh(string channel)
+        {
+            Mesh mesh = new() { name = $"{_chunkObject.name} {channel}" };
+            mesh.MarkDynamic();
+            return mesh;
+        }
+
+        public bool Active
+        {
+            get => _finalized && _chunkObject.activeSelf;
             set
             {
+                if (!_finalized || _destroyed) return;
                 _chunkObject.SetActive(value);
-                if (value)
-                {
-                    Dirty = true;
-                }
+                if (value) MarkDirty(ChunkRenderDirtyFlags.All);
             }
         }
 
         public void DestroyObject()
         {
-            Object.Destroy(_chunkObject);
+            lock (_dirtyLock)
+            {
+                if (_destroyed) return;
+                _destroyed = true;
+                _queued = false;
+                _dirtyFlags = ChunkRenderDirtyFlags.None;
+            }
+
+            if (_meshFilter != null) _meshFilter.sharedMesh = null;
+            if (_transparentMeshFilter != null) _transparentMeshFilter.sharedMesh = null;
+            if (_waterMeshFilter != null) _waterMeshFilter.sharedMesh = null;
+            if (_meshCollider != null) _meshCollider.sharedMesh = null;
+            DestroyMesh(_opaqueMesh);
+            DestroyMesh(_colliderMesh);
+            DestroyMesh(_transparentMesh);
+            DestroyMesh(_waterMesh);
+            if (_chunkObject != null) UnityEngine.Object.Destroy(_chunkObject);
         }
 
-        public bool Dirty { get; set; } = true;
-
-        public void RerenderChunk(Chunk chunk)
+        private static void DestroyMesh(Mesh mesh)
         {
-            Dirty = false;
-            MeshBuilder meshBuilder = new MeshBuilder();
-            
+            if (mesh != null) UnityEngine.Object.Destroy(mesh);
+        }
+
+        public void MarkDirty(ChunkRenderDirtyFlags flags)
+        {
+            if (flags == ChunkRenderDirtyFlags.None) return;
+            bool enqueue;
+            lock (_dirtyLock)
+            {
+                if (_destroyed) return;
+                _dirtyFlags |= flags;
+                enqueue = _finalized;
+            }
+            if (enqueue) _owner.EnqueueRenderObject(this);
+        }
+
+        internal bool TryReserveQueueEntry()
+        {
+            lock (_dirtyLock)
+            {
+                if (_queued || _destroyed || _dirtyFlags == ChunkRenderDirtyFlags.None) return false;
+                _queued = true;
+                return true;
+            }
+        }
+
+        internal void ReleaseQueueEntry()
+        {
+            lock (_dirtyLock) _queued = false;
+        }
+
+        internal void RerenderChunk()
+        {
+            if (!_finalized) return;
+
+            ChunkRenderDirtyFlags rebuilding;
+            lock (_dirtyLock)
+            {
+                if (_destroyed || _dirtyFlags == ChunkRenderDirtyFlags.None) return;
+                rebuilding = _dirtyFlags;
+                _dirtyFlags &= ~rebuilding;
+            }
+            SharedMeshBuilder.Clear();
+
+            bool rebuildBlocks = (rebuilding & ChunkRenderDirtyFlags.Blocks) != 0;
+            bool rebuildWater = (rebuilding & ChunkRenderDirtyFlags.Water) != 0;
             for (int i = 0; i < ChunkSize; i++)
             {
                 for (int j = 0; j < ChunkSize; j++)
                 {
                     for (int k = 0; k < ChunkSize; k++)
                     {
-                        Vector3Int position = new Vector3Int(i, j + _heightIndex, k);
-                        Vector3 localPosition = new Vector3(i, j, k);
-                        BlockState block = chunk.GetBlock(position);
-                        if (!block.IsAir) block.Block.Render(block, chunk, meshBuilder, position, localPosition);
-                        if (!chunk.GetFluid(position).IsEmpty) Water.Render(chunk, meshBuilder, position, localPosition);
+                        Vector3Int position = new(i, j + _heightIndex, k);
+                        Vector3 localPosition = new(i, j, k);
+                        if (rebuildBlocks)
+                        {
+                            BlockState block = _owner.GetBlock(position);
+                            if (!block.IsAir) block.Block.Render(block, _owner, SharedMeshBuilder, position, localPosition);
+                        }
+                        if (rebuildWater && !_owner.GetFluid(position).IsEmpty)
+                            Water.Render(_owner, SharedMeshBuilder, position, localPosition);
                     }
                 }
             }
 
-            bool targetState = !(meshBuilder.OpaqueMesh.IsEmpty && meshBuilder.TransparentMesh.IsEmpty && meshBuilder.WaterMesh.IsEmpty);
-            if (targetState != Active) Active = targetState;
-
-            _triangleCoordinate = meshBuilder.TriangleCoordinate;
-            _triangleFace = meshBuilder.TriangleFace;
-
-            Mesh renderMesh = new Mesh
+            if (rebuildBlocks)
             {
-                vertices = meshBuilder.OpaqueMesh.Vertices.ToArray(),
-                triangles = meshBuilder.OpaqueMesh.Triangles.ToArray(),
-                uv = meshBuilder.OpaqueMesh.Uvs.ToArray()
-            };
-            renderMesh.SetUVs(1, meshBuilder.OpaqueMesh.TextureIndices.ToArray());
-            
-            renderMesh.RecalculateNormals();
-            _meshFilter.mesh = renderMesh;
-            
-            Mesh colliderMesh = new Mesh
-            {
-                vertices = meshBuilder.ColliderMesh.Vertices.ToArray(),
-                triangles = meshBuilder.ColliderMesh.Triangles.ToArray()
-            };
-            
-            colliderMesh.RecalculateNormals();
-            _meshCollider.sharedMesh = colliderMesh;
+                UploadBlockMeshes(SharedMeshBuilder);
+                _triangleCoordinate.Clear();
+                _triangleCoordinate.AddRange(SharedMeshBuilder.TriangleCoordinate);
+                _triangleFace.Clear();
+                _triangleFace.AddRange(SharedMeshBuilder.TriangleFace);
+                _hasBlockGeometry = !(SharedMeshBuilder.OpaqueMesh.IsEmpty && SharedMeshBuilder.TransparentMesh.IsEmpty);
+            }
 
-            Mesh transparentMesh = new Mesh
+            if (rebuildWater)
             {
-                vertices = meshBuilder.TransparentMesh.Vertices.ToArray(),
-                triangles = meshBuilder.TransparentMesh.Triangles.ToArray(),
-                uv = meshBuilder.TransparentMesh.Uvs.ToArray()
-            };
-            transparentMesh.SetUVs(1, meshBuilder.TransparentMesh.TextureIndices.ToArray());
-            
-            transparentMesh.RecalculateNormals();
-            _transparentMesh.mesh = transparentMesh;
+                SharedMeshBuilder.WaterMesh.UploadTo(_waterMesh, false);
+                _waterRenderer.enabled = !SharedMeshBuilder.WaterMesh.IsEmpty;
+                _hasWaterGeometry = !SharedMeshBuilder.WaterMesh.IsEmpty;
+            }
 
-            Mesh waterMesh = new Mesh
-            {
-                vertices = meshBuilder.WaterMesh.Vertices.ToArray(),
-                triangles = meshBuilder.WaterMesh.Triangles.ToArray(),
-                uv = meshBuilder.WaterMesh.Uvs.ToArray()
-            };
-            waterMesh.SetUVs(1, meshBuilder.WaterMesh.TextureIndices.ToArray());
+            _chunkObject.SetActive(_owner.IsActive && (_hasBlockGeometry || _hasWaterGeometry));
+            SharedMeshBuilder.Clear();
+        }
 
-            waterMesh.RecalculateNormals();
-            _waterMesh.mesh = waterMesh;
+        private void UploadBlockMeshes(MeshBuilder builder)
+        {
+            builder.OpaqueMesh.UploadTo(_opaqueMesh);
+            _opaqueRenderer.enabled = !builder.OpaqueMesh.IsEmpty;
+
+            _meshCollider.sharedMesh = null;
+            builder.ColliderMesh.UploadTo(_colliderMesh);
+            if (!builder.ColliderMesh.IsEmpty) _meshCollider.sharedMesh = _colliderMesh;
+
+            builder.TransparentMesh.UploadTo(_transparentMesh);
+            _transparentRenderer.enabled = !builder.TransparentMesh.IsEmpty;
         }
 
         public Vector3Int GetBlockPositionOfTriangle(int index)
         {
             int serialized = _triangleCoordinate[index / 2];
-            Vector3Int des = new Vector3Int((serialized >> 16) & 0xFF, (serialized >> 8) & 0xFF, serialized & 0xFF) + _chunkPosition;
-            return des;
+            return new Vector3Int((serialized >> 16) & 0xFF, (serialized >> 8) & 0xFF, serialized & 0xFF) +
+                   _chunkPosition;
         }
 
         public int GetTriangleFacing(int index)

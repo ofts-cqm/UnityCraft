@@ -28,6 +28,7 @@ namespace World
         private long _persistenceRevision;
         private long _lastSavedRevision;
         private long _lastQueuedRevision;
+        private volatile bool _active;
 
         private readonly struct ScheduledFluidTick
         {
@@ -61,7 +62,7 @@ namespace World
                 }
             }
 
-            for (int i = 0; i < ChunkSectionCount; i++) _renderObjects[i] = new ChunkRenderObject(coord, i);
+            for (int i = 0; i < ChunkSectionCount; i++) _renderObjects[i] = new ChunkRenderObject(this, coord, i);
             if (snapshot != null) ScheduleRestoredFluidTicks();
         }
 
@@ -122,9 +123,21 @@ namespace World
         }
         
         public bool Active {
-            get => _renderObjects[0].Active;
+            get => _active;
             set {
+                _active = value;
                 foreach (var obj in _renderObjects) obj.Active = value;            
+            }
+        }
+
+        internal bool IsActive => _active;
+        internal bool IsRenderReady
+        {
+            get
+            {
+                foreach (ChunkRenderObject obj in _renderObjects)
+                    if (obj.Dirty) return false;
+                return true;
             }
         }
 
@@ -142,18 +155,36 @@ namespace World
 
         public void SetBlock(int x, int y, int z, Block block, [CanBeNull] object state = null)
         {
+            Block existingBlock = _blockData[x, y, z];
+            object existingState = _stateData[x, y, z] ?? existingBlock.DefaultState;
+            object nextState = state ?? block.DefaultState;
+            if (existingBlock.BlockId == block.BlockId &&
+                existingBlock.EncodeState(existingState) == block.EncodeState(nextState))
+            {
+                // A repeated assignment is normally a true no-op. A malformed/restored cell can still
+                // contain fluid inside an incompatible block; repairing that invariant is a real change.
+                FluidState unchangedBlockFluid = _fluidData[x, y, z];
+                BlockState unchangedBlock = existingBlock.AsState(x, y, z, existingState);
+                if (unchangedBlockFluid.IsEmpty || CanContainFluid(unchangedBlock)) return;
+                _fluidData[x, y, z] = default;
+                _persistenceRevision++;
+                MarkFluidDirty(x, y, z);
+                ScheduleFluidNeighbors(new Vector3Int(x, y, z));
+                return;
+            }
+
             FluidState existingFluid = _fluidData[x, y, z];
             _blockData[x, y, z] = block;
             _stateData[x, y, z] = state;
             _persistenceRevision++;
-            _renderObjects[y / 16].Dirty = true;
+            _renderObjects[y / ChunkSize].MarkDirty(ChunkRenderDirtyFlags.All);
             
-            if (x == 0) _world.GetChunk(ChunkPosition.Left())?.SetDirty(y);
-            if (x == ChunkSize - 1) _world.GetChunk(ChunkPosition.Right())?.SetDirty(y);
-            if (z == 0) _world.GetChunk(ChunkPosition.Up())?.SetDirty(y);
-            if (z == ChunkSize - 1) _world.GetChunk(ChunkPosition.Down())?.SetDirty(y);
-            if (y % 16 == 0 && y != 0) _renderObjects[y / 16 - 1].Dirty = true;
-            if (y % 16 == 15 && y != ChunkHeight - 1) _renderObjects[y / 16 + 1].Dirty = true;
+            if (x == 0) _world.GetChunk(ChunkPosition.Left())?.SetDirty(y, ChunkRenderDirtyFlags.All);
+            if (x == ChunkSize - 1) _world.GetChunk(ChunkPosition.Right())?.SetDirty(y, ChunkRenderDirtyFlags.All);
+            if (z == 0) _world.GetChunk(ChunkPosition.Up())?.SetDirty(y, ChunkRenderDirtyFlags.All);
+            if (z == ChunkSize - 1) _world.GetChunk(ChunkPosition.Down())?.SetDirty(y, ChunkRenderDirtyFlags.All);
+            if (y % ChunkSize == 0 && y != 0) _renderObjects[y / ChunkSize - 1].MarkDirty(ChunkRenderDirtyFlags.All);
+            if (y % ChunkSize == ChunkSize - 1 && y != ChunkHeight - 1) _renderObjects[y / ChunkSize + 1].MarkDirty(ChunkRenderDirtyFlags.All);
             if (!existingFluid.IsEmpty && !CanContainFluid(GetBlock(x, y, z)))
             {
                 _fluidData[x, y, z] = default;
@@ -167,9 +198,9 @@ namespace World
             SetBlock(position.x, position.y, position.z, block, state);
         }
 
-        private void SetDirty(int y)
+        private void SetDirty(int y, ChunkRenderDirtyFlags flags)
         {
-            _renderObjects[y / 16].Dirty = true;
+            _renderObjects[y / ChunkSize].MarkDirty(flags);
         }
 
         public FluidState GetFluid(Vector3Int position) => GetFluid(position.x, position.y, position.z);
@@ -250,17 +281,18 @@ namespace World
 
         private void MarkFluidDirty(int x, int y, int z)
         {
-            _renderObjects[y / ChunkSize].Dirty = true;
-            if (x == 0) _world.GetChunk(ChunkPosition.Left())?.SetDirty(y);
-            if (x == ChunkSize - 1) _world.GetChunk(ChunkPosition.Right())?.SetDirty(y);
-            if (z == 0) _world.GetChunk(ChunkPosition.Up())?.SetDirty(y);
-            if (z == ChunkSize - 1) _world.GetChunk(ChunkPosition.Down())?.SetDirty(y);
-            if (y % ChunkSize == 0 && y != 0) _renderObjects[y / ChunkSize - 1].Dirty = true;
-            if (y % ChunkSize == ChunkSize - 1 && y != ChunkHeight - 1) _renderObjects[y / ChunkSize + 1].Dirty = true;
+            _renderObjects[y / ChunkSize].MarkDirty(ChunkRenderDirtyFlags.Water);
+            if (x == 0) _world.GetChunk(ChunkPosition.Left())?.SetDirty(y, ChunkRenderDirtyFlags.Water);
+            if (x == ChunkSize - 1) _world.GetChunk(ChunkPosition.Right())?.SetDirty(y, ChunkRenderDirtyFlags.Water);
+            if (z == 0) _world.GetChunk(ChunkPosition.Up())?.SetDirty(y, ChunkRenderDirtyFlags.Water);
+            if (z == ChunkSize - 1) _world.GetChunk(ChunkPosition.Down())?.SetDirty(y, ChunkRenderDirtyFlags.Water);
+            if (y % ChunkSize == 0 && y != 0) _renderObjects[y / ChunkSize - 1].MarkDirty(ChunkRenderDirtyFlags.Water);
+            if (y % ChunkSize == ChunkSize - 1 && y != ChunkHeight - 1) _renderObjects[y / ChunkSize + 1].MarkDirty(ChunkRenderDirtyFlags.Water);
         }
 
         public void FinalizeLoading()
         {
+            _active = true;
             foreach (var obj in _renderObjects) obj.FinalizeGeneration();
         }
 
@@ -275,20 +307,21 @@ namespace World
         
         public void DestroyChunk()
         {
+            _active = false;
             foreach (ChunkRenderObject obj in _renderObjects)
             {
                 obj.DestroyObject();
             }
         }
 
-        public void UpdateDirtyRenderObjects()
+        internal void EnqueueRenderObject(ChunkRenderObject renderObject)
         {
-            foreach (ChunkRenderObject obj in _renderObjects) if (obj.Dirty) obj.RerenderChunk(this);
+            if (_active) _world.EnqueueRenderObject(this, renderObject);
         }
 
         public void MarkDirty()
         {
-            foreach (ChunkRenderObject obj in _renderObjects) obj.Dirty = true;
+            foreach (ChunkRenderObject obj in _renderObjects) obj.MarkDirty(ChunkRenderDirtyFlags.All);
         }
 
         public bool TryCreatePersistenceSnapshot(out ChunkSnapshot snapshot)
@@ -362,6 +395,6 @@ namespace World
         public ChunkCoord Up() => new(X, Z - 1);
         public ChunkCoord Down() => new(X, Z + 1);
 
-        public override int GetHashCode() => X << 16 | Z;
+        public override int GetHashCode() => unchecked((X * 397) ^ Z);
     }
 }

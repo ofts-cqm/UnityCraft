@@ -58,6 +58,7 @@ namespace world.generation
             CompletedMap.Clear();
             while (CompletedLoads.TryDequeue(out _)) { }
             while (FailedLoads.TryDequeue(out _)) { }
+            foreach (Chunk inactiveChunk in InactiveMap.Values) inactiveChunk.DestroyChunk();
             InactiveChunks.Clear();
             InactiveMap.Clear();
             InactiveNodes.Clear();

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Stopwatch = System.Diagnostics.Stopwatch;
 using JetBrains.Annotations;
 using player;
 using UnityEngine;
@@ -10,6 +11,7 @@ using world.generation;
 using world.persistence;
 using render.screens;
 using settings;
+using Render;
 
 namespace World
 {
@@ -42,6 +44,23 @@ namespace World
         private HashSet<ChunkCoord> _desiredChunks = new();
         private GameplayMenuController _menus;
         private Exception _lastPersistenceError;
+        [SerializeField, Min(0.1f)] private float renderRebuildBudgetMilliseconds = 4f;
+        private readonly SortedDictionary<int, Queue<RenderWork>> _renderQueue = new();
+        private readonly object _renderQueueLock = new();
+        private int _queuedRenderCount;
+        private int _playerSection;
+
+        private readonly struct RenderWork
+        {
+            public readonly Chunk Chunk;
+            public readonly ChunkRenderObject RenderObject;
+
+            public RenderWork(Chunk chunk, ChunkRenderObject renderObject)
+            {
+                Chunk = chunk;
+                RenderObject = renderObject;
+            }
+        }
 
         private void Awake()
         {
@@ -94,16 +113,17 @@ namespace World
         
         private void Update() {
             if (!_persistenceReady || _shuttingDown) return;
+            _playerSection = Mathf.Clamp(Mathf.FloorToInt(player.position.y / Chunk.ChunkSize), 0, 7);
             ProcessSaveCompletions();
             ChunkLoader.ProcessCompletedLoads();
             if (_shuttingDown) return;
-            foreach (Chunk chunk in ChunkMap.Values) chunk.UpdateDirtyRenderObjects();
+            ProcessRenderQueue();
 
             if (!_gameplayReady)
             {
                 int loaded = 0;
                 foreach (ChunkCoord coord in _initialChunks)
-                    if (ChunkMap.ContainsKey(coord)) loaded++;
+                    if (ChunkMap.TryGetValue(coord, out Chunk chunk) && chunk.IsRenderReady) loaded++;
                 _menus.SetLoadingProgress(loaded, _initialChunks.Count);
                 if (loaded == _initialChunks.Count) CompleteInitialLoad();
                 return;
@@ -255,6 +275,13 @@ namespace World
         {
             GameSettings.Applied -= OnSettingsApplied;
             ShutdownPersistence();
+            foreach (Chunk chunk in ChunkMap.Values) chunk.DestroyChunk();
+            ChunkMap.Clear();
+            lock (_renderQueueLock)
+            {
+                _renderQueue.Clear();
+                _queuedRenderCount = 0;
+            }
             if (Instance == this) Instance = null;
         }
 
@@ -273,6 +300,66 @@ namespace World
             Persistence.FlushAndStop();
             ProcessSaveCompletions();
             _persistenceReady = false;
+        }
+
+        internal void EnqueueRenderObject(Chunk chunk, ChunkRenderObject renderObject)
+        {
+            if (!renderObject.TryReserveQueueEntry()) return;
+
+            int horizontalDistance = Math.Max(Math.Abs(chunk.ChunkPosition.X - _playerLastChunkCoord.X),
+                Math.Abs(chunk.ChunkPosition.Z - _playerLastChunkCoord.Z));
+            int priority = horizontalDistance * 16 + Math.Abs(renderObject.SectionIndex - _playerSection);
+            lock (_renderQueueLock)
+            {
+                if (!_renderQueue.TryGetValue(priority, out Queue<RenderWork> bucket))
+                {
+                    bucket = new Queue<RenderWork>();
+                    _renderQueue.Add(priority, bucket);
+                }
+                bucket.Enqueue(new RenderWork(chunk, renderObject));
+                _queuedRenderCount++;
+            }
+        }
+
+        private void ProcessRenderQueue()
+        {
+            long started = Stopwatch.GetTimestamp();
+            double budgetSeconds = Math.Max(0.1f, renderRebuildBudgetMilliseconds) / 1000.0;
+            bool processedAny = false;
+            while ((!processedAny || (double)(Stopwatch.GetTimestamp() - started) / Stopwatch.Frequency < budgetSeconds) &&
+                   TryDequeueRenderWork(out RenderWork work))
+            {
+                processedAny = true;
+                work.RenderObject.ReleaseQueueEntry();
+                if (!work.Chunk.IsActive || !work.RenderObject.Dirty) continue;
+                work.RenderObject.RerenderChunk();
+            }
+        }
+
+        private bool TryDequeueRenderWork(out RenderWork work)
+        {
+            lock (_renderQueueLock)
+            {
+                if (_queuedRenderCount == 0)
+                {
+                    work = default;
+                    return false;
+                }
+
+                int priority = 0;
+                Queue<RenderWork> bucket = null;
+                foreach (KeyValuePair<int, Queue<RenderWork>> pair in _renderQueue)
+                {
+                    priority = pair.Key;
+                    bucket = pair.Value;
+                    break;
+                }
+
+                work = bucket.Dequeue();
+                _queuedRenderCount--;
+                if (bucket.Count == 0) _renderQueue.Remove(priority);
+                return true;
+            }
         }
         
         [CanBeNull] public Chunk GetChunk(ChunkCoord coord) => ChunkMap.GetValueOrDefault(coord);
