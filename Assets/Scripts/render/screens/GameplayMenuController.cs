@@ -13,9 +13,26 @@ namespace render.screens
         public bool PauseVisible => _pauseOverlay != null && _pauseOverlay.activeSelf;
 
         private World.World _world;
+        private static readonly string[] LoadingTips =
+        {
+            "Use the hotbar to quickly switch between items.",
+            "Explore different biomes to discover new terrain.",
+            "Press shift to place vertical slab!",
+            "Different to minecraft, blocks can waterlog flowing water!",
+            "Use upper slab to constrain water's flowing amount.",
+            "Lower slab can only block low-level flowing water.",
+            "Did you see the waves?",
+            "Use the pause menu to save and return to world selection.",
+            "Infinitely generated terrain!",
+            "You may see the same tip twice.",
+            "Made by OFTS_CQM and Codex in Unity",
+            "Does not use any assets or libs from Unity Store"
+        };
+
         private GameObject _hud;
         private GameObject _loadingOverlay;
         private TextMeshProUGUI _loadingText;
+        private TextMeshProUGUI _loadingTipText;
         private RectTransform _progressFill;
         private GameObject _pauseOverlay;
         private Button _resumeButton;
@@ -80,6 +97,29 @@ namespace render.screens
             _progressFill.anchorMax = new Vector2(0, 1);
             _progressFill.offsetMin = Vector2.zero;
             _progressFill.offsetMax = Vector2.zero;
+
+            Image tipsPanel = MenuUiFactory.CreatePanel(root.transform, "Tips", new Color(0.05f, 0.05f, 0.05f, 0.82f));
+            MenuUiFactory.SetAnchoredRect(tipsPanel.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                new Vector2(-310, -180), new Vector2(310, -96));
+
+            TextMeshProUGUI tipsTitle = MenuUiFactory.CreateText(tipsPanel.transform, "Title", "TIPS", 18);
+            MenuUiFactory.SetAnchoredRect(tipsTitle.rectTransform, new Vector2(0, 1), new Vector2(1, 1),
+                new Vector2(12, -30), new Vector2(-12, -6));
+            tipsTitle.fontStyle = FontStyles.Bold;
+
+            Button tipButton = MenuUiFactory.CreateButton(tipsPanel.transform, "Next Tip", "Click to see next tip", ShowRandomTip);
+            MenuUiFactory.SetAnchoredRect(tipButton.GetComponent<RectTransform>(), new Vector2(0, 0), new Vector2(1, 1),
+                new Vector2(12, 10), new Vector2(-12, -36));
+            tipButton.GetComponent<Image>().color = Color.clear;
+            tipButton.transition = Selectable.Transition.None;
+            _loadingTipText = tipButton.GetComponentInChildren<TextMeshProUGUI>();
+            _loadingTipText.fontSize = 20;
+            _loadingTipText.color = new Color(0.85f, 0.85f, 0.85f, 1f);
+        }
+
+        private void ShowRandomTip()
+        {
+            _loadingTipText.text = LoadingTips[Random.Range(0, LoadingTips.Length)];
         }
 
         private void BuildPauseOverlay(Transform parent)

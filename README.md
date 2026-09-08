@@ -18,12 +18,15 @@ Currently, we have the following features ready:
 
 *The following features are planned:*
 
-- Inventory
-- More blocks
+- Complete Inventory
+- More blocks (more trees, stairs, glasses and colored blocks)
+- More biomes
+- Lightings
+- Settings screen
 
 # What is the architecture?
 
-All rendering is based on Unity. The world is divided into 16x256x16 chunks, which are further divided into 16^3 subchunks. 
+All rendering is based on Unity build from scratch. The world is divided into 16x256x16 chunks, which are further divided into 16^3 subchunks. 
 After generation, loading, or a player interaction that changes a block, a subchunk is marked dirty and will be updated on the next tick. 
 Each dirty subchunk then rebuilds three meshes: the *opaque* mesh for opaque faces, 
 the *transparent* mesh for glass and water, and the *collider* mesh used by the mesh collider. 
