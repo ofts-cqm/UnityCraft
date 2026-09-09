@@ -1,6 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using JetBrains.Annotations;
 using UnityEngine;
 using Render;
@@ -21,22 +21,14 @@ namespace World
         private const int ChunkSectionCount = ChunkHeight / ChunkSize;
 
         private readonly ChunkRenderObject[] _renderObjects = new ChunkRenderObject[8];
-        private readonly Block[,,] _blockData;
-        private readonly object[,,] _stateData;
-        private readonly FluidState[,,] _fluidData;
-        private readonly List<ScheduledFluidTick> _scheduledFluidTicks = new();
+        private readonly ChunkData _data;
+        private static int _nextFluidGeneration;
+        internal readonly int FluidGeneration;
         private long _persistenceRevision;
         private long _lastSavedRevision;
         private long _lastQueuedRevision;
         private volatile bool _active;
-
-        private readonly struct ScheduledFluidTick
-        {
-            public readonly Vector3Int Position;
-            public readonly byte ExpectedRawAmount;
-            public readonly int DueTick;
-            public ScheduledFluidTick(Vector3Int position, byte expectedRawAmount, int dueTick) { Position = position; ExpectedRawAmount = expectedRawAmount; DueTick = dueTick; }
-        }
+        private readonly bool _loadedFromSnapshot;
 
         public Chunk(ChunkCoord coord, World world)
             : this(coord, world, LoadOrGenerate(coord, world))
@@ -47,13 +39,13 @@ namespace World
         {
             ChunkPosition = coord;
             _world = world;
-            _blockData = new Block[ChunkSize, ChunkHeight, ChunkSize];
-            _stateData = new object[ChunkSize, ChunkHeight, ChunkSize];
-            _fluidData = new FluidState[ChunkSize, ChunkHeight, ChunkSize];
+            _loadedFromSnapshot = snapshot != null;
+            FluidGeneration = Interlocked.Increment(ref _nextFluidGeneration);
 
-            if (snapshot == null) InitializeGeneratedData(ChunkGenerator.GenerateChunk(coord));
+            if (snapshot == null) _data = ChunkGenerator.GenerateChunk(coord);
             else
             {
+                _data = new ChunkData();
                 try { Hydrate(snapshot); }
                 catch (CorruptSaveException) { throw; }
                 catch (Exception exception)
@@ -63,7 +55,6 @@ namespace World
             }
 
             for (int i = 0; i < ChunkSectionCount; i++) _renderObjects[i] = new ChunkRenderObject(this, coord, i);
-            if (snapshot != null) ScheduleRestoredFluidTicks();
         }
 
         private static ChunkSnapshot LoadOrGenerate(ChunkCoord coord, World world)
@@ -71,20 +62,6 @@ namespace World
             return world.Persistence != null && world.Persistence.TryLoadChunk(coord, out ChunkSnapshot snapshot)
                 ? snapshot
                 : null;
-        }
-
-        private void InitializeGeneratedData(Block[,,] generated)
-        {
-            for (int x = 0; x < ChunkSize; x++) for (int y = 0; y < ChunkHeight; y++) for (int z = 0; z < ChunkSize; z++)
-            {
-                Block block = generated[x, y, z];
-                if (block.BlockId == Blocks.GenerationWater.BlockId)
-                {
-                    _blockData[x, y, z] = Blocks.Air;
-                    _fluidData[x, y, z] = FluidState.Source;
-                }
-                else _blockData[x, y, z] = block;
-            }
         }
 
         private void Hydrate(ChunkSnapshot snapshot)
@@ -99,17 +76,21 @@ namespace World
                     // A player may explicitly admit the risk of loading newer content.
                     // Unknown blocks are intentionally replaced with Air.
                     block = Blocks.Air;
-                    _stateData[x, y, z] = block.DefaultState;
+                    _data.SetBlock(x, y, z, block, 0);
                     replacedUnknownContent = true;
                 }
                 else
                 {
                     if (block.BlockId == Blocks.GenerationWater.BlockId)
                         throw new InvalidDataException("A save contains the generation-only water marker.");
-                    _stateData[x, y, z] = block.DecodeState(snapshot.StateIds[index]);
+                    if ((uint)snapshot.StateIds[index] > ushort.MaxValue)
+                        throw new InvalidDataException($"State ID {snapshot.StateIds[index]} is outside the compact state range.");
+                    // Decode once while hydrating to retain the save validation contract. Runtime
+                    // reads use the per-block decoded-state cache rather than storing one object per cell.
+                    block.DecodeStateCached((ushort)snapshot.StateIds[index]);
+                    _data.SetBlock(x, y, z, block, snapshot.StateIds[index]);
                 }
-                _blockData[x, y, z] = block;
-                _fluidData[x, y, z] = new FluidState { Amount = snapshot.FluidAmounts[index] };
+                _data.SetFluidRaw(x, y, z, snapshot.FluidAmounts[index]);
             }
             // Once the player has accepted the load, the next save makes Air replacement explicit.
             if (replacedUnknownContent) _persistenceRevision = 1;
@@ -117,16 +98,28 @@ namespace World
 
         private void ScheduleRestoredFluidTicks()
         {
-            for (int x = 0; x < ChunkSize; x++) for (int y = 0; y < ChunkHeight; y++) for (int z = 0; z < ChunkSize; z++)
-                if (!_fluidData[x, y, z].IsEmpty && !_fluidData[x, y, z].IsSource)
-                    ScheduleFluidTick(new Vector3Int(x, y, z), Water.TickDelay);
+            for (int section = 0; section < ChunkSectionCount; section++)
+            {
+                if (_data.FlowingFluidCount(section) == 0) continue;
+                int firstY = section * ChunkSize;
+                for (int y = firstY; y < firstY + ChunkSize; y++)
+                for (int z = 0; z < ChunkSize; z++)
+                for (int x = 0; x < ChunkSize; x++)
+                    if (_data.GetFluidRawUnchecked(x, y, z) is not 0 and not 8)
+                        ScheduleFluidTick(new Vector3Int(x, y, z), Water.TickDelay);
+            }
         }
+
+        public ChunkData Data => _data;
         
         public bool Active {
             get => _active;
             set {
+                if (_active == value) return;
                 _active = value;
                 foreach (var obj in _renderObjects) obj.Active = value;            
+                if (value) _world?.ResumeFluidTicks(this);
+                else _world?.SuspendFluidTicks(this);
             }
         }
 
@@ -143,6 +136,26 @@ namespace World
 
         public BlockState GetBlock(Vector3Int position) => GetBlock(position.x, position.y, position.z);
 
+        public bool ShouldRenderFace(Vector3Int neighborPosition, int neighborFace, int renderedBlockId)
+        {
+            int x = neighborPosition.x;
+            int y = neighborPosition.y;
+            int z = neighborPosition.z;
+            if (y < 0 || y >= ChunkHeight) return true;
+            if (x < 0 || x >= ChunkSize || z < 0 || z >= ChunkSize)
+            {
+                BlockState neighbor = _world.GetBlock(
+                    ChunkPosition.X * ChunkSize + x, y, ChunkPosition.Z * ChunkSize + z);
+                return neighbor.Block.Transparent
+                    ? neighbor.Block.BlockId != renderedBlockId
+                    : !neighbor.Block.IsSolid(neighbor, neighborFace);
+            }
+
+            _data.GetCellIdsUnchecked(x, y, z, out ushort blockId, out ushort stateId);
+            Block block = Blocks.GetByCompactId(blockId);
+            return block.Transparent ? block.BlockId != renderedBlockId : !block.IsSolidCompact(stateId, neighborFace);
+        }
+
         public BlockState GetBlock(int x, int y, int z)
         {
             if (y < 0 || y >= ChunkHeight) return Blocks.Air.AsState(x, y, z);
@@ -150,32 +163,43 @@ namespace World
             if (x < 0 || x >= ChunkSize || z < 0 || z >= ChunkSize) 
                 return _world.GetBlock(ChunkPosition.X * ChunkSize + x, y, ChunkPosition.Z * ChunkSize + z); 
             
-            return _blockData[x, y, z].AsState(x, y, z, _stateData[x, y, z]);
+            _data.GetCellIdsUnchecked(x, y, z, out ushort blockId, out ushort stateId);
+            Block block = Blocks.GetByCompactId(blockId);
+            return block.AsState(x, y, z, block.DecodeStateCached(stateId));
+        }
+
+        internal void GetCellUnchecked(int x, int y, int z, out Block block, out ushort stateId)
+        {
+            _data.GetCellIdsUnchecked(x, y, z, out ushort blockId, out stateId);
+            block = Blocks.GetByCompactId(blockId);
         }
 
         public void SetBlock(int x, int y, int z, Block block, [CanBeNull] object state = null)
         {
-            Block existingBlock = _blockData[x, y, z];
-            object existingState = _stateData[x, y, z] ?? existingBlock.DefaultState;
+            if ((uint)x >= ChunkSize || (uint)y >= ChunkHeight || (uint)z >= ChunkSize)
+                throw new ArgumentOutOfRangeException($"Chunk-local cell ({x}, {y}, {z}) is outside the chunk.");
+            _data.GetCellIdsUnchecked(x, y, z, out ushort existingBlockId, out ushort existingStateId);
+            Block existingBlock = Blocks.GetByCompactId(existingBlockId);
+            object existingState = existingBlock.DecodeStateCached(existingStateId);
             object nextState = state ?? block.DefaultState;
+            ushort nextStateId = block.EncodeStateCompact(nextState);
             if (existingBlock.BlockId == block.BlockId &&
-                existingBlock.EncodeState(existingState) == block.EncodeState(nextState))
+                existingStateId == nextStateId)
             {
                 // A repeated assignment is normally a true no-op. A malformed/restored cell can still
                 // contain fluid inside an incompatible block; repairing that invariant is a real change.
-                FluidState unchangedBlockFluid = _fluidData[x, y, z];
+                FluidState unchangedBlockFluid = FluidState.FromRaw(_data.GetFluidRawUnchecked(x, y, z));
                 BlockState unchangedBlock = existingBlock.AsState(x, y, z, existingState);
                 if (unchangedBlockFluid.IsEmpty || CanContainFluid(unchangedBlock)) return;
-                _fluidData[x, y, z] = default;
+                _data.SetFluidRaw(x, y, z, 0);
                 _persistenceRevision++;
                 MarkFluidDirty(x, y, z);
                 ScheduleFluidNeighbors(new Vector3Int(x, y, z));
                 return;
             }
 
-            FluidState existingFluid = _fluidData[x, y, z];
-            _blockData[x, y, z] = block;
-            _stateData[x, y, z] = state;
+            FluidState existingFluid = FluidState.FromRaw(_data.GetFluidRawUnchecked(x, y, z));
+            _data.SetBlock(x, y, z, block, nextStateId);
             _persistenceRevision++;
             _renderObjects[y / ChunkSize].MarkDirty(ChunkRenderDirtyFlags.All);
             
@@ -187,7 +211,7 @@ namespace World
             if (y % ChunkSize == ChunkSize - 1 && y != ChunkHeight - 1) _renderObjects[y / ChunkSize + 1].MarkDirty(ChunkRenderDirtyFlags.All);
             if (!existingFluid.IsEmpty && !CanContainFluid(GetBlock(x, y, z)))
             {
-                _fluidData[x, y, z] = default;
+                _data.SetFluidRaw(x, y, z, 0);
                 MarkFluidDirty(x, y, z);
             }
             ScheduleFluidNeighbors(new Vector3Int(x, y, z));
@@ -210,7 +234,7 @@ namespace World
             if (y < 0 || y >= ChunkHeight) return default;
             if (x < 0 || x >= ChunkSize || z < 0 || z >= ChunkSize)
                 return _world.GetFluid(ChunkPosition.X * ChunkSize + x, y, ChunkPosition.Z * ChunkSize + z);
-            return _fluidData[x, y, z];
+            return FluidState.FromRaw(_data.GetFluidRawUnchecked(x, y, z));
         }
 
         public void SetFluid(Vector3Int position, FluidState state, bool schedule = true) => SetFluid(position.x, position.y, position.z, state, schedule);
@@ -219,8 +243,8 @@ namespace World
         {
             if (y < 0 || y >= ChunkHeight) return;
             if (x < 0 || x >= ChunkSize || z < 0 || z >= ChunkSize) { _world.SetFluid(ChunkPosition.X * ChunkSize + x, y, ChunkPosition.Z * ChunkSize + z, state); return; }
-            if (_fluidData[x, y, z].RawAmount == state.RawAmount) return;
-            _fluidData[x, y, z] = state;
+            if (_data.GetFluidRawUnchecked(x, y, z) == state.RawAmount) return;
+            _data.SetFluidRaw(x, y, z, state.RawAmount);
             _persistenceRevision++;
             MarkFluidDirty(x, y, z);
             if (schedule)
@@ -239,19 +263,7 @@ namespace World
             }
             FluidState state = GetFluid(position);
             if (state.IsEmpty) return;
-            _scheduledFluidTicks.Add(new ScheduledFluidTick(position, state.RawAmount, _world.FluidTick + delay));
-        }
-
-        internal void TickFluid(int tick)
-        {
-            List<ScheduledFluidTick> due = new();
-            for (int i = _scheduledFluidTicks.Count - 1; i >= 0; i--) if (_scheduledFluidTicks[i].DueTick <= tick)
-            {
-                due.Add(_scheduledFluidTicks[i]);
-                _scheduledFluidTicks.RemoveAt(i);
-            }
-            foreach (ScheduledFluidTick scheduled in due)
-                if (GetFluid(scheduled.Position).RawAmount == scheduled.ExpectedRawAmount && scheduled.ExpectedRawAmount != 0) Water.Tick(this, scheduled.Position);
+            _world?.ScheduleFluidTick(this, position, state.RawAmount, delay);
         }
 
         internal void ScheduleFluidNeighbors(Vector3Int position)
@@ -294,20 +306,48 @@ namespace World
         {
             _active = true;
             foreach (var obj in _renderObjects) obj.FinalizeGeneration();
+            _world?.ResumeFluidTicks(this);
+            if (_loadedFromSnapshot) ScheduleRestoredFluidTicks();
         }
 
         internal void ScheduleBorderFluidTicks()
         {
-            for (int y = 0; y < ChunkHeight; y++) for (int i = 0; i < ChunkSize; i++)
+            for (int section = 0; section < ChunkSectionCount; section++)
             {
-                ScheduleFluidIfPresent(new Vector3Int(0, y, i)); ScheduleFluidIfPresent(new Vector3Int(ChunkSize - 1, y, i));
-                ScheduleFluidIfPresent(new Vector3Int(i, y, 0)); ScheduleFluidIfPresent(new Vector3Int(i, y, ChunkSize - 1));
+                if (_data.FluidCount(section) == 0) continue;
+                ScheduleFluidBorder(section, ChunkRenderObject.LeftFace);
+                ScheduleFluidBorder(section, ChunkRenderObject.RightFace);
+                ScheduleFluidBorder(section, ChunkRenderObject.FrontFace);
+                ScheduleFluidBorder(section, ChunkRenderObject.BackFace);
+            }
+        }
+
+        private void ScheduleFluidBorder(int section, int face)
+        {
+            for (int wordIndex = 0; wordIndex < 4; wordIndex++)
+            {
+                ulong word = _data.GetFluidBorderWord(section, face, wordIndex);
+                if (word == 0) continue;
+                for (int bitInWord = 0; bitInWord < 64; bitInWord++)
+                {
+                    ulong mask = 1UL << bitInWord;
+                    if ((word & mask) == 0) continue;
+                    int bit = wordIndex * 64 + bitInWord;
+                    int localY = bit / ChunkSize;
+                    int across = bit % ChunkSize;
+                    int x = face == ChunkRenderObject.LeftFace ? 0 :
+                        face == ChunkRenderObject.RightFace ? ChunkSize - 1 : across;
+                    int z = face == ChunkRenderObject.BackFace ? 0 :
+                        face == ChunkRenderObject.FrontFace ? ChunkSize - 1 : across;
+                    ScheduleFluidTick(new Vector3Int(x, section * ChunkSize + localY, z), Water.TickDelay);
+                }
             }
         }
         
         public void DestroyChunk()
         {
             _active = false;
+            _world?.CancelFluidTicks(this);
             foreach (ChunkRenderObject obj in _renderObjects)
             {
                 obj.DestroyObject();
@@ -324,6 +364,24 @@ namespace World
             foreach (ChunkRenderObject obj in _renderObjects) obj.MarkDirty(ChunkRenderDirtyFlags.All);
         }
 
+        internal void MarkBorderDirty(int face)
+        {
+            for (int section = 0; section < ChunkSectionCount; section++)
+            {
+                bool blocks = false;
+                bool water = false;
+                for (int word = 0; word < 4 && !(blocks && water); word++)
+                {
+                    blocks |= _data.GetNonAirBorderWord(section, face, word) != 0;
+                    water |= _data.GetFluidBorderWord(section, face, word) != 0;
+                }
+
+                ChunkRenderDirtyFlags flags = (blocks ? ChunkRenderDirtyFlags.Blocks : ChunkRenderDirtyFlags.None) |
+                                              (water ? ChunkRenderDirtyFlags.Water : ChunkRenderDirtyFlags.None);
+                _renderObjects[section].MarkDirty(flags);
+            }
+        }
+
         public bool TryCreatePersistenceSnapshot(out ChunkSnapshot snapshot)
         {
             if (_persistenceRevision <= _lastQueuedRevision)
@@ -338,10 +396,9 @@ namespace World
             for (int x = 0; x < ChunkSize; x++) for (int y = 0; y < ChunkHeight; y++) for (int z = 0; z < ChunkSize; z++)
             {
                 int index = ChunkSnapshot.Index(x, y, z);
-                Block block = _blockData[x, y, z];
-                blocks[index] = block.BlockId;
-                states[index] = block.EncodeState(_stateData[x, y, z] ?? block.DefaultState);
-                fluids[index] = _fluidData[x, y, z].RawAmount;
+                blocks[index] = _data.GetBlockIdUnchecked(x, y, z);
+                states[index] = _data.GetStateIdUnchecked(x, y, z);
+                fluids[index] = _data.GetFluidRawUnchecked(x, y, z);
             }
             _lastQueuedRevision = _persistenceRevision;
             snapshot = new ChunkSnapshot(ChunkPosition, blocks, states, fluids, _persistenceRevision);

@@ -16,6 +16,7 @@ namespace World.blocks
         public float OwnHeight => Amount / 9f;
         public static FluidState Source => new() { Amount = 8 };
         public static FluidState FallingState() => new() { _amount = 10 };
+        internal static FluidState FromRaw(byte rawAmount) => new() { _amount = rawAmount };
     }
 
     public static class Water

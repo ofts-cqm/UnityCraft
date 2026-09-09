@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 using World;
 using world.blocks;
@@ -8,20 +7,18 @@ namespace world.generation
 {
     public static class ChunkGenerator
     {
-        private const float FirstLevelFrequency = 0.001f;//0.01f;
-        private const float SecondLevelFrequency = 0.002f;//0.02f;
+        private const float FirstLevelFrequency = 0.001f;
+        private const float SecondLevelFrequency = 0.002f;
         private const float FeatureFrequency = 0.01f;
         private const float TemperatureFrequency = 0.002f;
-        private const float Root = 1/5f;
-        private const int SeaLevel = 64;
+        private const float Root = 1 / 5f;
+        internal const int SeaLevel = 64;
 
         private static PerlinNoise _continentalNoise;
         private static PerlinNoise _heightNoise;
         private static PerlinNoise _featureNoise;
         private static PerlinNoise _temperatureNoise;
         private static bool _initialized;
-        
-        private static readonly Dictionary<ChunkCoord, List<BlockState>> OutOfBoundsStates = new();
 
         public enum BiomeEnum
         {
@@ -31,8 +28,27 @@ namespace world.generation
             Mountain,
             Forest
         }
-        
-        public record ChunkGenerationContext(Block[,,] Blocks, int[,] HeightMap, float[,] Height, float[,] Continental, float[,] Temperature, BiomeEnum[,] Biome);
+
+        public sealed class ChunkGenerationContext
+        {
+            public ChunkData Data { get; }
+            public int[,] HeightMap { get; }
+            public float[,] Height { get; }
+            public float[,] Continental { get; }
+            public float[,] Temperature { get; }
+            public BiomeEnum[,] Biome { get; }
+
+            internal ChunkGenerationContext(ChunkData data, int[,] heightMap, float[,] height,
+                float[,] continental, float[,] temperature, BiomeEnum[,] biome)
+            {
+                Data = data;
+                HeightMap = heightMap;
+                Height = height;
+                Continental = continental;
+                Temperature = temperature;
+                Biome = biome;
+            }
+        }
 
         public static void Initialize(WorldGenerationSettings settings)
         {
@@ -40,7 +56,6 @@ namespace world.generation
             _heightNoise = new PerlinNoise(settings.HeightSeed, SecondLevelFrequency, new[] { 3, 1, 0, 0, 1 });
             _featureNoise = new PerlinNoise(settings.FeatureSeed, FeatureFrequency, new[] { 1, 1, 4, 2 });
             _temperatureNoise = new PerlinNoise(settings.TemperatureSeed, TemperatureFrequency, new[] { 5, 3, 0, 0, 1, 1, 1 });
-            OutOfBoundsStates.Clear();
             StructureGenerator.Initialize(settings);
             _initialized = true;
         }
@@ -50,80 +65,92 @@ namespace world.generation
             return noise > 0 ? Mathf.Pow(noise, Root) : -Mathf.Pow(-noise, Root);
         }
 
-        public static Block[,,] GenerateChunk(ChunkCoord chunk)
+        /// <summary>
+        /// Generates directly into the compact buffers used by the live chunk. No full-volume
+        /// reference array or copy/translation pass is created.
+        /// </summary>
+        public static ChunkData GenerateChunk(ChunkCoord chunk)
         {
-            if (!_initialized) throw new System.InvalidOperationException("ChunkGenerator must be initialized with the selected world's generation settings.");
+            if (!_initialized)
+                throw new System.InvalidOperationException("ChunkGenerator must be initialized with the selected world's generation settings.");
+
             ChunkGenerationContext context = GenerateNoise(chunk.X, chunk.Z);
             GenerateFromHeightMap(context);
-            PlaceOutOfBoundBlocks(context.Blocks, chunk);
             StructureGenerator.GenerateTrees(chunk, context);
-            return context.Blocks;
+            return context.Data;
         }
-        
-        private static ChunkGenerationContext GenerateNoise(int x, int z)
+
+        private static ChunkGenerationContext GenerateNoise(int chunkX, int chunkZ)
         {
             float[,] height = new float[Chunk.ChunkSize, Chunk.ChunkSize];
             int[,] heightMap = new int[Chunk.ChunkSize, Chunk.ChunkSize];
-            float[,] levelMap =  new float[Chunk.ChunkSize, Chunk.ChunkSize];
+            float[,] continentalMap = new float[Chunk.ChunkSize, Chunk.ChunkSize];
             float[,] temperatureMap = new float[Chunk.ChunkSize, Chunk.ChunkSize];
-            x *= 16;
-            z *= 16;
+            BiomeEnum[,] biomeMap = new BiomeEnum[Chunk.ChunkSize, Chunk.ChunkSize];
+            int worldX = chunkX * Chunk.ChunkSize;
+            int worldZ = chunkZ * Chunk.ChunkSize;
 
-            for (int i = 0; i < Chunk.ChunkSize; i++)
+            for (int x = 0; x < Chunk.ChunkSize; x++)
+            for (int z = 0; z < Chunk.ChunkSize; z++)
             {
-                for (int j = 0; j < Chunk.ChunkSize; j++)
-                {
-                    float firstLevel = BiasNoise(_continentalNoise.At(x + i, z + j)) / 2;
-                    float secondLevel = BiasNoise(_heightNoise.At(x + i, z + j)) / 4;
-                    float preliminaryHeight = firstLevel + secondLevel;
-                    float featureLevel = _featureNoise.At(x + i, z + j);
-                    featureLevel *= Mathf.Clamp(preliminaryHeight / 2 + 0.5f, 0, 1) * 0.25f;
-
-                    levelMap[i, j] = preliminaryHeight;
-                    height[i, j] = preliminaryHeight + featureLevel;
-                    
-                    temperatureMap[i, j] = _temperatureNoise.At(x + i, z + j);
-                }
+                SampleColumn(worldX + x, worldZ + z, out int columnHeight, out BiomeEnum biome,
+                    out float preciseHeight, out float continental, out float temperature);
+                height[x, z] = preciseHeight;
+                heightMap[x, z] = columnHeight;
+                continentalMap[x, z] = continental;
+                temperatureMap[x, z] = temperature;
+                biomeMap[x, z] = biome;
             }
-            
-            return new ChunkGenerationContext(
-                new Block[Chunk.ChunkSize, Chunk.ChunkHeight, Chunk.ChunkSize], 
-                heightMap,
-                height, 
-                levelMap, 
-                temperatureMap, 
-                new BiomeEnum[Chunk.ChunkSize, Chunk.ChunkSize]
-            );
+
+            return new ChunkGenerationContext(new ChunkData(), heightMap, height, continentalMap,
+                temperatureMap, biomeMap);
         }
-        
+
+        internal static void SampleColumn(int worldX, int worldZ, out int height, out BiomeEnum biome)
+        {
+            SampleColumn(worldX, worldZ, out height, out biome, out _, out _, out _);
+        }
+
+        private static void SampleColumn(int worldX, int worldZ, out int height, out BiomeEnum biome,
+            out float preciseHeight, out float continental, out float temperature)
+        {
+            float firstLevel = BiasNoise(_continentalNoise.At(worldX, worldZ)) / 2;
+            float secondLevel = BiasNoise(_heightNoise.At(worldX, worldZ)) / 4;
+            continental = firstLevel + secondLevel;
+            float featureLevel = _featureNoise.At(worldX, worldZ);
+            featureLevel *= Mathf.Clamp(continental / 2 + 0.5f, 0, 1) * 0.25f;
+            preciseHeight = continental + featureLevel;
+            temperature = _temperatureNoise.At(worldX, worldZ);
+            height = (int)(preciseHeight * 40) + 60;
+            biome = continental < 0
+                ? BiomeEnum.Ocean
+                : continental < 0.5f
+                    ? temperature > 0 ? BiomeEnum.Plain : BiomeEnum.Desert
+                    : temperature > 0 ? BiomeEnum.Forest : BiomeEnum.Mountain;
+        }
+
         private static void GenerateFromHeightMap(ChunkGenerationContext context)
         {
-            float[,] heightMap = context.Height;
-            Block[,,] blocks = context.Blocks;
-            BiomeEnum[,] biomeMap = context.Biome;
-            
-            for (int i = 0; i < Chunk.ChunkSize; i++)
+            for (int x = 0; x < Chunk.ChunkSize; x++)
+            for (int z = 0; z < Chunk.ChunkSize; z++)
             {
-                for (int k = 0; k < Chunk.ChunkSize; k++)
+                int height = context.HeightMap[x, z];
+                int lastWrittenY = Mathf.Min(Chunk.ChunkHeight - 1, Mathf.Max(height, SeaLevel - 1));
+                for (int y = 0; y <= lastWrittenY; y++)
                 {
-                    if (context.Continental[i, k] < 0) biomeMap[i, k] = BiomeEnum.Ocean;
-                    else if (context.Continental[i, k] < 0.5f)
-                        biomeMap[i, k] = context.Temperature[i, k] > 0 ? BiomeEnum.Plain : BiomeEnum.Desert;
-                    else biomeMap[i, k] = context.Temperature[i, k] > 0 ? BiomeEnum.Forest : BiomeEnum.Mountain;
-                    
-                    int height = (int)(heightMap[i, k] * 40) + 60;
-                    context.HeightMap[i, k] = height;
-                    for (int j = 0; j < Chunk.ChunkHeight; j++)
+                    Block block = context.Biome[x, z] switch
                     {
-                        blocks[i, j, k] = biomeMap[i, k] switch
-                        {
-                            BiomeEnum.Forest => PlacePlainBlocks(j, height),
-                            BiomeEnum.Desert=> PlaceDesertBlocks(j, height),
-                            BiomeEnum.Mountain => PlaceMountainBlocks(j, height),
-                            BiomeEnum.Ocean => PlaceOceanBlocks(j, height),
-                            _ => PlacePlainBlocks(j, height)
-                        };
-                    }
+                        BiomeEnum.Forest => PlacePlainBlocks(y, height),
+                        BiomeEnum.Desert => PlaceDesertBlocks(y, height),
+                        BiomeEnum.Mountain => PlaceMountainBlocks(y, height),
+                        BiomeEnum.Ocean => PlaceOceanBlocks(y, height),
+                        _ => PlacePlainBlocks(y, height)
+                    };
+
+                    if (block.BlockId == Blocks.GenerationWater.BlockId)
+                        context.Data.SetFluidRaw(x, y, z, FluidState.Source.RawAmount);
+                    else if (!block.IsAir)
+                        context.Data.SetBlock(x, y, z, block, block.EncodeStateCompact(block.DefaultState));
                 }
             }
         }
@@ -157,71 +184,27 @@ namespace world.generation
             return y < SeaLevel ? Blocks.GenerationWater : Blocks.Air;
         }
 
-        private static void PlaceOutOfBoundBlocks(Block[,,] blocks, ChunkCoord chunk)
+        internal static void PlaceStructureBlock(BlockState blockState, ChunkCoord targetCoord,
+            ChunkGenerationContext context)
         {
-            foreach (BlockState blockState in OutOfBoundsStates.GetValueOrDefault(chunk, new List<BlockState>()))
-            {
-                int x = blockState.Position.x % Chunk.ChunkSize;
-                if (x < 0) x += Chunk.ChunkSize;
-                int z =  blockState.Position.z % Chunk.ChunkSize;
-                if (z < 0) z += Chunk.ChunkSize;
-                
-                if (!blocks[x, blockState.Position.y, z].IsAir && !blockState.Block.ReplaceTerrain) return;
-                
-                blocks[x, blockState.Position.y, z] = blockState.Block;
-            }
+            if (blockState.Block.BlockId == Blocks.Void.BlockId || blockState.Position.y < 0 ||
+                blockState.Position.y >= Chunk.ChunkHeight) return;
+            if (!ChunkCoord.ToChunkCoord(blockState.Position.x, blockState.Position.z).Equals(targetCoord)) return;
+
+            int x = ModChunk(blockState.Position.x);
+            int z = ModChunk(blockState.Position.z);
+            Block existing = Blocks.GetByCompactId(context.Data.GetBlockId(x, blockState.Position.y, z));
+            bool generatedWater = existing.IsAir && context.Data.GetFluidRaw(x, blockState.Position.y, z) != 0;
+            if ((!existing.IsAir || generatedWater) && !blockState.Block.ReplaceTerrain) return;
+            context.Data.SetBlock(x, blockState.Position.y, z, blockState.Block,
+                blockState.Block.EncodeStateCompact(blockState.Data));
+            if (generatedWater) context.Data.SetFluidRaw(x, blockState.Position.y, z, 0);
         }
 
-        public static void PlaceStructureBlock(BlockState blockState, ChunkCoord coord, ChunkGenerationContext context)
+        private static int ModChunk(int coordinate)
         {
-            if (blockState.Block.BlockId == Blocks.Void.BlockId) return;
-            
-            int x = blockState.Position.x % Chunk.ChunkSize;
-            if (x < 0) x += Chunk.ChunkSize;
-            int z =  blockState.Position.z % Chunk.ChunkSize;
-            if (z < 0) z += Chunk.ChunkSize;
-            
-            ChunkCoord targetChunk = ChunkCoord.ToChunkCoord(blockState.Position.x, blockState.Position.z);
-            if (!targetChunk.Equals(coord))
-            {
-                // see if loaded chunks contain the coord
-                Block block = World.World.Instance.GetBlock(blockState.Position).Block;
-                if (block.BlockId != Blocks.Void.BlockId)
-                {
-                    if (block.IsAir || blockState.Block.ReplaceTerrain) World.World.Instance.SetBlock(blockState.Position, blockState.Block);
-                    return;
-                }
-                
-                // see if it is in inactive chunk map
-                if (ChunkLoader.TryGetInactiveChunk(coord, out Chunk chunk))
-                {
-                    block = chunk.GetBlock(x, blockState.Position.y, z).Block;
-                    if (block.IsAir || blockState.Block.ReplaceTerrain) chunk.SetBlock(x, blockState.Position.y, z, blockState.Block);
-                    return;
-                }
-                
-                // see if it is in a completed queue
-                if (ChunkLoader.TryGetQueuedChunk(coord, out chunk))
-                {
-                    block = chunk.GetBlock(x, blockState.Position.y, z).Block;
-                    if (block.IsAir || blockState.Block.ReplaceTerrain) chunk.SetBlock(x, blockState.Position.y, z, blockState.Block);
-                    return;
-                }
-                
-                // store this as an out of bound block
-                if (!OutOfBoundsStates.TryGetValue(targetChunk, out List<BlockState> blocks))
-                {
-                    blocks = new List<BlockState>();
-                    OutOfBoundsStates[targetChunk] = blocks;
-                }
-                blocks.Add(blockState);
-            }
-            else
-            {
-                if (!context.Blocks[x, blockState.Position.y, z].IsAir && !blockState.Block.ReplaceTerrain) return;
-                
-                context.Blocks[x, blockState.Position.y, z] = blockState.Block;
-            }
+            int result = coordinate % Chunk.ChunkSize;
+            return result < 0 ? result + Chunk.ChunkSize : result;
         }
     }
 }

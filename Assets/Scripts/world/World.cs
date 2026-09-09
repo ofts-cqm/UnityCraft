@@ -35,6 +35,8 @@ namespace World
         
         private ChunkCoord _playerLastChunkCoord;
         internal int FluidTick { get; private set; }
+        [SerializeField, Min(0)] private int maximumFluidUpdatesPerFixedTick;
+        private readonly FluidScheduler _fluidScheduler = new();
         private Player _playerComponent;
         private float _nextAutosaveTime;
         private bool _persistenceReady;
@@ -141,7 +143,7 @@ namespace World
         {
             if (!_gameplayReady || _shuttingDown) return;
             FluidTick++;
-            foreach (Chunk chunk in ChunkMap.Values) chunk.TickFluid(FluidTick);
+            _fluidScheduler.Advance(FluidTick, maximumFluidUpdatesPerFixedTick, this);
         }
 
         private void BeginInitialLoad()
@@ -277,6 +279,7 @@ namespace World
             ShutdownPersistence();
             foreach (Chunk chunk in ChunkMap.Values) chunk.DestroyChunk();
             ChunkMap.Clear();
+            _fluidScheduler.Clear();
             lock (_renderQueueLock)
             {
                 _renderQueue.Clear();
@@ -401,8 +404,25 @@ namespace World
 
         internal void ScheduleFluidTick(Vector3Int position, int delay)
         {
+            if (position.y < 0 || position.y >= Chunk.ChunkHeight) return;
             if (ChunkMap.TryGetValue(ChunkCoord.ToChunkCoord(position.x, position.z), out Chunk chunk))
                 chunk.ScheduleFluidTick(ToCoordInChunk(position.x, position.y, position.z), delay);
+        }
+
+        internal void ScheduleFluidTick(Chunk chunk, Vector3Int localPosition, byte expectedRawAmount, int delay)
+        {
+            _fluidScheduler.Schedule(chunk, localPosition, expectedRawAmount, FluidTick + Math.Max(0, delay));
+        }
+
+        internal void SuspendFluidTicks(Chunk chunk) => _fluidScheduler.Suspend(chunk);
+        internal void ResumeFluidTicks(Chunk chunk) => _fluidScheduler.Resume(chunk);
+        internal void CancelFluidTicks(Chunk chunk) => _fluidScheduler.Cancel(chunk);
+
+        internal Chunk ResolveActiveFluidChunk(ChunkCoord coord, int generation)
+        {
+            return ChunkMap.TryGetValue(coord, out Chunk chunk) && chunk.FluidGeneration == generation && chunk.IsActive
+                ? chunk
+                : null;
         }
 
         public void SetBlock(int x, int y, int z, Block block, [CanBeNull] object state = null)

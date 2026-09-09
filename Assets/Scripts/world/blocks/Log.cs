@@ -31,22 +31,22 @@ namespace world.blocks
             Vector3 localPosition)
         {
             LogAxis axis = state.Data is LogAxis value ? value : LogAxis.Y;
-            AddFaceIfVisible(chunk.GetBlock(position + Vector3Int.left), ChunkRenderObject.RightFace,
+            AddFaceIfVisible(ShouldRender(chunk, position + Vector3Int.left, ChunkRenderObject.RightFace),
                 ChunkRenderObject.LeftFace);
-            AddFaceIfVisible(chunk.GetBlock(position + Vector3Int.right), ChunkRenderObject.LeftFace,
+            AddFaceIfVisible(ShouldRender(chunk, position + Vector3Int.right, ChunkRenderObject.LeftFace),
                 ChunkRenderObject.RightFace);
-            AddFaceIfVisible(chunk.GetBlock(position + Vector3Int.up), ChunkRenderObject.BottomFace,
+            AddFaceIfVisible(ShouldRender(chunk, position + Vector3Int.up, ChunkRenderObject.BottomFace),
                 ChunkRenderObject.TopFace);
-            AddFaceIfVisible(chunk.GetBlock(position + Vector3Int.down), ChunkRenderObject.TopFace,
+            AddFaceIfVisible(ShouldRender(chunk, position + Vector3Int.down, ChunkRenderObject.TopFace),
                 ChunkRenderObject.BottomFace);
-            AddFaceIfVisible(chunk.GetBlock(position + Vector3Int.forward), ChunkRenderObject.BackFace,
+            AddFaceIfVisible(ShouldRender(chunk, position + Vector3Int.forward, ChunkRenderObject.BackFace),
                 ChunkRenderObject.FrontFace);
-            AddFaceIfVisible(chunk.GetBlock(position + Vector3Int.back), ChunkRenderObject.FrontFace,
+            AddFaceIfVisible(ShouldRender(chunk, position + Vector3Int.back, ChunkRenderObject.FrontFace),
                 ChunkRenderObject.BackFace);
 
-            void AddFaceIfVisible(BlockState neighbor, int neighborFace, int face)
+            void AddFaceIfVisible(bool visible, int face)
             {
-                if (!ShouldRender(neighbor, neighborFace)) return;
+                if (!visible) return;
                 bool endGrain = axis switch
                 {
                     LogAxis.X => face is ChunkRenderObject.LeftFace or ChunkRenderObject.RightFace,

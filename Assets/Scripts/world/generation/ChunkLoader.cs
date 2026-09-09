@@ -82,10 +82,7 @@ namespace world.generation
                 World.World.Instance.ChunkMap[coord] = chunk;
 
                 // Loading this neighbor may change visible border faces.
-                World.World.Instance.GetChunk(coord.Left())?.MarkDirty();
-                World.World.Instance.GetChunk(coord.Right())?.MarkDirty();
-                World.World.Instance.GetChunk(coord.Up())?.MarkDirty();
-                World.World.Instance.GetChunk(coord.Down())?.MarkDirty();
+                MarkExistingNeighborBorders(coord);
                 WakeFluidBorders(chunk);
                 return;
             }
@@ -119,6 +116,8 @@ namespace world.generation
 
             // Remove the chunk from the chunk map
             if (!World.World.Instance.ChunkMap.Remove(coord, out Chunk chunk)) return;
+
+            MarkExistingNeighborBorders(coord);
 
             World.World.Instance.QueueChunkSave(chunk);
 
@@ -203,10 +202,7 @@ namespace world.generation
                 chunk.FinalizeLoading();
                 World.World.Instance.ChunkMap.Add(coord, chunk);
 
-                World.World.Instance.GetChunk(coord.Left())?.MarkDirty();
-                World.World.Instance.GetChunk(coord.Right())?.MarkDirty();
-                World.World.Instance.GetChunk(coord.Up())?.MarkDirty();
-                World.World.Instance.GetChunk(coord.Down())?.MarkDirty();
+                MarkExistingNeighborBorders(coord);
                 WakeFluidBorders(chunk);
 
                 installedThisFrame++;
@@ -220,6 +216,14 @@ namespace world.generation
             World.World.Instance.GetChunk(chunk.ChunkPosition.Right())?.ScheduleBorderFluidTicks();
             World.World.Instance.GetChunk(chunk.ChunkPosition.Up())?.ScheduleBorderFluidTicks();
             World.World.Instance.GetChunk(chunk.ChunkPosition.Down())?.ScheduleBorderFluidTicks();
+        }
+
+        private static void MarkExistingNeighborBorders(ChunkCoord coord)
+        {
+            World.World.Instance.GetChunk(coord.Left())?.MarkBorderDirty(Render.ChunkRenderObject.RightFace);
+            World.World.Instance.GetChunk(coord.Right())?.MarkBorderDirty(Render.ChunkRenderObject.LeftFace);
+            World.World.Instance.GetChunk(coord.Up())?.MarkBorderDirty(Render.ChunkRenderObject.FrontFace);
+            World.World.Instance.GetChunk(coord.Down())?.MarkBorderDirty(Render.ChunkRenderObject.BackFace);
         }
     }
 }

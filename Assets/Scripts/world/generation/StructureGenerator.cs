@@ -58,13 +58,11 @@ namespace world.generation
             }
         };
 
-        private static void PlaceStructure(Block[,,] structure, int x, int z, int centerX, int centerZ, ChunkCoord coord,
-            ChunkGenerator.ChunkGenerationContext context, Block replaceBlock)
+        private const int TreeHorizontalRadius = 2;
+
+        private static void PlaceStructure(Block[,,] structure, int xStart, int yStart, int zStart,
+            ChunkCoord targetCoord, ChunkGenerator.ChunkGenerationContext context, Block replaceBlock)
         {
-            int xStart = coord.X * Chunk.ChunkSize + x;
-            int yStart = context.HeightMap[centerX, centerZ] + 1;
-            int zStart = coord.Z * Chunk.ChunkSize + z;
-            
             int xLength = structure.GetLength(0);
             int yLength = structure.GetLength(1);
             int zLength = structure.GetLength(2);
@@ -89,7 +87,9 @@ namespace world.generation
                             if (_replaceNoise.At(xStart + i, zStart + k) < -0.02f && (((yStart + j) ^ 91) & 7) == 1) continue;
                         }
                         
-                        ChunkGenerator.PlaceStructureBlock(new BlockState(xStart + i, yStart + j, zStart + k, structure[i, j, k]), coord, context);
+                        ChunkGenerator.PlaceStructureBlock(
+                            new BlockState(xStart + i, yStart + j, zStart + k, structure[i, j, k]),
+                            targetCoord, context);
                     }
                 }
             }
@@ -97,16 +97,45 @@ namespace world.generation
         
         public static void GenerateTrees(ChunkCoord coord, ChunkGenerator.ChunkGenerationContext context)
         {
-            int xStart = coord.X * Chunk.ChunkSize;
-            int zStart = coord.Z * Chunk.ChunkSize;
-            for (int i = 0; i < 16; i++)
+            int targetMinX = coord.X * Chunk.ChunkSize;
+            int targetMinZ = coord.Z * Chunk.ChunkSize;
+
+            // Evaluate every tree origin capable of intersecting this chunk. This produces the
+            // same terrain/structure result regardless of chunk load order and removes all
+            // background-thread access to live World/Chunk objects.
+            for (int originX = targetMinX - TreeHorizontalRadius;
+                 originX < targetMinX + Chunk.ChunkSize + TreeHorizontalRadius;
+                 originX++)
             {
-                for (int j = 0; j < 16; j++)
+                for (int originZ = targetMinZ - TreeHorizontalRadius;
+                     originZ < targetMinZ + Chunk.ChunkSize + TreeHorizontalRadius;
+                     originZ++)
                 {
-                    if (context.Biome[i, j] != ChunkGenerator.BiomeEnum.Forest) continue;
-                    if (_structureNoise.At(xStart + i, zStart + j) < -0.45f) PlaceStructure(TreeStructure, i - 2, j - 2, i, j, coord, context, Blocks.OakLeave);
+                    bool localOrigin = originX >= targetMinX && originX < targetMinX + Chunk.ChunkSize &&
+                                       originZ >= targetMinZ && originZ < targetMinZ + Chunk.ChunkSize;
+                    int height;
+                    ChunkGenerator.BiomeEnum biome;
+                    if (localOrigin)
+                    {
+                        int localX = originX - targetMinX;
+                        int localZ = originZ - targetMinZ;
+                        height = context.HeightMap[localX, localZ];
+                        biome = context.Biome[localX, localZ];
+                    }
+                    else ChunkGenerator.SampleColumn(originX, originZ, out height, out biome);
+
+                    if (biome != ChunkGenerator.BiomeEnum.Forest ||
+                        _structureNoise.At(originX, originZ) >= -0.45f) continue;
+                    PlaceStructure(TreeStructure, originX - TreeHorizontalRadius, height + 1,
+                        originZ - TreeHorizontalRadius, coord, context, Blocks.OakLeave);
                 }
             }
+        }
+
+        internal static bool TryGetTreeOrigin(int worldX, int worldZ, out int height)
+        {
+            ChunkGenerator.SampleColumn(worldX, worldZ, out height, out ChunkGenerator.BiomeEnum biome);
+            return biome == ChunkGenerator.BiomeEnum.Forest && _structureNoise.At(worldX, worldZ) < -0.45f;
         }
     }
 }

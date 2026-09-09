@@ -74,6 +74,13 @@ namespace world.blocks
             };
         }
 
+        internal override bool IsSolidCompact(ushort stateId, int face)
+        {
+            // Slab solidity depends on its orientation. Keep compact face queries exact while the
+            // common stateless blocks use Block's allocation-free property lookup.
+            return IsSolid(AsState(Vector3Int.zero, DecodeStateCached(stateId)), face);
+        }
+
         public override (int max, int min) GetFlowingAmountLimit(BlockState state, int face)
         {
             SlabPart part = GetPart(state.Data);
