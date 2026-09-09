@@ -104,10 +104,8 @@ namespace world.blocks
                 SlabPart.South => ChunkRenderObject.BackFace,
                 _ => throw new ArgumentOutOfRangeException()
             };
-            int oppositeFace = Opposite(blockedFace);
             if (face == blockedFace) return (0, 10);
-            if (face == oppositeFace) return (10, 0);
-            return (4, 0);
+            return (10, 0);
         }
 
         public override void Render(BlockState state, IBlockProvider chunk, MeshBuilder builder, Vector3Int position,
@@ -155,10 +153,25 @@ namespace world.blocks
         public override object GetStateToPlace(int face, Vector3Int original, ref Vector3Int position)
         {
             BlockState clicked = World.World.Instance.GetBlock(original);
+            
             if (clicked.Block.BlockId == BlockId)
             {
-                position = original;
-                return SlabPart.Both;
+                int openFace = clicked.Data switch
+                {
+                    SlabPart.East => ChunkRenderObject.LeftFace,
+                    SlabPart.West => ChunkRenderObject.RightFace,
+                    SlabPart.North => ChunkRenderObject.BackFace,
+                    SlabPart.South => ChunkRenderObject.FrontFace,
+                    SlabPart.Bottom => ChunkRenderObject.TopFace,
+                    SlabPart.Top => ChunkRenderObject.BottomFace,
+                    _ => 10
+                };
+
+                if (face == openFace)
+                {
+                    position = original;
+                    return SlabPart.Both; 
+                }
             }
 
             if (IsShiftPressed()) return GetVerticalStateToPlace(face, position);
