@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 using World;
 using world.blocks;
 using World.blocks;
@@ -13,6 +14,7 @@ namespace render.ui
         private static Camera _bakeCam;
         private static MeshRenderer _meshRenderer;
         private static RenderTexture _rt;
+        private static RenderTexture _previousActiveRenderTexture;
         private static Mesh _bakeMesh;
         private static readonly MeshBuilder Builder = new();
         
@@ -65,10 +67,23 @@ namespace render.ui
             _bakeCam.backgroundColor = new Color(0, 0, 0, 0); // Completely transparent
             _bakeCam.orthographic = true;
             _bakeCam.orthographicSize = 1f; // Adjust based on model size
+            // Inventory sprites are read back into an sRGB Texture2D. Do not let the
+            // project's HDR/MSAA camera defaults select a different intermediate format
+            // in a player build.
+            _bakeCam.allowHDR = false;
+            _bakeCam.allowMSAA = false;
             
-            _rt = RenderTexture.GetTemporary(Resolution, Resolution, 24, RenderTextureFormat.ARGB32);
+            RenderTextureDescriptor descriptor = new(
+                Resolution, Resolution, GraphicsFormat.R8G8B8A8_SRGB, 24)
+            {
+                msaaSamples = 1,
+                useMipMap = false,
+                autoGenerateMips = false,
+                sRGB = true
+            };
+            _rt = RenderTexture.GetTemporary(descriptor);
             _bakeCam.targetTexture = _rt;
-            RenderTexture.active = _rt;
+            _previousActiveRenderTexture = RenderTexture.active;
         }
 
         public static Sprite BakeToSprite(Block block)
@@ -88,9 +103,15 @@ namespace render.ui
             _modelMesh.sharedMesh = mesh;
             _bakeCam.Render();
             
-            Texture2D texture = new Texture2D(Resolution, Resolution, TextureFormat.RGBA32, false);
+            // Camera.Render does not promise to leave its target as RenderTexture.active.
+            // Bind the exact sRGB target while copying its pixels so player builds cannot
+            // read a different intermediate buffer.
+            RenderTexture previousActive = RenderTexture.active;
+            RenderTexture.active = _rt;
+            Texture2D texture = new Texture2D(Resolution, Resolution, TextureFormat.RGBA32, false, false);
             texture.ReadPixels(new Rect(0, 0, Resolution, Resolution), 0, 0);
-            texture.Apply();
+            texture.Apply(false, false);
+            RenderTexture.active = previousActive;
             _modelMesh.sharedMesh = null;
 
             return Sprite.Create(
@@ -103,8 +124,11 @@ namespace render.ui
 
         public static void FinalizeBaking()
         {
-            RenderTexture.active = null;
+            RenderTexture.active = _previousActiveRenderTexture;
+            _previousActiveRenderTexture = null;
+            if (_bakeCam != null) _bakeCam.targetTexture = null;
             if (_rt != null) RenderTexture.ReleaseTemporary(_rt);
+            _rt = null;
 
             if (_modelMesh != null) _modelMesh.sharedMesh = null;
             if (_bakeMesh != null) Destroy(_bakeMesh);
