@@ -1,4 +1,7 @@
+using System;
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using World;
 using world.blocks;
 using World.blocks;
@@ -20,6 +23,7 @@ namespace render.ui
         private static Material _transparentMaterial;
 
         private const int Resolution = 1024;
+        private const int BakeLayer = 31;
 
         private class FakeChunk : IBlockProvider
         {
@@ -33,8 +37,9 @@ namespace render.ui
         public static void PrepareBaking()
         {
             
-            _spawnedModel = new GameObject("Model")
+            _spawnedModel = new GameObject("Inventory Sprite Bake Model")
             {
+                layer = BakeLayer,
                 transform =
                 {
                     position = new Vector3(-0.7f, -0.4f, 2.5f),
@@ -48,10 +53,19 @@ namespace render.ui
             _bakeMesh = new Mesh { name = "Inventory Sprite Bake Mesh" };
             _bakeMesh.MarkDynamic();
             
-            _material = Resources.Load<Material>("VoxelMaterial");
-            _transparentMaterial = Resources.Load<Material>("TransparentVoxelMaterial");
+            Material voxelMaterial = Resources.Load<Material>("VoxelMaterial");
+            Material transparentVoxelMaterial = Resources.Load<Material>("TransparentVoxelMaterial");
+            ValidateMaterial(voxelMaterial, "VoxelMaterial");
+            ValidateMaterial(transparentVoxelMaterial, "TransparentVoxelMaterial");
 
-            _camObj = new GameObject("BakeCamera")
+            Shader bakeShader = Resources.Load<Shader>("InventorySpriteBake");
+            if (bakeShader == null || !bakeShader.isSupported)
+                throw new InvalidOperationException("The inventory sprite bake shader is missing or unsupported.");
+
+            _material = CreateBakeMaterial(bakeShader, voxelMaterial, false);
+            _transparentMaterial = CreateBakeMaterial(bakeShader, transparentVoxelMaterial, true);
+
+            _camObj = new GameObject("Inventory Sprite Bake Camera")
             {
                 transform =
                 {
@@ -60,21 +74,32 @@ namespace render.ui
                 }
             };
             _bakeCam = _camObj.AddComponent<Camera>();
+            _bakeCam.enabled = false;
             
             _bakeCam.clearFlags = CameraClearFlags.SolidColor;
             _bakeCam.backgroundColor = new Color(0, 0, 0, 0); // Completely transparent
             _bakeCam.orthographic = true;
             _bakeCam.orthographicSize = 1f; // Adjust based on model size
+            _bakeCam.cullingMask = 1 << BakeLayer;
+            _bakeCam.allowHDR = false;
+            _bakeCam.allowMSAA = false;
+            _bakeCam.useOcclusionCulling = false;
             
             _rt = RenderTexture.GetTemporary(Resolution, Resolution, 24, RenderTextureFormat.ARGB32);
-            _bakeCam.targetTexture = _rt;
-            RenderTexture.active = _rt;
         }
 
         public static Sprite BakeToSprite(Block block)
         {
             Builder.Clear();
-            if (!block.IsAir) block.Render(block.AsState(Vector3Int.zero), Chunk, Builder, Vector3Int.zero, Vector3.zero);
+            if (block.IsAir)
+            {
+                Texture2D emptyTexture = new(1, 1, TextureFormat.RGBA32, false);
+                emptyTexture.SetPixel(0, 0, Color.clear);
+                emptyTexture.Apply();
+                return Sprite.Create(emptyTexture, new Rect(0, 0, 1, 1), new Vector2(0.5f, 0.5f), 1f);
+            }
+
+            block.Render(block.AsState(Vector3Int.zero), Chunk, Builder, Vector3Int.zero, Vector3.zero);
             
             MeshBuilder.TexturedMeshHolder meshHolder = block.Transparent ? Builder.TransparentMesh : Builder.OpaqueMesh;
             meshHolder.UploadTo(_bakeMesh);
@@ -85,13 +110,40 @@ namespace render.ui
 
         public static Sprite BakeToSprite(Mesh mesh)
         {
+            // The baker mutates and renders the same dynamic mesh immediately. Force every
+            // vertex stream (especially UV1, which stores the texture-array slice) to the GPU
+            // before submitting the standalone camera render.
+            mesh.UploadMeshData(false);
             _modelMesh.sharedMesh = mesh;
-            _bakeCam.Render();
-            
-            Texture2D texture = new Texture2D(Resolution, Resolution, TextureFormat.RGBA32, false);
-            texture.ReadPixels(new Rect(0, 0, Resolution, Resolution), 0, 0);
-            texture.Apply();
-            _modelMesh.sharedMesh = null;
+            Texture2D texture = new(Resolution, Resolution, TextureFormat.RGBA32, false);
+            RenderTexture previousActive = RenderTexture.active;
+
+            try
+            {
+                // Camera.Render does not reliably enter URP's standalone camera path in a Player.
+                // A render request is the supported way to render a URP camera outside its normal loop.
+                UniversalRenderPipeline.SingleCameraRequest request = new() { destination = _rt };
+                if (!RenderPipeline.SupportsRenderRequest(_bakeCam, request))
+                    throw new NotSupportedException("The active render pipeline cannot bake inventory sprites.");
+
+                RenderPipeline.SubmitRenderRequest(_bakeCam, request);
+
+                // ReadPixels reads RenderTexture.active, not Camera.targetTexture. URP restores its
+                // previous render target when the request finishes, so bind the bake target here.
+                RenderTexture.active = _rt;
+                texture.ReadPixels(new Rect(0, 0, Resolution, Resolution), 0, 0);
+                texture.Apply();
+            }
+            catch
+            {
+                Destroy(texture);
+                throw;
+            }
+            finally
+            {
+                RenderTexture.active = previousActive;
+                _modelMesh.sharedMesh = null;
+            }
 
             return Sprite.Create(
                 texture, 
@@ -103,15 +155,45 @@ namespace render.ui
 
         public static void FinalizeBaking()
         {
-            RenderTexture.active = null;
             if (_rt != null) RenderTexture.ReleaseTemporary(_rt);
+            _rt = null;
 
             if (_modelMesh != null) _modelMesh.sharedMesh = null;
             if (_bakeMesh != null) Destroy(_bakeMesh);
             _bakeMesh = null;
+
+            if (_material != null) Destroy(_material);
+            if (_transparentMaterial != null) Destroy(_transparentMaterial);
+            _material = null;
+            _transparentMaterial = null;
             
             Destroy(_camObj);
             Destroy(_spawnedModel);
+        }
+
+        private static void ValidateMaterial(Material material, string resourceName)
+        {
+            if (material == null)
+                throw new InvalidOperationException($"Missing Resources/{resourceName}.mat.");
+            if (material.shader == null || !material.shader.isSupported)
+                throw new InvalidOperationException($"The shader used by Resources/{resourceName}.mat is not supported.");
+        }
+
+        private static Material CreateBakeMaterial(Shader shader, Material source, bool transparent)
+        {
+            Texture atlas = source.GetTexture("_TerrainTextures");
+            if (atlas == null)
+                throw new InvalidOperationException($"{source.name} has no _TerrainTextures texture array.");
+
+            Material material = new(shader)
+            {
+                name = transparent ? "Transparent Inventory Sprite Bake" : "Opaque Inventory Sprite Bake",
+                renderQueue = transparent ? (int)RenderQueue.Transparent : (int)RenderQueue.Geometry
+            };
+            material.SetTexture("_TerrainTextures", atlas);
+            material.SetFloat("_ZWrite", transparent ? 0f : 1f);
+            material.SetOverrideTag("RenderType", transparent ? "Transparent" : "Opaque");
+            return material;
         }
     }
 }
