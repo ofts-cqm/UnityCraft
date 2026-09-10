@@ -1,4 +1,5 @@
 using UnityEngine;
+using render;
 using World.blocks;
 
 namespace world.items
@@ -10,14 +11,25 @@ namespace world.items
             Sprite = Resources.Load<Sprite>("items/bucket");
         }
 
-        public override bool OnUse(World.World world, Vector3Int position, int face)
+        public override bool OnUse(World.World world, ItemUseContext context)
         {
-            // raycast to find the collider
-            // position = raycast and find position
-            FluidState fluidState = world.GetFluid(position);
-            
-            if (!fluidState.IsSource) return false;
-            world.SetFluid(position, FluidState.FromRaw(0));
+            // Physics raycasts do not report a collider containing their origin, so a camera already
+            // inside a source collects that cell directly. Flowing cells intentionally fall through.
+            Vector3Int position = Vector3Int.FloorToInt(context.AimRay.origin);
+            if (!world.GetFluid(position).IsSource)
+            {
+                if (!Physics.Raycast(context.AimRay, out RaycastHit hit, context.MaxDistance,
+                        LayerMask.GetMask("Water"),
+                        QueryTriggerInteraction.Ignore) ||
+                    !hit.collider.TryGetComponent(out WaterSourceColliderProperty colliderProperty))
+                    return false;
+
+                position = colliderProperty.RenderObject.GetWaterSourcePositionOfTriangle(hit.triangleIndex);
+            }
+
+            // The render queue may not have rebuilt a removed source's collider yet.
+            if (!world.GetFluid(position).IsSource) return false;
+            world.SetFluid(position, default);
             return true;
         }
 

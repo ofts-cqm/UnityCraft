@@ -26,6 +26,11 @@ namespace World.blocks
         private static readonly Vector4 StillTexture = new(32, 8, 16, 1);
         private static readonly Vector4 FlowingTexture = new(48, 8, 16, 1);
         private static readonly Vector3Int[] Horizontal = { Vector3Int.left, Vector3Int.right, Vector3Int.forward, Vector3Int.back };
+        private static readonly Vector3Int[] FaceDirections =
+        {
+            Vector3Int.up, Vector3Int.down, Vector3Int.forward,
+            Vector3Int.back, Vector3Int.left, Vector3Int.right
+        };
 
         public static float OwnHeight(FluidState state) => state.Amount / 9f;
         public static float EffectiveHeight(Chunk chunk, Vector3Int p) => chunk.GetFluid(p + Vector3Int.up).IsEmpty ? OwnHeight(chunk.GetFluid(p)) : 1f;
@@ -125,7 +130,9 @@ namespace World.blocks
 
         public static void Render(Chunk chunk, MeshBuilder builder, Vector3Int p, Vector3 local)
         {
-            if (chunk.GetFluid(p).IsEmpty) return;
+            FluidState state = chunk.GetFluid(p);
+            if (state.IsEmpty) return;
+            if (state.IsSource) RenderSourceCollider(chunk, builder, p, local);
             float[] h = CornerHeights(chunk, p);
             if (chunk.GetFluid(p + Vector3Int.up).IsEmpty && !TopOccluded(chunk, p, h))
             {
@@ -144,6 +151,15 @@ namespace World.blocks
                 !own.Block.IsSolid(own, ChunkRenderObject.BottomFace) &&
                 !below.Block.IsSolid(below, ChunkRenderObject.TopFace))
                 Add(builder, new[] { new Vector3(0, Offset, 0), new Vector3(1, Offset, 0), new Vector3(0, Offset, 1), new Vector3(1, Offset, 1) }, local, SquareUvs(), FlowingTexture, true);
+        }
+
+        private static void RenderSourceCollider(Chunk chunk, MeshBuilder builder, Vector3Int position, Vector3 local)
+        {
+            // Source-to-source faces are internal and unnecessary. Faces against flowing water remain
+            // so a bucket ray starting in that flowing water can reach the source boundary.
+            for (int face = ChunkRenderObject.TopFace; face <= ChunkRenderObject.RightFace; face++)
+                if (!chunk.GetFluid(position + FaceDirections[face]).IsSource)
+                    builder.AddWaterSourceColliderFace(face, local);
         }
 
         private static void AddSide(Chunk c, MeshBuilder b, Vector3Int p, Vector3 local, Vector3Int d, float a, float z)

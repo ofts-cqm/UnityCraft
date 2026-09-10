@@ -141,8 +141,10 @@ namespace render
         public readonly TexturedMeshHolder TransparentMesh = new();
         public readonly TexturedMeshHolder WaterMesh = new();
         public readonly MeshHolder ColliderMesh = new();
+        public readonly MeshHolder WaterSourceColliderMesh = new();
         public readonly List<int> TriangleCoordinate = new();
         public readonly List<int> TriangleFace = new();
+        public readonly List<int> WaterSourceTriangleCoordinate = new();
 
         public void Clear()
         {
@@ -150,8 +152,10 @@ namespace render
             TransparentMesh.Clear();
             WaterMesh.Clear();
             ColliderMesh.Clear();
+            WaterSourceColliderMesh.Clear();
             TriangleCoordinate.Clear();
             TriangleFace.Clear();
+            WaterSourceTriangleCoordinate.Clear();
         }
 
         public record CubicModel(Vector3[] VerticesLookup, int[,] TrianglesLookup, Vector2[] UvsLookup);
@@ -224,6 +228,18 @@ namespace render
             int serialized = ((int)position.x << 16) | ((int)position.y << 8) | (int)position.z;
             TriangleCoordinate.Add(serialized);
             TriangleFace.Add(face);
+        }
+
+        public void AddWaterSourceColliderFace(int face, Vector3 position)
+        {
+            Vector3 first = DefaultModel.VerticesLookup[DefaultModel.TrianglesLookup[face, 0]] + position;
+            Vector3 second = DefaultModel.VerticesLookup[DefaultModel.TrianglesLookup[face, 1]] + position;
+            Vector3 third = DefaultModel.VerticesLookup[DefaultModel.TrianglesLookup[face, 2]] + position;
+            Vector3 fourth = DefaultModel.VerticesLookup[DefaultModel.TrianglesLookup[face, 3]] + position;
+            WaterSourceColliderMesh.AddQuad(first, second, third, fourth);
+
+            int serialized = ((int)position.x << 16) | ((int)position.y << 8) | (int)position.z;
+            WaterSourceTriangleCoordinate.Add(serialized);
         }
 
         public void AddQuad(Vector3[] vertices, Vector2[] uvs, Vector4 texture, MeshTargets targets, bool reverse = false)

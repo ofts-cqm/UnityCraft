@@ -22,6 +22,7 @@ namespace Render
         // Builds run serially on the main thread. One reusable builder avoids per-rebuild
         // list allocation without retaining a second full copy of every section mesh.
         private static readonly MeshBuilder SharedMeshBuilder = new();
+        private static bool _waterLayerCollisionConfigured;
 
         private readonly Chunk _owner;
         private MeshRenderer _opaqueRenderer;
@@ -42,11 +43,17 @@ namespace Render
         private GameObject _waterObject;
         private Mesh _waterMesh;
 
+        private MeshCollider _waterSourceCollider;
+        private WaterSourceColliderProperty _waterSourceColliderProperty;
+        private GameObject _waterSourceColliderObject;
+        private Mesh _waterSourceColliderMesh;
+
         private readonly int _heightIndex;
         private readonly Vector3Int _chunkPosition;
 
         private readonly List<int> _triangleCoordinate = new();
         private readonly List<int> _triangleFace = new();
+        private readonly List<int> _waterSourceTriangleCoordinate = new();
         private readonly object _dirtyLock = new();
         private ChunkRenderDirtyFlags _dirtyFlags = ChunkRenderDirtyFlags.All;
         private bool _queued;
@@ -56,6 +63,7 @@ namespace Render
         private bool _hasBlockGeometry;
         private bool _hasColliderGeometry;
         private bool _hasWaterGeometry;
+        private bool _hasWaterSourceColliderGeometry;
 
         public const int TopFace = 0;
         public const int BottomFace = 1;
@@ -112,6 +120,7 @@ namespace Render
             if (_chunkObject != null) return;
 
             _chunkObject = new GameObject(SectionName);
+            _chunkObject.layer = GetRequiredLayer("Blocks");
             // Keep a newly allocated hierarchy invisible until every requested channel has been
             // uploaded. This also prevents a transient active object during an inactive rebuild.
             _chunkObject.SetActive(false);
@@ -178,6 +187,44 @@ namespace Render
             _waterObject.SetActive(true);
         }
 
+        private void EnsureWaterSourceColliderChannel()
+        {
+            EnsureRootObject();
+            if (_waterSourceColliderObject == null)
+            {
+                int waterLayer = GetRequiredLayer("Water");
+                ConfigureWaterLayerCollision(waterLayer);
+                _waterSourceColliderObject = new GameObject("Water Source Collider");
+                _waterSourceColliderObject.SetActive(false);
+                _waterSourceColliderObject.layer = waterLayer;
+                _waterSourceColliderObject.transform.SetParent(_chunkObject.transform, false);
+                _waterSourceCollider = _waterSourceColliderObject.AddComponent<MeshCollider>();
+                _waterSourceColliderProperty = _waterSourceColliderObject.AddComponent<WaterSourceColliderProperty>();
+                _waterSourceColliderProperty.RenderObject = this;
+            }
+            if (_waterSourceColliderMesh == null)
+                _waterSourceColliderMesh = CreatePersistentMesh("Water Source Collider");
+            _waterSourceColliderObject.SetActive(true);
+        }
+
+        private static int GetRequiredLayer(string layerName)
+        {
+            // Layer lookup is a Unity main-thread API. This helper is called only by render-channel
+            // allocation, never while ChunkLoader constructs data-only render objects on its worker.
+            int layer = LayerMask.NameToLayer(layerName);
+            if (layer < 0) throw new InvalidOperationException($"Required Unity layer '{layerName}' is missing.");
+            return layer;
+        }
+
+        private static void ConfigureWaterLayerCollision(int waterLayer)
+        {
+            if (_waterLayerCollisionConfigured) return;
+            // A section-wide source mesh is concave, which Unity cannot use as a trigger. Disabling
+            // every physical layer pair keeps it query-only without requiring thousands of box triggers.
+            for (int layer = 0; layer < 32; layer++) Physics.IgnoreLayerCollision(waterLayer, layer, true);
+            _waterLayerCollisionConfigured = true;
+        }
+
         public bool Active
         {
             get => _finalized && !_destroyed && _active;
@@ -197,13 +244,16 @@ namespace Render
                     _hasBlockGeometry = false;
                     _hasColliderGeometry = false;
                     _hasWaterGeometry = false;
+                    _hasWaterSourceColliderGeometry = false;
                     _triangleCoordinate.Clear();
                     _triangleFace.Clear();
+                    _waterSourceTriangleCoordinate.Clear();
                     lock (_dirtyLock) _queued = false;
                     ReleaseOpaqueChannel();
                     ReleaseColliderChannel();
                     ReleaseTransparentChannel();
                     ReleaseWaterChannel();
+                    ReleaseWaterSourceColliderChannel();
                     ReleaseRootObject();
                 }
             }
@@ -223,10 +273,12 @@ namespace Render
             _hasBlockGeometry = false;
             _hasColliderGeometry = false;
             _hasWaterGeometry = false;
+            _hasWaterSourceColliderGeometry = false;
             ReleaseOpaqueChannel();
             ReleaseColliderChannel();
             ReleaseTransparentChannel();
             ReleaseWaterChannel();
+            ReleaseWaterSourceColliderChannel();
             ReleaseRootObject();
         }
 
@@ -321,6 +373,7 @@ namespace Render
             if (rebuildWater)
             {
                 UploadWaterMesh(SharedMeshBuilder);
+                UploadWaterSourceColliderMesh(SharedMeshBuilder);
             }
 
             RefreshRootActivity();
@@ -369,6 +422,24 @@ namespace Render
             builder.WaterMesh.UploadTo(_waterMesh, false);
             _waterRenderer.enabled = true;
             _hasWaterGeometry = true;
+        }
+
+        private void UploadWaterSourceColliderMesh(MeshBuilder builder)
+        {
+            _waterSourceTriangleCoordinate.Clear();
+            _waterSourceTriangleCoordinate.AddRange(builder.WaterSourceTriangleCoordinate);
+            if (builder.WaterSourceColliderMesh.IsEmpty)
+            {
+                ReleaseWaterSourceColliderChannel();
+                _hasWaterSourceColliderGeometry = false;
+                return;
+            }
+
+            EnsureWaterSourceColliderChannel();
+            _waterSourceCollider.sharedMesh = null;
+            builder.WaterSourceColliderMesh.UploadTo(_waterSourceColliderMesh);
+            _waterSourceCollider.sharedMesh = _waterSourceColliderMesh;
+            _hasWaterSourceColliderGeometry = true;
         }
 
         private void ReleaseOpaqueChannel()
@@ -438,8 +509,24 @@ namespace Render
             _waterMesh = null;
         }
 
+        private void ReleaseWaterSourceColliderChannel()
+        {
+            if (_waterSourceCollider != null) _waterSourceCollider.sharedMesh = null;
+            if (_waterSourceColliderObject != null)
+            {
+                _waterSourceColliderObject.SetActive(false);
+                UnityEngine.Object.Destroy(_waterSourceColliderObject);
+            }
+            DestroyMesh(_waterSourceColliderMesh);
+            _waterSourceColliderObject = null;
+            _waterSourceCollider = null;
+            _waterSourceColliderProperty = null;
+            _waterSourceColliderMesh = null;
+        }
+
         private bool HasAllocatedChannel =>
-            _opaqueMesh != null || _colliderMesh != null || _transparentMesh != null || _waterMesh != null;
+            _opaqueMesh != null || _colliderMesh != null || _transparentMesh != null || _waterMesh != null ||
+            _waterSourceColliderMesh != null;
 
         private void RefreshRootActivity()
         {
@@ -449,7 +536,8 @@ namespace Render
                 return;
             }
 
-            _chunkObject.SetActive(_active && (_hasBlockGeometry || _hasColliderGeometry || _hasWaterGeometry));
+            _chunkObject.SetActive(_active && (_hasBlockGeometry || _hasColliderGeometry || _hasWaterGeometry ||
+                _hasWaterSourceColliderGeometry));
         }
 
         private void ReleaseRootObject()
@@ -470,6 +558,13 @@ namespace Render
         public int GetTriangleFacing(int index)
         {
             return _triangleFace[index / 2];
+        }
+
+        public Vector3Int GetWaterSourcePositionOfTriangle(int index)
+        {
+            int serialized = _waterSourceTriangleCoordinate[index / 2];
+            return new Vector3Int((serialized >> 16) & 0xFF, (serialized >> 8) & 0xFF, serialized & 0xFF) +
+                   _chunkPosition;
         }
     }
 }

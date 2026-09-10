@@ -4,6 +4,22 @@ using world.blocks;
 
 namespace world.items
 {
+    public readonly struct ItemUseContext
+    {
+        public readonly Ray AimRay;
+        public readonly float MaxDistance;
+        public readonly Vector3Int? BlockPosition;
+        public readonly int BlockFace;
+
+        public ItemUseContext(Ray aimRay, float maxDistance, Vector3Int? blockPosition, int blockFace)
+        {
+            AimRay = aimRay;
+            MaxDistance = maxDistance;
+            BlockPosition = blockPosition;
+            BlockFace = blockFace;
+        }
+    }
+
     public abstract class Item
     {
         public int MaxStack { get; }
@@ -16,7 +32,7 @@ namespace world.items
             Items.Register(this);
         }
         
-        public abstract bool OnUse(World.World world, Vector3Int position, int face);
+        public abstract bool OnUse(World.World world, ItemUseContext context);
         
         public bool OnDestroy(World.World world, Vector3Int position, int face)
         {

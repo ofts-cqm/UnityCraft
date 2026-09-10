@@ -8,4 +8,9 @@ namespace render
     {
         public ChunkRenderObject RenderObject { get; set; }
     }
+
+    public class WaterSourceColliderProperty : MonoBehaviour
+    {
+        public ChunkRenderObject RenderObject { get; set; }
+    }
 }

@@ -29,7 +29,7 @@ namespace world.items
 
         public bool IsEmpty => Item.ItemId == Items.Air.ItemId;
         
-        public bool OnUse(World.World world, Vector3Int position, int face) => Item.OnUse(world, position, face);
+        public bool OnUse(World.World world, ItemUseContext context) => Item.OnUse(world, context);
         
         public bool OnDestroy(World.World world, Vector3Int position, int face) => Item.OnDestroy(world, position, face);
         

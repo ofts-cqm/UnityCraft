@@ -2,6 +2,7 @@ using System;
 using System.Reflection;
 using NUnit.Framework;
 using Render;
+using render;
 using World;
 using World.blocks;
 using world.blocks;
@@ -125,6 +126,120 @@ namespace Tests.Editor
             Assert.AreEqual(0UL, data.GetFluidBorderWord(1, ChunkRenderObject.LeftFace, 0));
             Assert.AreEqual(0UL, data.GetFluidBorderWord(1, ChunkRenderObject.RightFace, 3));
             data.ValidateMetadata();
+        }
+
+        [Test]
+        public void SourceColliderCullsOnlyFacesSharedWithAnotherSource()
+        {
+            Chunk chunk = CreateEmptyChunk();
+            Vector3Int left = new(8, 64, 8);
+            Vector3Int right = left + Vector3Int.right;
+            chunk.SetFluid(left, FluidState.Source, false);
+            chunk.SetFluid(right, FluidState.Source, false);
+
+            MeshBuilder builder = new();
+            Water.Render(chunk, builder, left, new Vector3(8, 0, 8));
+            Water.Render(chunk, builder, right, new Vector3(9, 0, 8));
+
+            Assert.AreEqual(10 * 4, builder.WaterSourceColliderMesh.Vertices.Count);
+            Assert.AreEqual(10 * 6, builder.WaterSourceColliderMesh.Triangles.Count);
+            Assert.AreEqual(10, builder.WaterSourceTriangleCoordinate.Count);
+        }
+
+        [Test]
+        public void SourceColliderKeepsFaceSharedWithFlowingWater()
+        {
+            Chunk chunk = CreateEmptyChunk();
+            Vector3Int source = new(8, 64, 8);
+            Vector3Int flowing = source + Vector3Int.right;
+            chunk.SetFluid(source, FluidState.Source, false);
+            chunk.SetFluid(flowing, new FluidState { Amount = 4 }, false);
+
+            MeshBuilder builder = new();
+            Water.Render(chunk, builder, source, new Vector3(8, 0, 8));
+            Water.Render(chunk, builder, flowing, new Vector3(9, 0, 8));
+
+            Assert.AreEqual(6 * 4, builder.WaterSourceColliderMesh.Vertices.Count);
+            Assert.AreEqual(6 * 6, builder.WaterSourceColliderMesh.Triangles.Count);
+            Assert.AreEqual(6, builder.WaterSourceTriangleCoordinate.Count);
+        }
+
+        [Test]
+        public void FlowingWaterDoesNotEmitSourceColliderGeometry()
+        {
+            Chunk chunk = CreateEmptyChunk();
+            Vector3Int flowing = new(8, 64, 8);
+            chunk.SetFluid(flowing, new FluidState { Amount = 4 }, false);
+
+            MeshBuilder builder = new();
+            Water.Render(chunk, builder, flowing, new Vector3(8, 0, 8));
+
+            Assert.IsTrue(builder.WaterSourceColliderMesh.IsEmpty);
+            Assert.IsEmpty(builder.WaterSourceTriangleCoordinate);
+        }
+
+        [Test]
+        public void NonConvexWaterSourceMeshRemainsRaycastableWhenLayerCollisionsAreIgnored()
+        {
+            GameObject colliderObject = new("Water Source Collider Test");
+            Mesh mesh = new();
+            int waterLayer = LayerMask.NameToLayer("Water");
+            bool[] previousLayerCollisionState = new bool[32];
+            try
+            {
+                colliderObject.layer = waterLayer;
+                MeshBuilder builder = new();
+                for (int face = ChunkRenderObject.TopFace; face <= ChunkRenderObject.RightFace; face++)
+                {
+                    builder.AddWaterSourceColliderFace(face, Vector3.zero);
+                    builder.AddWaterSourceColliderFace(face, new Vector3(2, 0, 0));
+                }
+                builder.WaterSourceColliderMesh.UploadTo(mesh);
+
+                MeshCollider collider = colliderObject.AddComponent<MeshCollider>();
+                collider.sharedMesh = mesh;
+                for (int layer = 0; layer < previousLayerCollisionState.Length; layer++)
+                {
+                    previousLayerCollisionState[layer] = Physics.GetIgnoreLayerCollision(waterLayer, layer);
+                    Physics.IgnoreLayerCollision(waterLayer, layer, true);
+                }
+                Physics.SyncTransforms();
+
+                Assert.IsFalse(collider.convex);
+                Assert.IsTrue(Physics.Raycast(new Ray(new Vector3(0.5f, 2f, 0.5f), Vector3.down),
+                    out RaycastHit hit, 5f, LayerMask.GetMask("Water"), QueryTriggerInteraction.Ignore));
+                Assert.AreSame(collider, hit.collider);
+            }
+            finally
+            {
+                for (int layer = 0; layer < previousLayerCollisionState.Length; layer++)
+                    Physics.IgnoreLayerCollision(waterLayer, layer, previousLayerCollisionState[layer]);
+                UnityEngine.Object.DestroyImmediate(colliderObject);
+                UnityEngine.Object.DestroyImmediate(mesh);
+            }
+        }
+
+        [Test]
+        public void ChunkRenderObjectConstructorIsWorkerThreadSafe()
+        {
+            Exception workerException = null;
+            ChunkRenderObject renderObject = null;
+            System.Threading.Thread worker = new(() =>
+            {
+                try
+                {
+                    renderObject = new ChunkRenderObject(null, new ChunkCoord(-6, -8), 0);
+                }
+                catch (Exception exception)
+                {
+                    workerException = exception;
+                }
+            });
+
+            worker.Start();
+            Assert.IsTrue(worker.Join(5000), "Worker-thread construction did not complete.");
+            Assert.IsNull(workerException);
+            Assert.IsNotNull(renderObject);
         }
 
         [Test]

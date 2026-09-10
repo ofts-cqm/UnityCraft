@@ -18,12 +18,14 @@ namespace world.items
             Sprite = SpriteBaker.BakeToSprite(Block);
         }
         
-        public override bool OnUse(World.World world, Vector3Int position, int face)
+        public override bool OnUse(World.World world, ItemUseContext context)
         {
-            Vector3Int rawPosition = position;
-            Vector3Int finalPosition = OffsetBlock(rawPosition, face);
+            if (!context.BlockPosition.HasValue) return false;
+
+            Vector3Int rawPosition = context.BlockPosition.Value;
+            Vector3Int finalPosition = OffsetBlock(rawPosition, context.BlockFace);
             
-            object data = Block.GetStateToPlace(face, rawPosition, ref finalPosition);
+            object data = Block.GetStateToPlace(context.BlockFace, rawPosition, ref finalPosition);
             BlockState posBlock = world.GetBlock(finalPosition);
             
             if ((posBlock.IsAir || posBlock.Block.BlockId == Block.BlockId) && !Block.IsAir && Block.CanPlace(posBlock, data))

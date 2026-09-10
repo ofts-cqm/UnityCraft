@@ -33,7 +33,7 @@ namespace player
         private InputAction _sprintPendingAction;
         private InputAction _pauseAction;
         
-        private int _defaultLayer;
+        private int _blockLayer;
         
         private const float MoveSpeed = 4.317f;
         private const float FlyingSpeed = 5f;
@@ -115,7 +115,7 @@ namespace player
             _pauseAction.started += OnPauseStarted;
             Cursor.lockState = _gameplayReady ? CursorLockMode.Locked : CursorLockMode.None;
             Cursor.visible = !_gameplayReady;
-            _defaultLayer = LayerMask.GetMask("Default");
+            _blockLayer = LayerMask.GetMask("Blocks");
             
             hotbar.LoadFromPlayer(this);
         }
@@ -233,10 +233,9 @@ namespace player
 
         private void UpdateInteraction()
         {
-            if (!HasTargetLocation) return;
             if (_tick - _lastInteractionTick < MinimumInteractionDelay) return;
             
-            if (_attackAction.IsPressed())
+            if (HasTargetLocation && _attackAction.IsPressed())
             {
                 if(hotbar.HoldingItem.OnDestroy(world, TargetLocation, TargetFace))
                     _lastInteractionTick = _tick;
@@ -244,7 +243,12 @@ namespace player
 
             if (_interactAction.IsPressed())
             {
-                if(hotbar.HoldingItem.OnUse(world, TargetLocation, TargetFace))
+                ItemUseContext context = new(
+                    new Ray(cameraTransform.position, cameraTransform.forward),
+                    MaxDistance,
+                    HasTargetLocation ? TargetLocation : null,
+                    TargetFace);
+                if(hotbar.HoldingItem.OnUse(world, context))
                     _lastInteractionTick = _tick;
             }
         }
@@ -410,7 +414,8 @@ namespace player
             Vector3 direction = cameraTransform.forward;
             
             // Perform the standard physics operation
-            if (Physics.Raycast(origin, direction, out RaycastHit hitInfo, MaxDistance, _defaultLayer))
+            if (Physics.Raycast(origin, direction, out RaycastHit hitInfo, MaxDistance, _blockLayer,
+                    QueryTriggerInteraction.Ignore))
             {
                 ImpactPoint = hitInfo.point;
                 if (hitInfo.collider.gameObject == _lastHitObject && hitInfo.triangleIndex == _lastHitFace) return;
