@@ -11,6 +11,8 @@ namespace world.items
         private static readonly Dictionary<int, Item> ItemsById = new();
         public static readonly List<ItemStack> BuildingBlockList = new();
         public static readonly List<ItemStack> NatureBlockList = new();
+        public static readonly List<ItemStack> ColoredBlockList = new();
+        public static readonly List<ItemStack> ToolItemList = new();
 
         public static readonly Item Air;
         public static readonly Item GrassBlock;
@@ -38,6 +40,8 @@ namespace world.items
         public static readonly Item PinkStainedGlass;
         public static readonly Item OakPlanks;
         public static readonly Item OakSlab;
+        public static readonly Item WaterBucket;
+        public static readonly Item Bucket;
 
         private static Item RegisterBuildingItem(this Item item)
         {
@@ -49,6 +53,23 @@ namespace world.items
         {
             NatureBlockList.Add(ItemStack.CreativeStack(item));
             return item;
+        }
+
+        private static Item RegisterColoredItem(this Item item)
+        {
+            ColoredBlockList.Add(ItemStack.CreativeStack(item));
+            return item;
+        }
+
+        private static Item RegisterToolItem(this Item item)
+        {
+            ToolItemList.Add(ItemStack.CreativeStack(item));
+            return item;
+        }
+
+        private static void FinalizeItemInventory(List<ItemStack> items)
+        {
+            while (items.Count < 45 || items.Count % 9 != 0) items.Add(ItemStack.EmptyStack(true));
         }
 
         static Items()
@@ -63,27 +84,30 @@ namespace world.items
             OakLog = new BlockItem(5, Blocks.OakLog).RegisterBuildingItem();
             OakLeave = new BlockItem(6, Blocks.OakLeave).RegisterNatureItem();
             Gravel = new BlockItem(7, Blocks.Gravel).RegisterNatureItem();
-            WhiteStainedGlass = new BlockItem(8, Blocks.WhiteStainedGlass).RegisterBuildingItem();
-            LightGrayStainedGlass = new BlockItem(9, Blocks.LightGrayStainedGlass).RegisterBuildingItem();
-            GrayStainedGlass = new BlockItem(10, Blocks.GrayStainedGlass).RegisterBuildingItem();
-            BlackStainedGlass = new BlockItem(11, Blocks.BlackStainedGlass).RegisterBuildingItem();
-            BrownStainedGlass = new BlockItem(12, Blocks.BrownStainedGlass).RegisterBuildingItem();
-            RedStainedGlass = new BlockItem(13, Blocks.RedStainedGlass).RegisterBuildingItem();
-            OrangeStainedGlass = new BlockItem(14, Blocks.OrangeStainedGlass).RegisterBuildingItem();
-            YellowStainedGlass = new BlockItem(15, Blocks.YellowStainedGlass).RegisterBuildingItem();
-            LimeStainedGlass = new BlockItem(16, Blocks.LimeStainedGlass).RegisterBuildingItem();
-            GreenStainedGlass = new BlockItem(17, Blocks.GreenStainedGlass).RegisterBuildingItem();
-            CyanStainedGlass = new BlockItem(18, Blocks.CyanStainedGlass).RegisterBuildingItem();
-            LightBlueStainedGlass = new BlockItem(19, Blocks.LightBlueStainedGlass).RegisterBuildingItem();
-            BlueStainedGlass = new BlockItem(20, Blocks.BlueStainedGlass).RegisterBuildingItem();
-            PurpleStainedGlass = new BlockItem(21, Blocks.PurpleStainedGlass).RegisterBuildingItem();
-            MagentaStainedGlass = new BlockItem(22, Blocks.MagentaStainedGlass).RegisterBuildingItem();
-            PinkStainedGlass = new BlockItem(23, Blocks.PinkStainedGlass).RegisterBuildingItem();
+            WhiteStainedGlass = new BlockItem(8, Blocks.WhiteStainedGlass).RegisterColoredItem();
+            LightGrayStainedGlass = new BlockItem(9, Blocks.LightGrayStainedGlass).RegisterColoredItem();
+            GrayStainedGlass = new BlockItem(10, Blocks.GrayStainedGlass).RegisterColoredItem();
+            BlackStainedGlass = new BlockItem(11, Blocks.BlackStainedGlass).RegisterColoredItem();
+            BrownStainedGlass = new BlockItem(12, Blocks.BrownStainedGlass).RegisterColoredItem();
+            RedStainedGlass = new BlockItem(13, Blocks.RedStainedGlass).RegisterColoredItem();
+            OrangeStainedGlass = new BlockItem(14, Blocks.OrangeStainedGlass).RegisterColoredItem();
+            YellowStainedGlass = new BlockItem(15, Blocks.YellowStainedGlass).RegisterColoredItem();
+            LimeStainedGlass = new BlockItem(16, Blocks.LimeStainedGlass).RegisterColoredItem();
+            GreenStainedGlass = new BlockItem(17, Blocks.GreenStainedGlass).RegisterColoredItem();
+            CyanStainedGlass = new BlockItem(18, Blocks.CyanStainedGlass).RegisterColoredItem();
+            LightBlueStainedGlass = new BlockItem(19, Blocks.LightBlueStainedGlass).RegisterColoredItem();
+            BlueStainedGlass = new BlockItem(20, Blocks.BlueStainedGlass).RegisterColoredItem();
+            PurpleStainedGlass = new BlockItem(21, Blocks.PurpleStainedGlass).RegisterColoredItem();
+            MagentaStainedGlass = new BlockItem(22, Blocks.MagentaStainedGlass).RegisterColoredItem();
+            PinkStainedGlass = new BlockItem(23, Blocks.PinkStainedGlass).RegisterColoredItem();
             OakPlanks = new BlockItem(24, Blocks.OakPlanks).RegisterBuildingItem();
             OakSlab = new BlockItem(25, Blocks.OakSlab).RegisterBuildingItem();
+            WaterBucket = new WaterBucket(26).RegisterToolItem();
             
-            while (BuildingBlockList.Count < 45 || BuildingBlockList.Count % 9 != 0) BuildingBlockList.Add(ItemStack.EmptyStack(true));
-            while (NatureBlockList.Count < 45 || NatureBlockList.Count % 9 != 0) NatureBlockList.Add(ItemStack.EmptyStack(true));
+            FinalizeItemInventory(NatureBlockList);
+            FinalizeItemInventory(BuildingBlockList);
+            FinalizeItemInventory(ColoredBlockList);
+            FinalizeItemInventory(ToolItemList);
             
             SpriteBaker.FinalizeBaking();
         }

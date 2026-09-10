@@ -105,11 +105,15 @@ namespace render.screens
         public GameObject natureTab;
         public GameObject buildingTab;
         public GameObject backpackTab;
+        public GameObject coloredTab;
+        public GameObject toolsTab;
 
         public Sprite topLeftActive;
         public Sprite topMiddleActive;
         public Sprite topLeftInactive;
         public Sprite topMiddleInactive;
+        public Sprite bottomLeftActive;
+        public Sprite bottomLeftInactive;
         public Sprite bottomRightActive;
         public Sprite bottomRightInactive;
         public Sprite creativeInventory;
@@ -133,6 +137,8 @@ namespace render.screens
             
             _ = new InventoryTab(natureTab, topLeftActive, topLeftInactive, Items.GrassBlock, Items.NatureBlockList.ToArray(), "Natural Blocks", true);
             _ = new InventoryTab(buildingTab, topMiddleActive, topMiddleInactive, Items.OakLog, Items.BuildingBlockList.ToArray(), "Building Blocks");
+            _ = new InventoryTab(coloredTab, topMiddleActive, topMiddleInactive, Items.BlueStainedGlass, Items.ColoredBlockList.ToArray(), "Colored Blocks");
+            _ = new InventoryTab(toolsTab, bottomLeftActive, bottomLeftInactive, Items.WaterBucket, Items.ToolItemList.ToArray(), "Tools");
             _ = new BackpackTab(backpackTab, bottomRightActive, bottomRightInactive);
             
             gameObject.SetActive(false);

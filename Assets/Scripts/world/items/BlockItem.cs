@@ -21,16 +21,7 @@ namespace world.items
         public override bool OnUse(World.World world, Vector3Int position, int face)
         {
             Vector3Int rawPosition = position;
-            Vector3Int finalPosition = face switch
-            {
-                ChunkRenderObject.TopFace => rawPosition + Vector3Int.up,
-                ChunkRenderObject.BottomFace => rawPosition + Vector3Int.down,
-                ChunkRenderObject.LeftFace => rawPosition + Vector3Int.left,
-                ChunkRenderObject.RightFace => rawPosition + Vector3Int.right,
-                ChunkRenderObject.FrontFace => rawPosition + Vector3Int.forward,
-                ChunkRenderObject.BackFace => rawPosition + Vector3Int.back,
-                _ => rawPosition
-            };
+            Vector3Int finalPosition = OffsetBlock(rawPosition, face);
             
             object data = Block.GetStateToPlace(face, rawPosition, ref finalPosition);
             BlockState posBlock = world.GetBlock(finalPosition);

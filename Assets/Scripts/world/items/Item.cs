@@ -1,3 +1,4 @@
+using Render;
 using UnityEngine;
 
 namespace world.items
@@ -19,5 +20,19 @@ namespace world.items
         public abstract bool OnDestroy(World.World world, Vector3Int position, int face);
         
         public abstract Sprite Sprite { get; }
+
+        protected static Vector3Int OffsetBlock(Vector3Int rawPosition, int face)
+        {
+            return face switch
+            {
+                ChunkRenderObject.TopFace => rawPosition + Vector3Int.up,
+                ChunkRenderObject.BottomFace => rawPosition + Vector3Int.down,
+                ChunkRenderObject.LeftFace => rawPosition + Vector3Int.left,
+                ChunkRenderObject.RightFace => rawPosition + Vector3Int.right,
+                ChunkRenderObject.FrontFace => rawPosition + Vector3Int.forward,
+                ChunkRenderObject.BackFace => rawPosition + Vector3Int.back,
+                _ => rawPosition
+            };
+        }
     }
 }
