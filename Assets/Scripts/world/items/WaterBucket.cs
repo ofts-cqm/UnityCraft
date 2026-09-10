@@ -19,11 +19,6 @@ namespace world.items
             return true;
         }
 
-        public override bool OnDestroy(World.World world, Vector3Int position, int face)
-        {
-            return false;
-        }
-
         public override Sprite Sprite { get; }
     }
 }

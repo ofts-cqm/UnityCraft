@@ -1,5 +1,6 @@
 using Render;
 using UnityEngine;
+using world.blocks;
 
 namespace world.items
 {
@@ -17,7 +18,11 @@ namespace world.items
         
         public abstract bool OnUse(World.World world, Vector3Int position, int face);
         
-        public abstract bool OnDestroy(World.World world, Vector3Int position, int face);
+        public bool OnDestroy(World.World world, Vector3Int position, int face)
+        {
+            world.SetBlock(position, Blocks.Air);
+            return true;
+        }
         
         public abstract Sprite Sprite { get; }
 

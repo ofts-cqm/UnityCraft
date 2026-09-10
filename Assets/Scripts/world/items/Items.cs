@@ -103,6 +103,7 @@ namespace world.items
             OakPlanks = new BlockItem(24, Blocks.OakPlanks).RegisterBuildingItem();
             OakSlab = new BlockItem(25, Blocks.OakSlab).RegisterBuildingItem();
             WaterBucket = new WaterBucket(26).RegisterToolItem();
+            Bucket = new Bucket(27).RegisterToolItem();
             
             FinalizeItemInventory(NatureBlockList);
             FinalizeItemInventory(BuildingBlockList);
