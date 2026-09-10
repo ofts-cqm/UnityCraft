@@ -6,7 +6,7 @@ namespace world.items
 {
     public class Bucket : Item
     {
-        public Bucket(int itemId) : base(itemId)
+        public Bucket(int itemId) : base(itemId, "Bucket", 16)
         {
             Sprite = Resources.Load<Sprite>("items/bucket");
         }

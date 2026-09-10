@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using player;
 using render.ui;
 using TMPro;
@@ -67,7 +69,7 @@ namespace render.screens
         private class BackpackTab : InventoryTab
         {
             public BackpackTab(GameObject gameObject, Sprite activeSprite, Sprite inactiveSprite) 
-                : base(gameObject, activeSprite, inactiveSprite,Items.Sand, Player.Instance.inventory[9..36], "Natural Blocks")
+                : base(gameObject, activeSprite, inactiveSprite,Items.BackpackIcon, Player.Instance.inventory[9..36], "Natural Blocks")
             {
                 
             }
@@ -98,8 +100,51 @@ namespace render.screens
                 base.Deactivate();
             }
         }
+
+        private class SearchTab : InventoryTab
+        {
+            public SearchTab(GameObject gameObject, Sprite activeSprite, Sprite inactiveSprite) : base(gameObject, activeSprite, inactiveSprite, Items.SearchIcon, Array.Empty<ItemStack>(), "Search")
+            {
+                Screen.searchField.onValueChanged.AddListener(text =>
+                {
+                    Screen.inventoryRenderer.UpdateInventory(GetItemStacks(text));
+                });
+                
+                Screen.searchField.textComponent.color = Color.white;
+            }
+
+            protected override void Activate()
+            {
+                if (ActiveTab == this) return;
+                ActiveTab.Deactivate();
+                ActiveTab = this;
+                
+                Screen.titleText.SetText("Search");
+                Background.sprite = Active;
+                Transform.SetSiblingIndex(SiblingIndex + 1);
+                
+                Screen.inventoryRenderer.UpdateInventory(GetItemStacks(""));
+                Screen.inventoryTexture.sprite = Screen.searchInventory;
+                Screen.searchField.gameObject.SetActive(true);
+            }
+
+            private ItemStack[] GetItemStacks(string filter)
+            {
+                List<ItemStack> itemStacks = Items.AllItemsList.Where(a => a.Item.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)).ToList();
+                while (itemStacks.Count < 45 || itemStacks.Count % 9 != 0) itemStacks.Add(ItemStack.CreativeStack(Items.Air));
+                return itemStacks.ToArray();
+            }
+
+            public override void Deactivate()
+            {
+                Screen.inventoryTexture.sprite = Screen.creativeInventory;
+                Screen.searchField.gameObject.SetActive(false);
+                base.Deactivate();
+            }
+        }
         
         public TextMeshProUGUI titleText;
+        public TMP_InputField searchField;
         public Image inventoryTexture;
         public Image sliderTexture;
         public GameObject natureTab;
@@ -107,17 +152,21 @@ namespace render.screens
         public GameObject backpackTab;
         public GameObject coloredTab;
         public GameObject toolsTab;
+        public GameObject searchTab;
 
         public Sprite topLeftActive;
         public Sprite topMiddleActive;
         public Sprite topLeftInactive;
         public Sprite topMiddleInactive;
+        public Sprite topRightActive;
+        public Sprite topRightInactive;
         public Sprite bottomLeftActive;
         public Sprite bottomLeftInactive;
         public Sprite bottomRightActive;
         public Sprite bottomRightInactive;
         public Sprite creativeInventory;
         public Sprite creativeBackpack;
+        public Sprite searchInventory;
         
         public InventoryMenu inventoryRenderer;
         public InventoryMenu hotbarRenderer;
@@ -140,6 +189,7 @@ namespace render.screens
             _ = new InventoryTab(coloredTab, topMiddleActive, topMiddleInactive, Items.BlueStainedGlass, Items.ColoredBlockList.ToArray(), "Colored Blocks");
             _ = new InventoryTab(toolsTab, bottomLeftActive, bottomLeftInactive, Items.WaterBucket, Items.ToolItemList.ToArray(), "Tools");
             _ = new BackpackTab(backpackTab, bottomRightActive, bottomRightInactive);
+            _ = new SearchTab(searchTab, topRightActive, topRightInactive);
             
             gameObject.SetActive(false);
         }

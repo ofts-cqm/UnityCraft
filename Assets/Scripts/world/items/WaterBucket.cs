@@ -5,7 +5,7 @@ namespace world.items
 {
     public class WaterBucket : Item
     {
-        public WaterBucket(int id) : base(id)
+        public WaterBucket(int id) : base(id, "Water Bucket", 1)
         {
             Sprite = Resources.Load<Sprite>("items/water_bucket");
         }

@@ -1,4 +1,3 @@
-using Render;
 using render.ui;
 using UnityEngine;
 using world.blocks;
@@ -12,7 +11,7 @@ namespace world.items
 
         private readonly int _allLayer = LayerMask.GetMask("Ignore Raycast");
 
-        public BlockItem(int itemId, Block block) : base(itemId)
+        public BlockItem(int itemId, string name, Block block) : base(itemId, name)
         {
             Block = block;
             Sprite = SpriteBaker.BakeToSprite(Block);

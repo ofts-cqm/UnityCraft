@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace world.items
 {
-    public struct ItemStack
+    public struct ItemStack : IComparable<ItemStack>
     {
         public Item Item { get; set; }
 
@@ -75,6 +75,11 @@ namespace world.items
         public ItemStack Max()
         {
             return new(Item, Item.MaxStack);
+        }
+
+        public int CompareTo(ItemStack other)
+        {
+            return String.Compare(Item.Name, other.Item.Name, StringComparison.Ordinal);
         }
     }
 }

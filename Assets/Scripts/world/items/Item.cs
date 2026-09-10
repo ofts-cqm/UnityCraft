@@ -1,3 +1,4 @@
+using System;
 using Render;
 using UnityEngine;
 using world.blocks;
@@ -24,12 +25,15 @@ namespace world.items
     {
         public int MaxStack { get; }
         public int ItemId { get; }
+        public string Name { get; }
         
-        protected Item(int itemId, int maxStack = 64)
+        protected Item(int itemId, string name, int maxStack = 64)
         {
             ItemId = itemId;
             MaxStack = maxStack;
-            Items.Register(this);
+            Name = name;
+            // item ID <= 0 are reserved for placeholder items and therefore not registered
+            if (itemId >= 0) Items.Register(this);
         }
         
         public abstract bool OnUse(World.World world, ItemUseContext context);
