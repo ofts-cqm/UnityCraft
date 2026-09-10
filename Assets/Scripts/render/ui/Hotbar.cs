@@ -84,8 +84,8 @@ namespace render.ui
 
         public void InventoryUpdateCallBack([CanBeNull] object sender, InventoryMenu.UpdateInventoryEventArg arg)
         {
-            if (arg.index == -1) RefreshInventory();
-            else _sprites[arg.index].Display(arg.newStack, arg.index);
+            if (arg.Index == -1) RefreshInventory();
+            else _sprites[arg.Index].Display(arg.NewStack, arg.Index);
         }
 
         private void RefreshInventory()

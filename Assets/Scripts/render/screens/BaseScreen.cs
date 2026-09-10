@@ -1,5 +1,6 @@
 using player;
 using render.ui;
+using TMPro;
 using UnityEngine;
 using world.items;
 
@@ -8,12 +9,15 @@ namespace render.screens
     public class BaseScreen : MonoBehaviour
     {
         private ItemSlot _holdingItemSlot;
+        private GameObject _hoveringName;
 
         void Awake()
         {
             GameObject obj = Instantiate(Resources.Load<GameObject>("Item"), transform);
             _holdingItemSlot = obj.GetComponent<ItemSlot>();
             _holdingItemSlot.OnClickBehavior = () => { };
+            _hoveringName = Instantiate(Resources.Load<GameObject>("HoveringName"), transform);
+            _hoveringName.SetActive(false);
         }
         
         private void Update()
@@ -39,6 +43,8 @@ namespace render.screens
             
             InventoryMenu.HoldingItem = ItemStack.EmptyStack();
             InventoryMenu.HoldingItemSlot = _holdingItemSlot;
+            InventoryMenu.HoveringName = _hoveringName.GetComponentInChildren<TextMeshProUGUI>();
+            InventoryMenu.HoveringNameObject = _hoveringName.GetComponent<RectTransform>();
             InventoryMenu.UpdateHoldingItem();
             Player.CurrentScreen = this;
         }
@@ -50,6 +56,8 @@ namespace render.screens
                 Player.ResumeGame();
             _holdingItemSlot.transform.gameObject.SetActive(false);
             InventoryMenu.HoldingItemSlot = null;
+            InventoryMenu.HoveringName = null;
+            InventoryMenu.HoveringNameObject = null;
         }
     }
 }

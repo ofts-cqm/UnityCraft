@@ -1,5 +1,6 @@
 using System;
 using JetBrains.Annotations;
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using world.items;
@@ -10,6 +11,8 @@ namespace render.ui
     {
         public static ItemStack HoldingItem;
         [CanBeNull] public static ItemSlot HoldingItemSlot;
+        [CanBeNull] public static TextMeshProUGUI HoveringName;
+        [CanBeNull] public static RectTransform HoveringNameObject;
         private static GameObject _preFab;
 
         public event EventHandler<UpdateInventoryEventArg> OnUpdate;
@@ -19,13 +22,13 @@ namespace render.ui
 
         public class UpdateInventoryEventArg : EventArgs
         {
-            public readonly int index;
-            public readonly ItemStack newStack;
+            public readonly int Index;
+            public readonly ItemStack NewStack;
 
             public UpdateInventoryEventArg(ItemStack stack, int index)
             {
-                this.index = index;
-                newStack = stack;
+                Index = index;
+                NewStack = stack;
             }
         }
         
@@ -69,9 +72,28 @@ namespace render.ui
             HoldingItemSlot?.Display(HoldingItem, -1);
         }
 
+        private static readonly Vector2 NameOffset = new(10, 50);
+        private static string _currentText = "";
+        
         public static void DrawHoldingItem()
         {
-            HoldingItemSlot?.SetPosition(Mouse.current.position.ReadValue());
+            Vector2 position = Mouse.current.position.ReadValue();
+            position.y -= 30;
+            HoldingItemSlot?.SetPosition(position);
+            if (HoveringNameObject != null) HoveringNameObject.anchoredPosition = position + NameOffset;
+            
+            if (_currentText == ItemSlot.HoveredStack?.Name) return;
+            
+            if (ItemSlot.HoveredStack == null || ItemSlot.HoveredStack == Items.Air)
+            {
+                _currentText = "";
+                HoveringNameObject?.gameObject.SetActive(false);
+                return;
+            }
+
+            if (_currentText == "") HoveringNameObject?.gameObject.SetActive(true);
+            _currentText = ItemSlot.HoveredStack.Name;
+            HoveringName?.SetText(_currentText);
         }
     }
 }

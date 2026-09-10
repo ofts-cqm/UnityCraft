@@ -9,7 +9,7 @@ using world.items;
 
 namespace render.ui
 {
-    public class ItemSlot: MonoBehaviour, IPointerClickHandler
+    public class ItemSlot: MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
     {
         private TextMeshProUGUI _count;
         private Image _sprite;
@@ -19,6 +19,8 @@ namespace render.ui
         private InputAction _shift;
         [CanBeNull] public InventoryMenu Parent { get; set; }
         [CanBeNull] public Action OnClickBehavior { get; set; }
+
+        [CanBeNull] public static Item HoveredStack { get; private set; } = null;
         
         void Awake()
         {
@@ -106,6 +108,18 @@ namespace render.ui
             InventoryMenu.UpdateHoldingItem();
             Display(_stack, _index);
             Parent?.SetStack(_stack, _index);
+        }
+        
+        // Triggered when the pointer enters the UI element's bounding box
+        public void OnPointerEnter(PointerEventData eventData)
+        {
+            if (OnClickBehavior == null) HoveredStack = _stack.Item;
+        }
+
+        // Triggered when the pointer leaves the UI element's bounding box
+        public void OnPointerExit(PointerEventData eventData)
+        {
+            if (OnClickBehavior == null) HoveredStack = ItemStack.EmptyStack().Item;
         }
     }
 }
