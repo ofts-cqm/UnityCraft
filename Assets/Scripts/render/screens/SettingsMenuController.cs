@@ -213,30 +213,29 @@ namespace render.screens
             InputActionMap playerMap = _draftActions.FindActionMap("Player", true);
             Dictionary<string, int> totals = new(StringComparer.OrdinalIgnoreCase);
             foreach (InputAction action in playerMap.actions)
-            for (int i = 0; i < action.bindings.Count; i++)
-            {
-                InputBinding binding = action.bindings[i];
-                if (!GameSettings.IsBindingConfigurable(action.name) || binding.isComposite ||
-                    !IsKeyboardMouseBinding(binding)) continue;
-                string key = BindingLabelBase(action, binding);
-                totals[key] = totals.GetValueOrDefault(key) + 1;
-            }
+                foreach (var binding in action.bindings)
+                {
+                    if (!GameSettings.IsBindingConfigurable(action.name) || binding.isComposite ||
+                        !IsKeyboardMouseBinding(binding)) continue;
+                    string key = BindingLabelBase(action, binding);
+                    totals[key] = totals.GetValueOrDefault(key) + 1;
+                }
 
             Dictionary<string, int> occurrences = new(StringComparer.OrdinalIgnoreCase);
             foreach (InputAction action in playerMap.actions)
-            for (int i = 0; i < action.bindings.Count; i++)
-            {
-                InputBinding binding = action.bindings[i];
-                if (!GameSettings.IsBindingConfigurable(action.name) || binding.isComposite ||
-                    !IsKeyboardMouseBinding(binding)) continue;
+                for (int i = action.bindings.Count - 1; i >= 0; i--)
+                {
+                    InputBinding binding = action.bindings[i];
+                    if (!GameSettings.IsBindingConfigurable(action.name) || binding.isComposite ||
+                        !IsKeyboardMouseBinding(binding)) continue;
 
-                string baseLabel = BindingLabelBase(action, binding);
-                occurrences[baseLabel] = occurrences.GetValueOrDefault(baseLabel) + 1;
-                string label = totals[baseLabel] > 1
-                    ? $"{baseLabel} — {(occurrences[baseLabel] == 1 ? "Primary" : "Alternate " + occurrences[baseLabel])}"
-                    : baseLabel;
-                CreateBindingRow(action, i, label);
-            }
+                    string baseLabel = BindingLabelBase(action, binding);
+                    occurrences[baseLabel] = occurrences.GetValueOrDefault(baseLabel) + 1;
+                    string label = totals[baseLabel] > 1
+                        ? $"{baseLabel} — {(occurrences[baseLabel] == 1 ? "Primary" : "Alternate " + occurrences[baseLabel])}"
+                        : baseLabel;
+                    CreateBindingRow(action, i, label);
+                }
             UpdateBindingDisplays();
         }
 
