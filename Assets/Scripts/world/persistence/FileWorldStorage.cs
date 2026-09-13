@@ -80,7 +80,8 @@ namespace world.persistence
 
                 if (string.IsNullOrWhiteSpace(descriptor.worldSeed))
                 {
-                    if (descriptor.schemaVersion != SaveVersionPolicy.Current.Schema || descriptor.contentVersion > 1)
+                    if ((descriptor.schemaVersion != SaveVersionPolicy.Current.Schema &&
+                         descriptor.schemaVersion != SaveVersionPolicy.LegacySchema) || descriptor.contentVersion > 1)
                         throw new CorruptSaveException($"World descriptor '{path}' does not contain a generation seed.");
 
                     // Content version 1 predated seeded world descriptors. Assign the seed once and
@@ -153,7 +154,7 @@ namespace world.persistence
             {
                 using FileStream stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read);
                 using BinaryReader header = new(stream, Encoding.UTF8, true);
-                ReadAndValidateHeader(header, ChunkMagic, authorization, path);
+                SaveVersion fileVersion = ReadAndValidateHeader(header, ChunkMagic, authorization, path);
                 int xCoord = header.ReadInt32();
                 int zCoord = header.ReadInt32();
                 int chunkSize = header.ReadInt32();
@@ -174,8 +175,47 @@ namespace world.persistence
                     if (blocks[i] < 0 || states[i] < 0 || !IsValidFluid(fluids[i]))
                         throw new InvalidDataException($"Chunk cell {i} contains invalid data.");
                 }
+                ScheduledBlockUpdateSnapshot[] scheduled = Array.Empty<ScheduledBlockUpdateSnapshot>();
+                FallingBlockSnapshot[] falling = Array.Empty<FallingBlockSnapshot>();
+                if (fileVersion.Schema >= 2)
+                {
+                    int scheduledCount = payload.ReadInt32();
+                    if ((uint)scheduledCount > ChunkSnapshot.CellCount)
+                        throw new InvalidDataException("Chunk scheduled-update count is invalid.");
+                    scheduled = new ScheduledBlockUpdateSnapshot[scheduledCount];
+                    for (int i = 0; i < scheduled.Length; i++)
+                    {
+                        int x = payload.ReadInt32();
+                        int y = payload.ReadInt32();
+                        int z = payload.ReadInt32();
+                        int blockId = payload.ReadInt32();
+                        int stateId = payload.ReadInt32();
+                        int remainingTicks = payload.ReadInt32();
+                        if ((uint)x >= Chunk.ChunkSize || (uint)y >= Chunk.ChunkHeight ||
+                            (uint)z >= Chunk.ChunkSize || blockId < 0 || stateId < 0 || remainingTicks < 1)
+                            throw new InvalidDataException($"Scheduled block update {i} is invalid.");
+                        scheduled[i] = new ScheduledBlockUpdateSnapshot(x, y, z, blockId, stateId, remainingTicks);
+                    }
+
+                    int fallingCount = payload.ReadInt32();
+                    if ((uint)fallingCount > ChunkSnapshot.CellCount)
+                        throw new InvalidDataException("Chunk falling-block count is invalid.");
+                    falling = new FallingBlockSnapshot[fallingCount];
+                    for (int i = 0; i < falling.Length; i++)
+                    {
+                        int blockId = payload.ReadInt32();
+                        int stateId = payload.ReadInt32();
+                        Vector3 position = new(payload.ReadSingle(), payload.ReadSingle(), payload.ReadSingle());
+                        Vector3 velocity = new(payload.ReadSingle(), payload.ReadSingle(), payload.ReadSingle());
+                        if (blockId < 0 || stateId < 0 || !IsFinite(position.x) || !IsFinite(position.y) ||
+                            !IsFinite(position.z) || !IsFinite(velocity.x) || !IsFinite(velocity.y) ||
+                            !IsFinite(velocity.z))
+                            throw new InvalidDataException($"Falling block {i} is invalid.");
+                        falling[i] = new FallingBlockSnapshot(blockId, stateId, position, velocity);
+                    }
+                }
                 if (gzip.ReadByte() != -1) throw new InvalidDataException("Chunk payload contains trailing data.");
-                snapshot = new ChunkSnapshot(coord, blocks, states, fluids);
+                snapshot = new ChunkSnapshot(coord, blocks, states, fluids, 0, scheduled, falling);
                 return true;
             }
             catch (Exception exception) when (!(exception is SaveDataException))
@@ -226,6 +266,28 @@ namespace world.persistence
                     payload.Write(snapshot.StateIds[i]);
                     payload.Write(snapshot.FluidAmounts[i]);
                 }
+                payload.Write(snapshot.ScheduledBlockUpdates.Length);
+                foreach (ScheduledBlockUpdateSnapshot update in snapshot.ScheduledBlockUpdates)
+                {
+                    payload.Write(update.X);
+                    payload.Write(update.Y);
+                    payload.Write(update.Z);
+                    payload.Write(update.BlockId);
+                    payload.Write(update.StateId);
+                    payload.Write(update.RemainingTicks);
+                }
+                payload.Write(snapshot.FallingBlocks.Length);
+                foreach (FallingBlockSnapshot falling in snapshot.FallingBlocks)
+                {
+                    payload.Write(falling.BlockId);
+                    payload.Write(falling.StateId);
+                    payload.Write(falling.X);
+                    payload.Write(falling.Y);
+                    payload.Write(falling.Z);
+                    payload.Write(falling.VelocityX);
+                    payload.Write(falling.VelocityY);
+                    payload.Write(falling.VelocityZ);
+                }
             });
         }
 
@@ -239,14 +301,20 @@ namespace world.persistence
             });
         }
 
-        private static void ReadAndValidateHeader(BinaryReader reader, uint expectedMagic,
+        private static SaveVersion ReadAndValidateHeader(BinaryReader reader, uint expectedMagic,
             WorldLoadAuthorization authorization, string path)
         {
             if (reader.ReadUInt32() != expectedMagic) throw new InvalidDataException($"'{path}' has the wrong file type.");
             SaveVersion fileVersion = new(reader.ReadInt32(), reader.ReadInt32());
             int authorizedContent = Math.Max(authorization.SaveVersion.Content, SaveVersionPolicy.Current.Content);
-            if (fileVersion.Schema != authorization.SaveVersion.Schema || fileVersion.Content > authorizedContent)
+            bool fileSchemaSupported = fileVersion.Schema == SaveVersionPolicy.Current.Schema ||
+                                       fileVersion.Schema == SaveVersionPolicy.LegacySchema;
+            bool authorizedSchemaSupported = authorization.SaveVersion.Schema == SaveVersionPolicy.Current.Schema ||
+                                             authorization.SaveVersion.Schema == SaveVersionPolicy.LegacySchema;
+            bool schemaMatches = fileSchemaSupported && authorizedSchemaSupported;
+            if (!schemaMatches || fileVersion.Content > authorizedContent)
                 throw new InvalidDataException($"'{path}' version {fileVersion} is inconsistent with the authorized world version {authorization.SaveVersion}.");
+            return fileVersion;
         }
 
         private static void WriteHeader(BinaryWriter writer, uint magic)

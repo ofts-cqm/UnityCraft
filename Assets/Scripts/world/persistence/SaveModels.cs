@@ -1,4 +1,5 @@
 using System;
+using UnityEngine;
 using World;
 
 namespace world.persistence
@@ -29,11 +30,13 @@ namespace world.persistence
 
     public static class SaveVersionPolicy
     {
-        public static readonly SaveVersion Current = new(1, 2);
+        public const int LegacySchema = 1;
+        public static readonly SaveVersion Current = new(2, 2);
 
         public static VersionCompatibility Validate(SaveVersion savedVersion)
         {
-            if (savedVersion.Schema != Current.Schema) return VersionCompatibility.IncompatibleSchema;
+            if (savedVersion.Schema != Current.Schema && savedVersion.Schema != LegacySchema)
+                return VersionCompatibility.IncompatibleSchema;
             return savedVersion.Content <= Current.Content
                 ? VersionCompatibility.Compatible
                 : VersionCompatibility.NewerContentRequiresConfirmation;
@@ -150,9 +153,12 @@ namespace world.persistence
         public readonly int[] BlockIds;
         public readonly int[] StateIds;
         public readonly byte[] FluidAmounts;
+        public readonly ScheduledBlockUpdateSnapshot[] ScheduledBlockUpdates;
+        public readonly FallingBlockSnapshot[] FallingBlocks;
         public readonly long Revision;
 
-        public ChunkSnapshot(ChunkCoord coord, int[] blockIds, int[] stateIds, byte[] fluidAmounts, long revision = 0)
+        public ChunkSnapshot(ChunkCoord coord, int[] blockIds, int[] stateIds, byte[] fluidAmounts, long revision = 0,
+            ScheduledBlockUpdateSnapshot[] scheduledBlockUpdates = null, FallingBlockSnapshot[] fallingBlocks = null)
         {
             if (blockIds == null || blockIds.Length != CellCount) throw new ArgumentException("Invalid block array length.", nameof(blockIds));
             if (stateIds == null || stateIds.Length != CellCount) throw new ArgumentException("Invalid state array length.", nameof(stateIds));
@@ -161,10 +167,59 @@ namespace world.persistence
             BlockIds = blockIds;
             StateIds = stateIds;
             FluidAmounts = fluidAmounts;
+            ScheduledBlockUpdates = scheduledBlockUpdates ?? Array.Empty<ScheduledBlockUpdateSnapshot>();
+            FallingBlocks = fallingBlocks ?? Array.Empty<FallingBlockSnapshot>();
             Revision = revision;
         }
 
         public static int Index(int x, int y, int z) => (x * Chunk.ChunkHeight + y) * Chunk.ChunkSize + z;
+    }
+
+    public readonly struct ScheduledBlockUpdateSnapshot
+    {
+        public readonly int X;
+        public readonly int Y;
+        public readonly int Z;
+        public readonly int BlockId;
+        public readonly int StateId;
+        public readonly int RemainingTicks;
+
+        public ScheduledBlockUpdateSnapshot(int x, int y, int z, int blockId, int stateId, int remainingTicks)
+        {
+            X = x;
+            Y = y;
+            Z = z;
+            BlockId = blockId;
+            StateId = stateId;
+            RemainingTicks = remainingTicks;
+        }
+    }
+
+    public readonly struct FallingBlockSnapshot
+    {
+        public readonly int BlockId;
+        public readonly int StateId;
+        public readonly float X;
+        public readonly float Y;
+        public readonly float Z;
+        public readonly float VelocityX;
+        public readonly float VelocityY;
+        public readonly float VelocityZ;
+
+        public FallingBlockSnapshot(int blockId, int stateId, Vector3 position, Vector3 velocity)
+        {
+            BlockId = blockId;
+            StateId = stateId;
+            X = position.x;
+            Y = position.y;
+            Z = position.z;
+            VelocityX = velocity.x;
+            VelocityY = velocity.y;
+            VelocityZ = velocity.z;
+        }
+
+        public Vector3 Position => new(X, Y, Z);
+        public Vector3 Velocity => new(VelocityX, VelocityY, VelocityZ);
     }
 
     public class SaveDataException : Exception

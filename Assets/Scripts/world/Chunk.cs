@@ -29,17 +29,22 @@ namespace World
         private long _lastQueuedRevision;
         private volatile bool _active;
         private readonly bool _loadedFromSnapshot;
+        private ScheduledBlockUpdateSnapshot[] _restoredBlockUpdates;
+        private FallingBlockSnapshot[] _restoredFallingBlocks;
+        private bool _runtimeStateRestored;
 
         public Chunk(ChunkCoord coord, World world)
             : this(coord, world, LoadOrGenerate(coord, world))
         {
         }
 
-        internal Chunk(ChunkCoord coord, World world, ChunkSnapshot snapshot)
+        private Chunk(ChunkCoord coord, World world, ChunkSnapshot snapshot)
         {
             ChunkPosition = coord;
             _world = world;
             _loadedFromSnapshot = snapshot != null;
+            _restoredBlockUpdates = snapshot?.ScheduledBlockUpdates ?? Array.Empty<ScheduledBlockUpdateSnapshot>();
+            _restoredFallingBlocks = snapshot?.FallingBlocks ?? Array.Empty<FallingBlockSnapshot>();
             FluidGeneration = Interlocked.Increment(ref _nextFluidGeneration);
 
             if (snapshot == null) _data = ChunkGenerator.GenerateChunk(coord);
@@ -118,8 +123,16 @@ namespace World
                 if (_active == value) return;
                 _active = value;
                 foreach (var obj in _renderObjects) obj.Active = value;            
-                if (value) _world?.ResumeFluidTicks(this);
-                else _world?.SuspendFluidTicks(this);
+                if (value)
+                {
+                    _world?.ResumeFluidTicks(this);
+                    _world?.ResumeBlockUpdates(this);
+                }
+                else
+                {
+                    _world?.SuspendFluidTicks(this);
+                    _world?.SuspendBlockUpdates(this);
+                }
             }
         }
 
@@ -215,6 +228,8 @@ namespace World
                 MarkFluidDirty(x, y, z);
             }
             ScheduleFluidNeighbors(new Vector3Int(x, y, z));
+            _world?.NotifyBlockChanged(new Vector3Int(ChunkPosition.X * ChunkSize + x, y,
+                ChunkPosition.Z * ChunkSize + z), existingBlock, block);
         }
 
         public void SetBlock(Vector3Int position, Block block, [CanBeNull] object state = null)
@@ -307,7 +322,17 @@ namespace World
             _active = true;
             foreach (var obj in _renderObjects) obj.FinalizeGeneration();
             _world?.ResumeFluidTicks(this);
+            _world?.ResumeBlockUpdates(this);
             if (_loadedFromSnapshot) ScheduleRestoredFluidTicks();
+            if (!_runtimeStateRestored)
+            {
+                _runtimeStateRestored = true;
+                ScheduledBlockUpdateSnapshot[] updates = _restoredBlockUpdates;
+                FallingBlockSnapshot[] falling = _restoredFallingBlocks;
+                _restoredBlockUpdates = Array.Empty<ScheduledBlockUpdateSnapshot>();
+                _restoredFallingBlocks = Array.Empty<FallingBlockSnapshot>();
+                _world?.RestoreChunkRuntimeState(this, updates, falling);
+            }
         }
 
         internal void ScheduleBorderFluidTicks()
@@ -348,6 +373,7 @@ namespace World
         {
             _active = false;
             _world?.CancelFluidTicks(this);
+            _world?.CancelBlockUpdates(this);
             foreach (ChunkRenderObject obj in _renderObjects)
             {
                 obj.DestroyObject();
@@ -386,8 +412,12 @@ namespace World
         {
             if (_persistenceRevision <= _lastQueuedRevision)
             {
-                snapshot = null;
-                return false;
+                if (_world == null || !_world.HasPersistentRuntimeState(this))
+                {
+                    snapshot = null;
+                    return false;
+                }
+                _persistenceRevision = _lastQueuedRevision + 1;
             }
 
             int[] blocks = new int[ChunkSnapshot.CellCount];
@@ -401,9 +431,16 @@ namespace World
                 fluids[index] = _data.GetFluidRawUnchecked(x, y, z);
             }
             _lastQueuedRevision = _persistenceRevision;
-            snapshot = new ChunkSnapshot(ChunkPosition, blocks, states, fluids, _persistenceRevision);
+            ScheduledBlockUpdateSnapshot[] scheduled = _world?.CaptureScheduledBlockUpdates(this) ??
+                                                       Array.Empty<ScheduledBlockUpdateSnapshot>();
+            FallingBlockSnapshot[] falling = _world?.CaptureFallingBlocks(this) ??
+                                              Array.Empty<FallingBlockSnapshot>();
+            snapshot = new ChunkSnapshot(ChunkPosition, blocks, states, fluids, _persistenceRevision,
+                scheduled, falling);
             return true;
         }
+
+        internal void MarkPersistenceDirty() => _persistenceRevision++;
 
         internal void CompletePersistenceSave(long revision, bool succeeded)
         {

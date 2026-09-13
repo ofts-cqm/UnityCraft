@@ -25,7 +25,7 @@ namespace World.blocks
             Blocks.Register(this);
         }
 
-        protected bool ShouldRender(BlockState block, int face)
+        private bool ShouldRender(BlockState block, int face)
         {
             if (block.Block.Transparent) return block.Block.BlockId != BlockId;
             return !block.Block.IsSolid(block, face);
@@ -63,6 +63,21 @@ namespace World.blocks
         /// Gives stateful blocks a chance to reject a placement that would otherwise replace an instance of themselves.
         /// </summary>
         public virtual bool CanPlace(BlockState existing, object placementData) => true;
+
+        /// <summary>
+        /// Delay, in world ticks, before this block handles an event-driven block update.
+        /// Null means the block ignores block updates; zero means it runs in the current cascade.
+        /// </summary>
+        public virtual int? BlockUpdateDelayTicks => null;
+
+        /// <summary>Handles an event-driven update after the configured delay.</summary>
+        public virtual void OnBlockUpdate(World world, BlockState state) { }
+
+        /// <summary>Whether this block can receive the uniformly sampled section random tick.</summary>
+        public virtual bool ReceivesRandomTicks => false;
+
+        /// <summary>Handles a random tick for this block.</summary>
+        public virtual void OnRandomTick(World world, BlockState state) { }
 
         /// <summary>
         /// Converts runtime block state to the stable numeric representation used by save files.

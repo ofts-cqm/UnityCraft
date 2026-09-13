@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
@@ -41,6 +42,8 @@ namespace Tests.Editor
                 SaveVersionPolicy.Validate(SaveVersionPolicy.Current));
             Assert.AreEqual(VersionCompatibility.Compatible,
                 SaveVersionPolicy.Validate(new SaveVersion(SaveVersionPolicy.Current.Schema, SaveVersionPolicy.Current.Content - 1)));
+            Assert.AreEqual(VersionCompatibility.Compatible,
+                SaveVersionPolicy.Validate(new SaveVersion(SaveVersionPolicy.LegacySchema, SaveVersionPolicy.Current.Content)));
             Assert.AreEqual(VersionCompatibility.NewerContentRequiresConfirmation,
                 SaveVersionPolicy.Validate(new SaveVersion(SaveVersionPolicy.Current.Schema, SaveVersionPolicy.Current.Content + 1)));
             Assert.AreEqual(VersionCompatibility.IncompatibleSchema,
@@ -99,7 +102,7 @@ namespace Tests.Editor
             {
                 worldId = worldId,
                 displayName = "Legacy World",
-                schemaVersion = SaveVersionPolicy.Current.Schema,
+                schemaVersion = SaveVersionPolicy.LegacySchema,
                 contentVersion = 1,
                 createdUtc = "2024-01-01T00:00:00.0000000Z",
                 lastSavedUtc = "2024-02-01T00:00:00.0000000Z"
@@ -185,6 +188,92 @@ namespace Tests.Editor
             CollectionAssert.AreEqual(blocks, actual.BlockIds);
             CollectionAssert.AreEqual(states, actual.StateIds);
             CollectionAssert.AreEqual(fluids, actual.FluidAmounts);
+        }
+
+        [Test]
+        public void SchemaTwoChunkRoundTripsScheduledUpdatesAndFallingBlocks()
+        {
+            int[] blocks = new int[ChunkSnapshot.CellCount];
+            int[] states = new int[ChunkSnapshot.CellCount];
+            byte[] fluids = new byte[ChunkSnapshot.CellCount];
+            ScheduledBlockUpdateSnapshot[] scheduled =
+            {
+                new(4, 72, 9, Blocks.Sand.BlockId, 0, 2),
+                new(12, 18, 3, Blocks.Gravel.BlockId, 0, 1)
+            };
+            FallingBlockSnapshot[] falling =
+            {
+                new(Blocks.Sand.BlockId, 0, new Vector3(4, 70.25f, 9), new Vector3(0, -17.5f, 0))
+            };
+            ChunkCoord coord = new(-2, 5);
+
+            _storage.SaveChunk(_authorization,
+                new ChunkSnapshot(coord, blocks, states, fluids, 7, scheduled, falling));
+
+            Assert.IsTrue(_storage.TryLoadChunk(_authorization, coord, out ChunkSnapshot actual));
+            Assert.AreEqual(2, actual.ScheduledBlockUpdates.Length);
+            Assert.AreEqual(Blocks.Sand.BlockId, actual.ScheduledBlockUpdates[0].BlockId);
+            Assert.AreEqual(2, actual.ScheduledBlockUpdates[0].RemainingTicks);
+            Assert.AreEqual(1, actual.FallingBlocks.Length);
+            Assert.AreEqual(new Vector3(4, 70.25f, 9), actual.FallingBlocks[0].Position);
+            Assert.AreEqual(new Vector3(0, -17.5f, 0), actual.FallingBlocks[0].Velocity);
+        }
+
+        [Test]
+        public void SchemaTwoReaderAcceptsLegacySchemaOneChunkPayloads()
+        {
+            const string worldId = "legacy-chunk-world";
+            string chunks = Path.Combine(_temporaryRoot, "saves", worldId, "chunks");
+            Directory.CreateDirectory(chunks);
+            WorldDescriptor descriptor = Descriptor(SaveVersionPolicy.Current.Schema, SaveVersionPolicy.Current.Content);
+            descriptor.worldId = worldId;
+            WorldLoadAuthorization authorization = SaveVersionPolicy.Authorize(descriptor);
+            string path = Path.Combine(chunks, "0_0.chunk");
+            using (FileStream stream = File.Create(path))
+            {
+                using BinaryWriter header = new(stream, System.Text.Encoding.UTF8, true);
+                header.Write(0x48434355u);
+                header.Write(SaveVersionPolicy.LegacySchema);
+                header.Write(SaveVersionPolicy.Current.Content);
+                header.Write(0);
+                header.Write(0);
+                header.Write(Chunk.ChunkSize);
+                header.Write(Chunk.ChunkHeight);
+                header.Flush();
+                using GZipStream gzip = new(stream, CompressionMode.Compress, true);
+                using BinaryWriter payload = new(gzip, System.Text.Encoding.UTF8, true);
+                for (int i = 0; i < ChunkSnapshot.CellCount; i++)
+                {
+                    payload.Write(i == 0 ? Blocks.Stone.BlockId : 0);
+                    payload.Write(0);
+                    payload.Write((byte)0);
+                }
+            }
+
+            Assert.IsTrue(_storage.TryLoadChunk(authorization, new ChunkCoord(0, 0), out ChunkSnapshot actual));
+            Assert.AreEqual(Blocks.Stone.BlockId, actual.BlockIds[0]);
+            Assert.IsEmpty(actual.ScheduledBlockUpdates);
+            Assert.IsEmpty(actual.FallingBlocks);
+        }
+
+        [Test]
+        public void LegacyAuthorizedSessionCanReadAChunkItUpgradedToSchemaTwo()
+        {
+            WorldDescriptor legacy = Descriptor(SaveVersionPolicy.LegacySchema, SaveVersionPolicy.Current.Content);
+            legacy.worldId = "mixed-schema-world";
+            WorldLoadAuthorization legacyAuthorization = SaveVersionPolicy.Authorize(legacy);
+            ChunkCoord coord = new(3, -4);
+            int[] blocks = new int[ChunkSnapshot.CellCount];
+            blocks[ChunkSnapshot.Index(2, 40, 6)] = Blocks.Sand.BlockId;
+            ChunkSnapshot snapshot = new(coord, blocks, new int[ChunkSnapshot.CellCount],
+                new byte[ChunkSnapshot.CellCount], 1,
+                new[] { new ScheduledBlockUpdateSnapshot(2, 40, 6, Blocks.Sand.BlockId, 0, 2) });
+
+            _storage.SaveChunk(legacyAuthorization, snapshot);
+
+            Assert.IsTrue(_storage.TryLoadChunk(legacyAuthorization, coord, out ChunkSnapshot loaded));
+            Assert.AreEqual(Blocks.Sand.BlockId, loaded.BlockIds[ChunkSnapshot.Index(2, 40, 6)]);
+            Assert.AreEqual(1, loaded.ScheduledBlockUpdates.Length);
         }
 
         [Test]

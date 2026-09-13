@@ -9,7 +9,7 @@ namespace world.items
     {
         private Block Block { get; }
 
-        private readonly int _allLayer = LayerMask.GetMask("Ignore Raycast");
+        private readonly int _playerLayer = LayerMask.GetMask("Ignore Raycast");
 
         public BlockItem(int itemId, string name, Block block) : base(itemId, name)
         {
@@ -30,7 +30,9 @@ namespace world.items
             if ((posBlock.IsAir || posBlock.Block.BlockId == Block.BlockId) && !Block.IsAir && Block.CanPlace(posBlock, data))
             {
                 (Vector3 half, Vector3 center) = Block.GetBoundingBox(finalPosition, data);
-                if (!Physics.CheckBox(center, half * 0.9f, new Quaternion(), _allLayer))
+                Vector3 placementHalfExtents = half * 0.9f;
+                if (!Physics.CheckBox(center, placementHalfExtents, Quaternion.identity, _playerLayer) &&
+                    !world.IntersectsFallingBlock(center, placementHalfExtents))
                 {
                     world.SetBlock(finalPosition, Block, data);
                     return true;

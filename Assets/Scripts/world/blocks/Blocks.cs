@@ -50,14 +50,14 @@ namespace world.blocks
         {
             Air = new AirBlock();
             Void = new Block(1, BlockProperty.Default(0));
-            GrassBlock = new Block(2, BlockProperty.Pillar(3, 0, 2));
-            Dirt = new Block(3, BlockProperty.Default(0));
+            GrassBlock = new GrassBlock(2, BlockProperty.Pillar(3, 0, 2));
+            Dirt = new DirtBlock(3, BlockProperty.Default(0));
             Stone = new Block(4, BlockProperty.Default(7));
             GenerationWater = new Block(5, BlockProperty.Default(32).SetSolid(false) with { Collide = false });
-            Sand = new Block(6, BlockProperty.Default(5));
+            Sand = new GravityBlock(6, BlockProperty.Default(5));
             OakLog = new Log(7);
-            OakLeave = new Block(8, BlockProperty.Default(108) with { ReplaceTerrain = false, IsSolid = false });
-            Gravel = new Block(9, BlockProperty.Default(4));
+            OakLeave = new LeavesBlock(8, BlockProperty.Default(108) with { ReplaceTerrain = false, IsSolid = false });
+            Gravel = new GravityBlock(9, BlockProperty.Default(4));
             WhiteStainedGlass = new Block(10, BlockProperty.Default(16).SetTransparent(true));
             LightGrayStainedGlass = new Block(11, BlockProperty.Default(17).SetTransparent(true));
             GrayStainedGlass = new Block(12, BlockProperty.Default(18).SetTransparent(true));

@@ -37,6 +37,13 @@ namespace World
         internal int FluidTick { get; private set; }
         [SerializeField, Min(0)] private int maximumFluidUpdatesPerFixedTick;
         private readonly FluidScheduler _fluidScheduler = new();
+        private readonly BlockUpdateScheduler _blockUpdateScheduler = new();
+        private readonly LeafDistanceCache _leafDistanceCache = new();
+        private FallingBlockSystem _fallingBlocks;
+        private int _randomTickSeed;
+        private readonly Queue<ImmediateBlockUpdate> _immediateBlockUpdates = new();
+        private readonly HashSet<ImmediateBlockUpdate> _queuedImmediateBlockUpdates = new();
+        private bool _processingImmediateBlockUpdates;
         private Player _playerComponent;
         private float _nextAutosaveTime;
         private bool _persistenceReady;
@@ -51,6 +58,31 @@ namespace World
         private readonly object _renderQueueLock = new();
         private int _queuedRenderCount;
         private int _playerSection;
+
+        private static readonly Vector3Int[] BlockUpdateDirections =
+        {
+            Vector3Int.zero, Vector3Int.left, Vector3Int.right, Vector3Int.up,
+            Vector3Int.down, Vector3Int.forward, Vector3Int.back
+        };
+
+        private readonly struct ImmediateBlockUpdate : IEquatable<ImmediateBlockUpdate>
+        {
+            public readonly Vector3Int Position;
+            public readonly ushort BlockId;
+            public readonly ushort StateId;
+
+            public ImmediateBlockUpdate(Vector3Int position, ushort blockId, ushort stateId)
+            {
+                Position = position;
+                BlockId = blockId;
+                StateId = stateId;
+            }
+
+            public bool Equals(ImmediateBlockUpdate other) => Position.Equals(other.Position) &&
+                                                               BlockId == other.BlockId && StateId == other.StateId;
+            public override bool Equals(object obj) => obj is ImmediateBlockUpdate other && Equals(other);
+            public override int GetHashCode() => HashCode.Combine(Position, BlockId, StateId);
+        }
 
         private readonly struct RenderWork
         {
@@ -81,7 +113,10 @@ namespace World
                 if (LoadAuthorization == null) throw new InvalidOperationException("Select a world before opening gameplay.");
 
                 WorldDescriptor descriptor = Storage.ReadWorldDescriptor(LoadAuthorization.WorldId);
-                ChunkGenerator.Initialize(WorldGenerationSettings.FromSeed(descriptor.worldSeed));
+                WorldGenerationSettings generationSettings = WorldGenerationSettings.FromSeed(descriptor.worldSeed);
+                ChunkGenerator.Initialize(generationSettings);
+                _randomTickSeed = generationSettings.FeatureSeed ^ generationSettings.StructureSeed;
+                _fallingBlocks = new FallingBlockSystem(this);
 
                 if (Storage.TryLoadPlayer(LoadAuthorization, out PlayerSnapshot savedPlayer))
                     _playerComponent.ApplyPersistenceSnapshot(savedPlayer);
@@ -143,6 +178,8 @@ namespace World
         {
             if (!_gameplayReady || _shuttingDown) return;
             FluidTick++;
+            _blockUpdateScheduler.Advance(FluidTick, this);
+            ProcessRandomTicks();
             _fluidScheduler.Advance(FluidTick, maximumFluidUpdatesPerFixedTick, this);
         }
 
@@ -280,6 +317,8 @@ namespace World
             foreach (Chunk chunk in ChunkMap.Values) chunk.DestroyChunk();
             ChunkMap.Clear();
             _fluidScheduler.Clear();
+            _blockUpdateScheduler.Clear();
+            _fallingBlocks?.DestroyAll();
             lock (_renderQueueLock)
             {
                 _renderQueue.Clear();
@@ -369,9 +408,10 @@ namespace World
 
         public BlockState GetBlock(int x, int y, int z)
         {
-            return ChunkMap.TryGetValue(ChunkCoord.ToChunkCoord(x, z), out Chunk chunk)
-                ? chunk.GetBlock(ToCoordInChunk(x, y, z))
-                : Blocks.Void.AsState(x, y, z);
+            if (!ChunkMap.TryGetValue(ChunkCoord.ToChunkCoord(x, z), out Chunk chunk))
+                return Blocks.Void.AsState(x, y, z);
+            BlockState local = chunk.GetBlock(ToCoordInChunk(x, y, z));
+            return local.Block.AsState(x, y, z, local.Data);
         }
 
         public BlockState GetBlock(Vector3Int position)
@@ -425,6 +465,39 @@ namespace World
                 : null;
         }
 
+        internal void SuspendBlockUpdates(Chunk chunk) => _blockUpdateScheduler.Suspend(chunk);
+        internal void ResumeBlockUpdates(Chunk chunk) => _blockUpdateScheduler.Resume(chunk);
+        internal void CancelBlockUpdates(Chunk chunk) => _blockUpdateScheduler.Cancel(chunk);
+
+        internal Chunk ResolveActiveBlockChunk(ChunkCoord coord, int generation)
+        {
+            return ChunkMap.TryGetValue(coord, out Chunk chunk) && chunk.FluidGeneration == generation && chunk.IsActive
+                ? chunk
+                : null;
+        }
+
+        internal ScheduledBlockUpdateSnapshot[] CaptureScheduledBlockUpdates(Chunk chunk) =>
+            _blockUpdateScheduler.Capture(chunk);
+
+        internal FallingBlockSnapshot[] CaptureFallingBlocks(Chunk chunk) =>
+            _fallingBlocks?.Capture(chunk) ?? Array.Empty<FallingBlockSnapshot>();
+
+        internal bool IntersectsFallingBlock(Vector3 center, Vector3 halfExtents) =>
+            _fallingBlocks != null && _fallingBlocks.Intersects(new Bounds(center, halfExtents * 2f));
+
+        internal bool HasPersistentRuntimeState(Chunk chunk) =>
+            _blockUpdateScheduler.HasPending(chunk) || _fallingBlocks != null && _fallingBlocks.HasActive(chunk.ChunkPosition);
+
+        internal void RestoreChunkRuntimeState(Chunk chunk, ScheduledBlockUpdateSnapshot[] updates,
+            FallingBlockSnapshot[] fallingBlocks)
+        {
+            foreach (var t in updates)
+                _blockUpdateScheduler.Restore(chunk, t);
+
+            foreach (var t in fallingBlocks)
+                _fallingBlocks.Restore(chunk, t);
+        }
+
         public void SetBlock(int x, int y, int z, Block block, [CanBeNull] object state = null)
         {
             if (ChunkMap.TryGetValue(ChunkCoord.ToChunkCoord(x, z), out Chunk chunk))
@@ -445,7 +518,162 @@ namespace World
             }
         }
 
-        private static Vector3Int ToCoordInChunk(int x0, int y0, int z0)
+        internal void NotifyBlockChanged(Vector3Int position, Block previous, Block next)
+        {
+            bool leafTopologyChanged = previous.BlockId == Blocks.OakLog.BlockId ||
+                                       previous.BlockId == Blocks.OakLeave.BlockId ||
+                                       next.BlockId == Blocks.OakLog.BlockId ||
+                                       next.BlockId == Blocks.OakLeave.BlockId;
+            if (leafTopologyChanged) _leafDistanceCache.InvalidateAround(this, position);
+
+            foreach (var t in BlockUpdateDirections)
+                QueueBlockUpdate(position + t);
+
+            DrainImmediateBlockUpdates();
+        }
+
+        private void QueueBlockUpdate(Vector3Int position)
+        {
+            if (!TryGetLoadedCell(position, out Chunk chunk, out Vector3Int local, out Block block,
+                    out ushort stateId)) return;
+            int? delay = block.BlockUpdateDelayTicks;
+            if (!delay.HasValue) return;
+            if (delay.Value < 0)
+                throw new InvalidOperationException($"Block {block.BlockId} declared a negative block-update delay.");
+            if (delay.Value > 0)
+            {
+                _blockUpdateScheduler.Schedule(chunk, local, (ushort)block.BlockId, stateId, delay.Value);
+                return;
+            }
+
+            ImmediateBlockUpdate update = new(position, (ushort)block.BlockId, stateId);
+            if (_queuedImmediateBlockUpdates.Add(update)) _immediateBlockUpdates.Enqueue(update);
+        }
+
+        private void DrainImmediateBlockUpdates()
+        {
+            if (_processingImmediateBlockUpdates) return;
+            _processingImmediateBlockUpdates = true;
+            try
+            {
+                while (_immediateBlockUpdates.Count > 0)
+                {
+                    ImmediateBlockUpdate update = _immediateBlockUpdates.Dequeue();
+                    _queuedImmediateBlockUpdates.Remove(update);
+                    if (!TryGetLoadedCell(update.Position, out _, out _, out Block block, out ushort stateId) ||
+                        block.BlockId != update.BlockId || stateId != update.StateId) continue;
+                    block.OnBlockUpdate(this,
+                        block.AsState(update.Position, block.DecodeStateCached(stateId)));
+                }
+            }
+            finally { _processingImmediateBlockUpdates = false; }
+        }
+
+        internal bool TryGetLoadedBlock(Vector3Int position, out BlockState state)
+        {
+            if (position.y < 0 || position.y >= Chunk.ChunkHeight)
+            {
+                state = Blocks.Air.AsState(position);
+                return true;
+            }
+            if (!TryGetLoadedCell(position, out _, out _, out Block block, out ushort stateId))
+            {
+                state = default;
+                return false;
+            }
+            state = block.AsState(position, block.DecodeStateCached(stateId));
+            return true;
+        }
+
+        private bool TryGetLoadedCell(Vector3Int position, out Chunk chunk, out Vector3Int local,
+            out Block block, out ushort stateId)
+        {
+            local = ToCoordInChunk(position);
+            chunk = null;
+            if (position.y < 0 || position.y >= Chunk.ChunkHeight ||
+                !ChunkMap.TryGetValue(ChunkCoord.ToChunkCoord(position.x, position.z), out chunk))
+            {
+                block = null;
+                stateId = 0;
+                return false;
+            }
+            chunk.GetCellUnchecked(local.x, local.y, local.z, out block, out stateId);
+            return true;
+        }
+
+        internal bool IsGrassBlocked(Vector3Int position)
+        {
+            BlockState block = GetBlock(position);
+            return !GetFluid(position).IsEmpty || block.Block.IsSolid(block, ChunkRenderObject.BottomFace);
+        }
+
+        internal byte ResolveLeafDistance(Vector3Int position) => _leafDistanceCache.Resolve(this, position);
+
+        internal void OnChunkTopologyChanged(ChunkCoord coord) => _leafDistanceCache.OnChunkTopologyChanged(this, coord);
+
+        internal void TryStartFallingBlock(BlockState scheduledState)
+        {
+            if (!TryGetLoadedBlock(scheduledState.Position, out BlockState current) ||
+                current.Block.BlockId != scheduledState.Block.BlockId ||
+                current.Block.EncodeStateCompact(current.Data) != scheduledState.Block.EncodeStateCompact(scheduledState.Data)) return;
+            BlockState below = GetBlock(scheduledState.Position + Vector3Int.down);
+            if (below.Block.Collide) return;
+            _fallingBlocks.Spawn(current, Vector3.zero);
+            SetBlock(scheduledState.Position, Blocks.Air);
+        }
+
+        internal bool ShouldPinChunk(ChunkCoord coord) => _fallingBlocks != null && _fallingBlocks.HasActive(coord);
+
+        internal CharacterController PlayerController => _playerComponent != null ? _playerComponent.characterController : null;
+
+        internal void OnFallingBlockReleased(ChunkCoord coord)
+        {
+            if (_gameplayReady && !_desiredChunks.Contains(coord) && ChunkMap.ContainsKey(coord))
+                ChunkLoader.UnloadChunk(coord);
+        }
+
+        private void ProcessRandomTicks()
+        {
+            foreach (Chunk chunk in ChunkMap.Values)
+            {
+                if (!chunk.IsActive) continue;
+                for (int section = 0; section < ChunkData.SectionCount; section++)
+                {
+                    uint hash = RandomTickHash(_randomTickSeed, FluidTick, chunk.ChunkPosition, section);
+                    int index = (int)(hash & (ChunkData.CellsPerSection - 1));
+                    int x = index & 15;
+                    int z = (index >> 4) & 15;
+                    int y = section * Chunk.ChunkSize + ((index >> 8) & 15);
+                    chunk.GetCellUnchecked(x, y, z, out Block block, out ushort stateId);
+                    if (!block.ReceivesRandomTicks) continue;
+                    Vector3Int position = new(chunk.ChunkPosition.X * Chunk.ChunkSize + x, y,
+                        chunk.ChunkPosition.Z * Chunk.ChunkSize + z);
+                    block.OnRandomTick(this, block.AsState(position, block.DecodeStateCached(stateId)));
+                }
+            }
+        }
+
+        private static uint RandomTickHash(int seed, int tick, ChunkCoord coord, int section)
+        {
+            unchecked
+            {
+                uint value = (uint)seed;
+                value ^= (uint)tick * 0x9E3779B9u;
+                value ^= (uint)coord.X * 0x85EBCA6Bu;
+                value ^= (uint)coord.Z * 0xC2B2AE35u;
+                value ^= (uint)section * 0x27D4EB2Fu;
+                value ^= value >> 16;
+                value *= 0x7FEB352Du;
+                value ^= value >> 15;
+                value *= 0x846CA68Bu;
+                return value ^ (value >> 16);
+            }
+        }
+
+        internal static Vector3Int ToCoordInChunk(Vector3Int position) =>
+            ToCoordInChunk(position.x, position.y, position.z);
+
+        internal static Vector3Int ToCoordInChunk(int x0, int y0, int z0)
         {
             int x = x0 % Chunk.ChunkSize;
             if (x < 0) x += Chunk.ChunkSize;

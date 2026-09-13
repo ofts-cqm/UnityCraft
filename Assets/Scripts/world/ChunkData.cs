@@ -24,6 +24,9 @@ namespace World
         private readonly ushort[] _blockIds = new ushort[CellCount];
         private readonly ushort[] _stateIds = new ushort[CellCount];
         private readonly byte[] _fluidAmounts = new byte[CellCount];
+        // Leaf distance is derived runtime data. Allocate one 4 KiB buffer only for sections that
+        // actually need a cached value, and never serialize it as block state.
+        private readonly byte[][] _leafDistances = new byte[SectionCount][];
 
         private readonly ushort[] _nonAirCounts = new ushort[SectionCount];
         private readonly ushort[] _collidableCounts = new ushort[SectionCount];
@@ -45,7 +48,7 @@ namespace World
             return IndexUnchecked(x, y, z);
         }
 
-        internal static int IndexUnchecked(int x, int y, int z)
+        private static int IndexUnchecked(int x, int y, int z)
         {
             int section = y >> 4;
             int localY = y & (Chunk.ChunkSize - 1);
@@ -60,6 +63,31 @@ namespace World
         internal ushort GetBlockIdUnchecked(int x, int y, int z) => _blockIds[IndexUnchecked(x, y, z)];
         internal ushort GetStateIdUnchecked(int x, int y, int z) => _stateIds[IndexUnchecked(x, y, z)];
         internal byte GetFluidRawUnchecked(int x, int y, int z) => _fluidAmounts[IndexUnchecked(x, y, z)];
+
+        internal byte GetLeafDistanceUnchecked(int x, int y, int z)
+        {
+            byte[] section = _leafDistances[y >> 4];
+            return section == null ? (byte)0 : section[SectionIndexUnchecked(x, y, z)];
+        }
+
+        internal void SetLeafDistanceUnchecked(int x, int y, int z, byte distance)
+        {
+            int sectionIndex = y >> 4;
+            byte[] section = _leafDistances[sectionIndex];
+            if (section == null)
+            {
+                if (distance == 0) return;
+                section = new byte[CellsPerSection];
+                _leafDistances[sectionIndex] = section;
+            }
+            section[SectionIndexUnchecked(x, y, z)] = distance;
+        }
+
+        internal void ClearLeafDistances()
+        {
+            foreach (var t in _leafDistances)
+                if (t != null) Array.Clear(t, 0, t.Length);
+        }
 
         internal void GetCellIdsUnchecked(int x, int y, int z, out ushort blockId, out ushort stateId)
         {
@@ -112,6 +140,12 @@ namespace World
             if (previous == 0 || rawAmount == 0)
                 UpdateBorderBits(_fluidBorders, x, y, z, rawAmount != 0);
             _fluidAmounts[index] = rawAmount;
+        }
+
+        private static int SectionIndexUnchecked(int x, int y, int z)
+        {
+            int localY = y & (Chunk.ChunkSize - 1);
+            return localY * Chunk.ChunkSize * Chunk.ChunkSize + z * Chunk.ChunkSize + x;
         }
 
         private void UpdateBlockMetadata(int x, int y, int z, Block previous, Block next)

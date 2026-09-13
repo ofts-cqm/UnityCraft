@@ -460,6 +460,19 @@ namespace Tests.Editor
         }
 
         [Test]
+        public void BlockTickCapabilitiesAreDeclaredByTheBlocksThatUseThem()
+        {
+            Assert.AreEqual(GravityBlock.UpdateDelay, Blocks.Sand.BlockUpdateDelayTicks);
+            Assert.AreEqual(GravityBlock.UpdateDelay, Blocks.Gravel.BlockUpdateDelayTicks);
+            Assert.IsNull(Blocks.Stone.BlockUpdateDelayTicks);
+            Assert.IsTrue(Blocks.GrassBlock.ReceivesRandomTicks);
+            Assert.IsTrue(Blocks.Dirt.ReceivesRandomTicks);
+            Assert.IsTrue(Blocks.OakLeave.ReceivesRandomTicks);
+            Assert.IsFalse(Blocks.Sand.ReceivesRandomTicks);
+            Assert.IsFalse(Blocks.Stone.ReceivesRandomTicks);
+        }
+
+        [Test]
         public void FluidSchedulerDeduplicatesAndKeepsTheEarliestEquivalentTick()
         {
             Vector3Int position = new(8, 64, 8);

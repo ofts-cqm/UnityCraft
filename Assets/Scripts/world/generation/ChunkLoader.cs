@@ -84,6 +84,7 @@ namespace world.generation
                 // Loading this neighbor may change visible border faces.
                 MarkExistingNeighborBorders(coord);
                 WakeFluidBorders(chunk);
+                World.World.Instance.OnChunkTopologyChanged(coord);
                 return;
             }
 
@@ -114,10 +115,14 @@ namespace world.generation
                 return;
             }
 
+            // Falling blocks need the collider column to remain loaded until they settle.
+            if (World.World.Instance.ShouldPinChunk(coord)) return;
+
             // Remove the chunk from the chunk map
             if (!World.World.Instance.ChunkMap.Remove(coord, out Chunk chunk)) return;
 
             MarkExistingNeighborBorders(coord);
+            World.World.Instance.OnChunkTopologyChanged(coord);
 
             World.World.Instance.QueueChunkSave(chunk);
 
@@ -199,11 +204,12 @@ namespace world.generation
                 PendingLoad.Remove(coord);
                 
                 // Unity API starts here, on the main thread.
-                chunk.FinalizeLoading();
                 World.World.Instance.ChunkMap.Add(coord, chunk);
+                chunk.FinalizeLoading();
 
                 MarkExistingNeighborBorders(coord);
                 WakeFluidBorders(chunk);
+                World.World.Instance.OnChunkTopologyChanged(coord);
 
                 installedThisFrame++;
             }
