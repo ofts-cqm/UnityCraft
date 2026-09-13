@@ -167,7 +167,7 @@ namespace world.generation
         {
             if (y < height - 3) return Blocks.Stone;
             if (y < height) return Blocks.Dirt;
-            if (y == height) return Blocks.GrassBlock;
+            if (y == height) return y < SeaLevel ? Blocks.Sand : Blocks.GrassBlock;
             return y < SeaLevel ? Blocks.GenerationWater : Blocks.Air;
         }
 
