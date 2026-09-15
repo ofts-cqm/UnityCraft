@@ -45,6 +45,7 @@ namespace world.blocks
         public static readonly Block PinkStainedGlass;
         public static readonly Block OakPlanks;
         public static readonly Block OakSlab;
+        public static readonly Block OakStairs;
 
         static Blocks()
         {
@@ -76,6 +77,7 @@ namespace world.blocks
             PinkStainedGlass = new Block(25, BlockProperty.Default(31).SetTransparent(true));
             OakPlanks = new Block(26, BlockProperty.Default(90));
             OakSlab = new Slab(27);
+            OakStairs = new Stair(28);
         }
 
         internal static void Register(Block block)

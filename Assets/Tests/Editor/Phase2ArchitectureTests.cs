@@ -371,7 +371,7 @@ namespace Tests.Editor
             System.Random random = new(170218);
             Block[] choices =
             {
-                Blocks.Air, Blocks.Stone, Blocks.WhiteStainedGlass, Blocks.OakLeave, Blocks.OakSlab
+                Blocks.Air, Blocks.Stone, Blocks.WhiteStainedGlass, Blocks.OakLeave, Blocks.OakSlab, Blocks.OakStairs
             };
             for (int operation = 0; operation < 4000; operation++)
             {
@@ -383,7 +383,9 @@ namespace Tests.Editor
                     Block block = choices[random.Next(choices.Length)];
                     object state = block.BlockId == Blocks.OakSlab.BlockId
                         ? (SlabPart)random.Next(0, 7)
-                        : block.DefaultState;
+                        : block.BlockId == Blocks.OakStairs.BlockId
+                            ? (StairState)random.Next(0, 24)
+                            : block.DefaultState;
                     chunk.SetBlock(x, y, z, block, state);
                 }
                 else

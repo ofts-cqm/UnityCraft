@@ -16,6 +16,7 @@ namespace World
         private readonly HashSet<ChunkIdentity> _suspended = new();
         private readonly Dictionary<ChunkIdentity, List<BlockCellKey>> _pausedDue = new();
         private int _lastAdvancedTick;
+        private int PendingCount => _pending.Count;
 
         internal bool HasPending(Chunk chunk)
         {

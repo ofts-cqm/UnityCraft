@@ -40,6 +40,7 @@ namespace world.items
         public static readonly Item PinkStainedGlass;
         public static readonly Item OakPlanks;
         public static readonly Item OakSlab;
+        public static readonly Item OakStairs;
         public static readonly Item WaterBucket;
         public static readonly Item Bucket;
         public static readonly Item SearchIcon;
@@ -112,6 +113,7 @@ namespace world.items
             PinkStainedGlass = new BlockItem(23, "Pink Stained Glass", Blocks.PinkStainedGlass).RegisterColoredItem();
             OakPlanks = new BlockItem(24, "Oak Planks", Blocks.OakPlanks).RegisterBuildingItem();
             OakSlab = new BlockItem(25, "Oak Slab", Blocks.OakSlab).RegisterBuildingItem();
+            OakStairs = new BlockItem(28, "Oak Stairs", Blocks.OakStairs).RegisterBuildingItem();
             WaterBucket = new WaterBucket(26).RegisterToolItem();
             Bucket = new Bucket(27).RegisterToolItem();
             SearchIcon = new SimpleItem(-1, "", "items/search");
