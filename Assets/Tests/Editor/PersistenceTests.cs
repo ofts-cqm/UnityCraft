@@ -292,37 +292,37 @@ namespace Tests.Editor
         public void SlabStateCodecHasStableIdsAndRejectsUnknownValues()
         {
             for (int stateId = 0; stateId <= 6; stateId++)
-                Assert.AreEqual(stateId, Blocks.OakSlab.EncodeState(Blocks.OakSlab.DecodeState(stateId)));
-            Assert.Throws<InvalidDataException>(() => Blocks.OakSlab.DecodeState(7));
+                Assert.AreEqual(stateId, Blocks.WoodSlab.Oak.EncodeState(Blocks.WoodSlab.Oak.DecodeState(stateId)));
+            Assert.Throws<InvalidDataException>(() => Blocks.WoodSlab.Oak.DecodeState(7));
         }
 
         [Test]
         public void OakLogStateCodecHasStableIdsAndRejectsUnknownValues()
         {
             for (int stateId = 0; stateId <= 2; stateId++)
-                Assert.AreEqual(stateId, Blocks.OakLog.EncodeState(Blocks.OakLog.DecodeState(stateId)));
-            Assert.Throws<InvalidDataException>(() => Blocks.OakLog.DecodeState(3));
+                Assert.AreEqual(stateId, Blocks.Log.Oak.EncodeState(Blocks.Log.Oak.DecodeState(stateId)));
+            Assert.Throws<InvalidDataException>(() => Blocks.Log.Oak.DecodeState(3));
         }
 
         [Test]
         public void OakLogPlacementMapsSideFacesToTheirAxes()
         {
             Vector3Int position = Vector3Int.zero;
-            Assert.AreEqual(LogAxis.X, Blocks.OakLog.GetStateToPlace(ChunkRenderObject.LeftFace, Vector3Int.zero, ref position));
-            Assert.AreEqual(LogAxis.X, Blocks.OakLog.GetStateToPlace(ChunkRenderObject.RightFace, Vector3Int.zero, ref position));
-            Assert.AreEqual(LogAxis.Z, Blocks.OakLog.GetStateToPlace(ChunkRenderObject.FrontFace, Vector3Int.zero, ref position));
-            Assert.AreEqual(LogAxis.Z, Blocks.OakLog.GetStateToPlace(ChunkRenderObject.BackFace, Vector3Int.zero, ref position));
-            Assert.AreEqual(LogAxis.Y, Blocks.OakLog.GetStateToPlace(ChunkRenderObject.TopFace, Vector3Int.zero, ref position));
+            Assert.AreEqual(LogAxis.X, Blocks.Log.Oak.GetStateToPlace(ChunkRenderObject.LeftFace, Vector3Int.zero, ref position));
+            Assert.AreEqual(LogAxis.X, Blocks.Log.Oak.GetStateToPlace(ChunkRenderObject.RightFace, Vector3Int.zero, ref position));
+            Assert.AreEqual(LogAxis.Z, Blocks.Log.Oak.GetStateToPlace(ChunkRenderObject.FrontFace, Vector3Int.zero, ref position));
+            Assert.AreEqual(LogAxis.Z, Blocks.Log.Oak.GetStateToPlace(ChunkRenderObject.BackFace, Vector3Int.zero, ref position));
+            Assert.AreEqual(LogAxis.Y, Blocks.Log.Oak.GetStateToPlace(ChunkRenderObject.TopFace, Vector3Int.zero, ref position));
         }
 
         [Test]
         public void VerticalSlabBoundsOccupyTheirNamedHalf()
         {
-            (Vector3 half, Vector3 center) = Blocks.OakSlab.GetBoundingBox(Vector3Int.zero, SlabPart.East);
+            (Vector3 half, Vector3 center) = Blocks.WoodSlab.Oak.GetBoundingBox(Vector3Int.zero, SlabPart.East);
             Assert.AreEqual(new Vector3(.25f, .5f, .5f), half);
             Assert.AreEqual(new Vector3(.75f, .5f, .5f), center);
 
-            (half, center) = Blocks.OakSlab.GetBoundingBox(Vector3Int.zero, SlabPart.North);
+            (half, center) = Blocks.WoodSlab.Oak.GetBoundingBox(Vector3Int.zero, SlabPart.North);
             Assert.AreEqual(new Vector3(.5f, .5f, .25f), half);
             Assert.AreEqual(new Vector3(.5f, .5f, .75f), center);
         }
@@ -331,7 +331,7 @@ namespace Tests.Editor
         public void EastVerticalSlabUsesHalfWidthUvsOnFrontAndBackFaces()
         {
             MeshBuilder builder = new();
-            Blocks.OakSlab.Render(Blocks.OakSlab.AsState(Vector3Int.zero, SlabPart.East), new AirBlockProvider(), builder,
+            Blocks.WoodSlab.Oak.Render(Blocks.WoodSlab.Oak.AsState(Vector3Int.zero, SlabPart.East), new AirBlockProvider(), builder,
                 Vector3Int.zero, Vector3.zero);
 
             CollectionAssert.AreEqual(new[]
@@ -344,7 +344,7 @@ namespace Tests.Editor
         public void XAxisLogRotatesBarkUvsToFollowItsLength()
         {
             MeshBuilder builder = new();
-            Blocks.OakLog.Render(Blocks.OakLog.AsState(Vector3Int.zero, LogAxis.X), new AirBlockProvider(), builder,
+            Blocks.Log.Oak.Render(Blocks.Log.Oak.AsState(Vector3Int.zero, LogAxis.X), new AirBlockProvider(), builder,
                 Vector3Int.zero, Vector3.zero);
 
             CollectionAssert.AreEqual(new[]
@@ -356,9 +356,9 @@ namespace Tests.Editor
         [Test]
         public void SlabCompletionOnlyAcceptsTheHoldingSlabBlockId()
         {
-            Assert.IsTrue(Blocks.OakSlab.CanPlace(Blocks.Air.AsState(Vector3Int.zero), SlabPart.Bottom));
-            Assert.IsTrue(Blocks.OakSlab.CanPlace(Blocks.OakSlab.AsState(Vector3Int.zero, SlabPart.East), SlabPart.Both));
-            Assert.IsFalse(Blocks.OakSlab.CanPlace(Blocks.OakPlanks.AsState(Vector3Int.zero), SlabPart.Both));
+            Assert.IsTrue(Blocks.WoodSlab.Oak.CanPlace(Blocks.Air.AsState(Vector3Int.zero), SlabPart.Bottom));
+            Assert.IsTrue(Blocks.WoodSlab.Oak.CanPlace(Blocks.WoodSlab.Oak.AsState(Vector3Int.zero, SlabPart.East), SlabPart.Both));
+            Assert.IsFalse(Blocks.WoodSlab.Oak.CanPlace(Blocks.Planks.Oak.AsState(Vector3Int.zero), SlabPart.Both));
         }
 
         [Test]
@@ -370,9 +370,9 @@ namespace Tests.Editor
         [Test]
         public void BlockStateIsAValueWithRecordEquality()
         {
-            BlockState first = Blocks.OakSlab.AsState(new Vector3Int(1, 2, 3), SlabPart.Top);
-            BlockState equal = Blocks.OakSlab.AsState(new Vector3Int(1, 2, 3), SlabPart.Top);
-            BlockState different = Blocks.OakSlab.AsState(new Vector3Int(1, 2, 3), SlabPart.Bottom);
+            BlockState first = Blocks.WoodSlab.Oak.AsState(new Vector3Int(1, 2, 3), SlabPart.Top);
+            BlockState equal = Blocks.WoodSlab.Oak.AsState(new Vector3Int(1, 2, 3), SlabPart.Top);
+            BlockState different = Blocks.WoodSlab.Oak.AsState(new Vector3Int(1, 2, 3), SlabPart.Bottom);
 
             Assert.IsTrue(typeof(BlockState).IsValueType);
             Assert.AreEqual(first, equal);
@@ -395,10 +395,10 @@ namespace Tests.Editor
             Chunk chunk = CreateEmptyChunk();
             Assert.IsFalse(chunk.TryCreatePersistenceSnapshot(out _), "Hydrating a clean chunk should not mark it modified.");
 
-            chunk.SetBlock(8, 64, 8, Blocks.OakSlab, SlabPart.Top);
+            chunk.SetBlock(8, 64, 8, Blocks.WoodSlab.Oak, SlabPart.Top);
             Assert.IsTrue(chunk.TryCreatePersistenceSnapshot(out _));
 
-            chunk.SetBlock(8, 64, 8, Blocks.OakSlab, SlabPart.Top);
+            chunk.SetBlock(8, 64, 8, Blocks.WoodSlab.Oak, SlabPart.Top);
             Assert.IsFalse(chunk.TryCreatePersistenceSnapshot(out _),
                 "An assignment with the same block ID and encoded state must be a no-op.");
         }

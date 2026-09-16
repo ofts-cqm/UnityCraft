@@ -1,4 +1,3 @@
-using System;
 using System.IO;
 using render;
 using Render;
@@ -15,7 +14,7 @@ namespace world.blocks
         Z
     }
 
-    public record Log(int Id) : Block(Id, BlockProperty.Pillar(88, 88, 89), LogAxis.Y)
+    public record Log(int Id, BlockProperty property) : Block(Id, property, LogAxis.Y), IBatchableBlock
     {
         public override object GetStateToPlace(int face, Vector3Int original, ref Vector3Int position)
         {
@@ -110,5 +109,12 @@ namespace world.blocks
                 _ => throw new InvalidDataException($"Unknown log axis ID {stateId}.")
             };
         }
+
+        public Block CloneAndRegister(int id, BlockProperty block)
+        {
+            return new Log(id, block);
+        }
+
+        public BlockProperty GetProperty() => Property;
     }
 }

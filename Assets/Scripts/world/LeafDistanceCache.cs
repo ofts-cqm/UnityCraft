@@ -48,7 +48,7 @@ namespace World
                         touchesUnavailableData = true;
                         continue;
                     }
-                    if (neighbor.Block.BlockId == Blocks.OakLog.BlockId)
+                    if (neighbor.Block.BlockId == Blocks.Log.Oak.BlockId)
                     {
                         byte result = (byte)(depth + 1);
                         chunk.Data.SetLeafDistanceUnchecked(local.x, local.y, local.z, result);

@@ -66,7 +66,7 @@ namespace world.blocks
     /// A reusable plank-textured stair. A stair is represented as a 2x2x2 set of half-block cells;
     /// the canonical state records only that visible occupancy, not the placement history that made a corner.
     /// </summary>
-    public record Stair(int Id, int Texture = 90) : Block(Id, BlockProperty.Default(Texture).SetSolid(false), StairState.BottomNorthStraight)
+    public record Stair(int Id, int Texture = 90) : Block(Id, BlockProperty.Default(Texture).SetSolid(false), StairState.BottomNorthStraight), IBatchableBlock
     {
         private const int StatesPerHalf = 12;
         private const int StateCount = StatesPerHalf * 2;
@@ -464,5 +464,12 @@ namespace world.blocks
                 FaceUvs = faceUvs;
             }
         }
+
+        public Block CloneAndRegister(int id, BlockProperty block)
+        {
+            return new Stair(id, block.Texture[0]);
+        }
+
+        public BlockProperty GetProperty() => Property;
     }
 }

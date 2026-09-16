@@ -70,13 +70,13 @@ namespace Tests.Editor
         {
             Vector3Int connected = new(7, 80, 8);
             for (int x = 7; x <= 10; x++) _world.SetBlock(new Vector3Int(x, 80, 8), Blocks.OakLeave);
-            _world.SetBlock(new Vector3Int(11, 80, 8), Blocks.OakLog);
+            _world.SetBlock(new Vector3Int(11, 80, 8), Blocks.Log.Oak);
             Blocks.OakLeave.OnRandomTick(_world, _world.GetBlock(connected));
             Assert.AreEqual(Blocks.OakLeave.BlockId, _world.GetBlock(connected).Block.BlockId);
 
             Vector3Int tooFar = new(7, 90, 8);
             for (int x = 7; x <= 11; x++) _world.SetBlock(new Vector3Int(x, 90, 8), Blocks.OakLeave);
-            _world.SetBlock(new Vector3Int(12, 90, 8), Blocks.OakLog);
+            _world.SetBlock(new Vector3Int(12, 90, 8), Blocks.Log.Oak);
             Blocks.OakLeave.OnRandomTick(_world, _world.GetBlock(tooFar));
             Assert.AreEqual(Blocks.Air.BlockId, _world.GetBlock(tooFar).Block.BlockId);
 

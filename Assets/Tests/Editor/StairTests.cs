@@ -40,8 +40,8 @@ namespace Tests.Editor
         public void StairStatesAreCompactStableAndCanonicalByVisibleGeometry()
         {
             for (int stateId = 0; stateId < 24; stateId++)
-                Assert.AreEqual(stateId, Blocks.OakStairs.EncodeState(Blocks.OakStairs.DecodeState(stateId)));
-            Assert.Throws<InvalidDataException>(() => Blocks.OakStairs.DecodeState(24));
+                Assert.AreEqual(stateId, Blocks.WoodStairs.Oak.EncodeState(Blocks.WoodStairs.Oak.DecodeState(stateId)));
+            Assert.Throws<InvalidDataException>(() => Blocks.WoodStairs.Oak.DecodeState(24));
 
             Assert.AreEqual(StairState.BottomNorthWestOuter,
                 Stair.Create(StairHalf.Bottom, StairFacing.North, StairShape.OuterLeft));
@@ -56,21 +56,21 @@ namespace Tests.Editor
         [Test]
         public void StairFluidLimitsUseOpenEdgesAndClosedFaces()
         {
-            BlockState lower = Blocks.OakStairs.AsState(Vector3Int.zero, StairState.BottomNorthStraight);
-            Assert.AreEqual((0, 10), Blocks.OakStairs.GetFlowingAmountLimit(lower, ChunkRenderObject.FrontFace));
-            Assert.AreEqual((9, 5), Blocks.OakStairs.GetFlowingAmountLimit(lower, ChunkRenderObject.BackFace));
-            Assert.AreEqual((0, 10), Blocks.OakStairs.GetFlowingAmountLimit(lower, ChunkRenderObject.BottomFace));
+            BlockState lower = Blocks.WoodStairs.Oak.AsState(Vector3Int.zero, StairState.BottomNorthStraight);
+            Assert.AreEqual((0, 10), Blocks.WoodStairs.Oak.GetFlowingAmountLimit(lower, ChunkRenderObject.FrontFace));
+            Assert.AreEqual((9, 5), Blocks.WoodStairs.Oak.GetFlowingAmountLimit(lower, ChunkRenderObject.BackFace));
+            Assert.AreEqual((0, 10), Blocks.WoodStairs.Oak.GetFlowingAmountLimit(lower, ChunkRenderObject.BottomFace));
 
-            BlockState upper = Blocks.OakStairs.AsState(Vector3Int.zero, StairState.TopNorthStraight);
-            Assert.AreEqual((0, 10), Blocks.OakStairs.GetFlowingAmountLimit(upper, ChunkRenderObject.TopFace));
-            Assert.AreEqual((4, 0), Blocks.OakStairs.GetFlowingAmountLimit(upper, ChunkRenderObject.BackFace));
+            BlockState upper = Blocks.WoodStairs.Oak.AsState(Vector3Int.zero, StairState.TopNorthStraight);
+            Assert.AreEqual((0, 10), Blocks.WoodStairs.Oak.GetFlowingAmountLimit(upper, ChunkRenderObject.TopFace));
+            Assert.AreEqual((4, 0), Blocks.WoodStairs.Oak.GetFlowingAmountLimit(upper, ChunkRenderObject.BackFace));
         }
 
         [Test]
         public void StairMeshUsesHalfCellGeometryAndUnscaledPlankUvs()
         {
             MeshBuilder builder = new();
-            Blocks.OakStairs.Render(Blocks.OakStairs.AsState(Vector3Int.zero, StairState.BottomNorthWestOuter),
+            Blocks.WoodStairs.Oak.Render(Blocks.WoodStairs.Oak.AsState(Vector3Int.zero, StairState.BottomNorthWestOuter),
                 new AirBlockProvider(), builder, Vector3Int.zero, Vector3.zero);
 
             Assert.IsFalse(builder.OpaqueMesh.IsEmpty);
@@ -98,8 +98,8 @@ namespace Tests.Editor
         public void StraightStairsUpgradeForNeighborsAndCornersDoNotRevert()
         {
             Vector3Int outer = new(8, 64, 8);
-            _world.SetBlock(outer, Blocks.OakStairs, StairState.BottomNorthStraight);
-            _world.SetBlock(outer + Vector3Int.forward, Blocks.OakStairs, StairState.BottomEastStraight);
+            _world.SetBlock(outer, Blocks.WoodStairs.Oak, StairState.BottomNorthStraight);
+            _world.SetBlock(outer + Vector3Int.forward, Blocks.WoodStairs.Oak, StairState.BottomEastStraight);
 
             Assert.AreEqual(StairState.BottomNorthEastOuter, _world.GetBlock(outer).Data);
             _world.SetBlock(outer + Vector3Int.forward, Blocks.Air);
@@ -107,26 +107,26 @@ namespace Tests.Editor
                 "Removing the neighbor must leave the existing corner unchanged.");
 
             Vector3Int inner = new(10, 64, 8);
-            _world.SetBlock(inner, Blocks.OakStairs, StairState.BottomNorthStraight);
-            _world.SetBlock(inner + Vector3Int.back, Blocks.OakStairs, StairState.BottomEastStraight);
+            _world.SetBlock(inner, Blocks.WoodStairs.Oak, StairState.BottomNorthStraight);
+            _world.SetBlock(inner + Vector3Int.back, Blocks.WoodStairs.Oak, StairState.BottomEastStraight);
             Assert.AreEqual(StairState.BottomNorthRightInner, _world.GetBlock(inner).Data);
 
             Vector3Int mixedHalf = new(12, 64, 8);
-            _world.SetBlock(mixedHalf, Blocks.OakStairs, StairState.BottomNorthStraight);
-            _world.SetBlock(mixedHalf + Vector3Int.forward, Blocks.OakStairs, StairState.TopEastStraight);
+            _world.SetBlock(mixedHalf, Blocks.WoodStairs.Oak, StairState.BottomNorthStraight);
+            _world.SetBlock(mixedHalf + Vector3Int.forward, Blocks.WoodStairs.Oak, StairState.TopEastStraight);
             Assert.AreEqual(StairState.BottomNorthStraight, _world.GetBlock(mixedHalf).Data,
                 "Only same-half stairs may form a corner.");
 
             Vector3Int canonicalNeighbor = new(14, 64, 8);
-            _world.SetBlock(canonicalNeighbor, Blocks.OakStairs, StairState.BottomNorthStraight);
-            _world.SetBlock(canonicalNeighbor + Vector3Int.forward, Blocks.OakStairs,
+            _world.SetBlock(canonicalNeighbor, Blocks.WoodStairs.Oak, StairState.BottomNorthStraight);
+            _world.SetBlock(canonicalNeighbor + Vector3Int.forward, Blocks.WoodStairs.Oak,
                 StairState.BottomNorthEastOuter);
             Assert.AreEqual(StairState.BottomNorthStraight, _world.GetBlock(canonicalNeighbor).Data,
                 "A canonical corner cannot be a source for another shape because its original facing is not stored.");
 
             Vector3Int canonicalInnerNeighbor = new(6, 64, 10);
-            _world.SetBlock(canonicalInnerNeighbor, Blocks.OakStairs, StairState.BottomNorthStraight);
-            _world.SetBlock(canonicalInnerNeighbor + Vector3Int.back, Blocks.OakStairs,
+            _world.SetBlock(canonicalInnerNeighbor, Blocks.WoodStairs.Oak, StairState.BottomNorthStraight);
+            _world.SetBlock(canonicalInnerNeighbor + Vector3Int.back, Blocks.WoodStairs.Oak,
                 StairState.BottomNorthRightInner);
             Assert.AreEqual(StairState.BottomNorthStraight, _world.GetBlock(canonicalInnerNeighbor).Data);
         }

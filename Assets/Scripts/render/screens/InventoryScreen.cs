@@ -19,7 +19,7 @@ namespace render.screens
             public static InventoryScreen Screen;
             
             protected readonly Transform Transform;
-            protected readonly ItemStack[] ItemStacks;
+            protected ItemStack[] ItemStacks;
             private readonly string _name;
             protected readonly Sprite Active;
             private readonly Sprite _inactive;
@@ -57,6 +57,7 @@ namespace render.screens
                 Background.sprite = Active;
                 Transform.SetSiblingIndex(SiblingIndex + 1);
                 Screen.inventoryRenderer.UpdateInventory(ItemStacks.AsMemory(0, 45));
+                Screen.UpdateScroller(ItemStacks);
             }
 
             public virtual void Deactivate()
@@ -88,7 +89,8 @@ namespace render.screens
                 Screen.backpackRenderer.UpdateInventory(ItemStacks.AsMemory(0, 27));
                 Screen.inventoryRenderer.gameObject.SetActive(false);
                 Screen.inventoryTexture.sprite = Screen.creativeBackpack;
-                Screen.sliderTexture.enabled = false;
+                Screen.scrollbar.enabled = false;
+                Screen.scrollbarImage.enabled = false;
             }
 
             public override void Deactivate()
@@ -96,7 +98,8 @@ namespace render.screens
                 Screen.backpackRenderer.gameObject.SetActive(false);
                 Screen.inventoryRenderer.gameObject.SetActive(true);
                 Screen.inventoryTexture.sprite = Screen.creativeInventory;
-                Screen.sliderTexture.enabled = true;
+                Screen.scrollbar.enabled = true;
+                Screen.scrollbarImage.enabled = true;
                 base.Deactivate();
             }
         }
@@ -107,7 +110,7 @@ namespace render.screens
             {
                 Screen.searchField.onValueChanged.AddListener(text =>
                 {
-                    Screen.inventoryRenderer.UpdateInventory(GetItemStacks(text));
+                    Screen.inventoryRenderer.UpdateInventory(GetItemStacks(text).AsMemory(0, 45));
                 });
                 
                 Screen.searchField.textComponent.color = Color.white;
@@ -123,7 +126,7 @@ namespace render.screens
                 Background.sprite = Active;
                 Transform.SetSiblingIndex(SiblingIndex + 1);
                 
-                Screen.inventoryRenderer.UpdateInventory(GetItemStacks(""));
+                Screen.inventoryRenderer.UpdateInventory(GetItemStacks("").AsMemory(0, 45));
                 Screen.inventoryTexture.sprite = Screen.searchInventory;
                 Screen.searchField.gameObject.SetActive(true);
             }
@@ -132,7 +135,9 @@ namespace render.screens
             {
                 List<ItemStack> itemStacks = Items.AllItemsList.Where(a => a.Item.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)).ToList();
                 while (itemStacks.Count < 45 || itemStacks.Count % 9 != 0) itemStacks.Add(ItemStack.CreativeStack(Items.Air));
-                return itemStacks.ToArray();
+                ItemStacks = itemStacks.ToArray();
+                Screen.UpdateScroller(ItemStacks);
+                return ItemStacks;
             }
 
             public override void Deactivate()
@@ -146,13 +151,14 @@ namespace render.screens
         public TextMeshProUGUI titleText;
         public TMP_InputField searchField;
         public Image inventoryTexture;
-        public Image sliderTexture;
         public GameObject natureTab;
         public GameObject buildingTab;
         public GameObject backpackTab;
         public GameObject coloredTab;
         public GameObject toolsTab;
         public GameObject searchTab;
+        public Scrollbar scrollbar;
+        public Image scrollbarImage;
 
         public Sprite topLeftActive;
         public Sprite topMiddleActive;
@@ -167,11 +173,34 @@ namespace render.screens
         public Sprite creativeInventory;
         public Sprite creativeBackpack;
         public Sprite searchInventory;
+        public Sprite scrollbarActive;
+        public Sprite scrollbarInactive;
         
         public InventoryMenu inventoryRenderer;
         public InventoryMenu hotbarRenderer;
         public InventoryMenu backpackRenderer;
         public static BaseScreen Instance;
+
+        private static int _stepCount;
+        private static ItemStack[] _currentStack;
+        
+        void UpdateScroller(ItemStack[] items)
+        {
+            _stepCount = items.Length / 9 - 4;
+            scrollbar.value = 0;
+            _currentStack = items;
+            
+            if (_stepCount < 2)
+            {
+                scrollbarImage.sprite = scrollbarInactive;
+                scrollbar.interactable = false;
+                return;
+            }
+            
+            scrollbarImage.sprite = scrollbarActive;
+            scrollbar.interactable = true;
+            scrollbar.numberOfSteps = _stepCount;
+        }
         
         void Start()
         {
@@ -185,13 +214,19 @@ namespace render.screens
             hotbarRenderer.OnUpdate += Hotbar.Instance.InventoryUpdateCallBack;
             
             _ = new InventoryTab(natureTab, topLeftActive, topLeftInactive, Items.GrassBlock, Items.NatureBlockList.ToArray(), "Natural Blocks", true);
-            _ = new InventoryTab(buildingTab, topMiddleActive, topMiddleInactive, Items.OakLog, Items.BuildingBlockList.ToArray(), "Building Blocks");
-            _ = new InventoryTab(coloredTab, topMiddleActive, topMiddleInactive, Items.BlueStainedGlass, Items.ColoredBlockList.ToArray(), "Colored Blocks");
+            _ = new InventoryTab(buildingTab, topMiddleActive, topMiddleInactive, Items.Log.Oak, Items.BuildingBlockList.ToArray(), "Building Blocks");
+            _ = new InventoryTab(coloredTab, topMiddleActive, topMiddleInactive, Items.StainedGlass.Blue, Items.ColoredBlockList.ToArray(), "Colored Blocks");
             _ = new InventoryTab(toolsTab, bottomLeftActive, bottomLeftInactive, Items.WaterBucket, Items.ToolItemList.ToArray(), "Tools");
             _ = new BackpackTab(backpackTab, bottomRightActive, bottomRightInactive);
             _ = new SearchTab(searchTab, topRightActive, topRightInactive);
             
             gameObject.SetActive(false);
+            scrollbar.onValueChanged.AddListener(value =>
+            {
+                int row = (int)Math.Round(value * (_stepCount - 1));
+                if (row > _currentStack.Length / 9 - 5) row = _currentStack.Length / 9 - 5;
+                inventoryRenderer.UpdateInventory(_currentStack.AsMemory(row * 9, 45));
+            });
         }
     }
 }

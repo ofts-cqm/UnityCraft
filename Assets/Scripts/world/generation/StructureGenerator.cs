@@ -33,11 +33,11 @@ namespace world.generation
                 { Blocks.Void, Blocks.Void, Blocks.OakLeave, Blocks.Void, Blocks.Void },
             },
             {
-                { Blocks.Void, Blocks.Void, Blocks.OakLog, Blocks.Void, Blocks.Void },
-                { Blocks.Void, Blocks.Void, Blocks.OakLog, Blocks.Void, Blocks.Void },
-                { Blocks.OakLeave, Blocks.OakLeave, Blocks.OakLog, Blocks.OakLeave, Blocks.OakLeave },
-                { Blocks.OakLeave, Blocks.OakLeave, Blocks.OakLog, Blocks.OakLeave, Blocks.OakLeave },
-                { Blocks.Void, Blocks.OakLeave, Blocks.OakLog, Blocks.OakLeave, Blocks.Void },
+                { Blocks.Void, Blocks.Void, Blocks.Log.Oak, Blocks.Void, Blocks.Void },
+                { Blocks.Void, Blocks.Void, Blocks.Log.Oak, Blocks.Void, Blocks.Void },
+                { Blocks.OakLeave, Blocks.OakLeave, Blocks.Log.Oak, Blocks.OakLeave, Blocks.OakLeave },
+                { Blocks.OakLeave, Blocks.OakLeave, Blocks.Log.Oak, Blocks.OakLeave, Blocks.OakLeave },
+                { Blocks.Void, Blocks.OakLeave, Blocks.Log.Oak, Blocks.OakLeave, Blocks.Void },
                 { Blocks.Void, Blocks.OakLeave, Blocks.OakLeave, Blocks.OakLeave, Blocks.Void },
             },
             {

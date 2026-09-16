@@ -72,7 +72,7 @@ namespace Tests.Editor
             ChunkData data = new();
 
             SetBlock(data, 0, 0, 0, Blocks.Stone, 0);
-            SetBlock(data, 15, 15, 15, Blocks.WhiteStainedGlass, 0);
+            SetBlock(data, 15, 15, 15, Blocks.StainedGlass.White, 0);
             SetBlock(data, 8, 8, 8, Blocks.OakLeave, 0);
 
             Assert.AreEqual(3, data.NonAirCount(0));
@@ -261,11 +261,11 @@ namespace Tests.Editor
             int[] states = new int[ChunkSnapshot.CellCount];
             byte[] fluids = new byte[ChunkSnapshot.CellCount];
             SetSnapshotCell(blocks, states, fluids, 0, 0, 0, Blocks.Stone, 0, 0);
-            SetSnapshotCell(blocks, states, fluids, 15, 15, 15, Blocks.WhiteStainedGlass, 0, 0);
-            SetSnapshotCell(blocks, states, fluids, 0, 16, 15, Blocks.OakSlab,
-                Blocks.OakSlab.EncodeState(SlabPart.South), 4);
-            SetSnapshotCell(blocks, states, fluids, 15, 31, 0, Blocks.OakLog,
-                Blocks.OakLog.EncodeState(LogAxis.Z), 10);
+            SetSnapshotCell(blocks, states, fluids, 15, 15, 15, Blocks.StainedGlass.White, 0, 0);
+            SetSnapshotCell(blocks, states, fluids, 0, 16, 15, Blocks.WoodSlab.Oak,
+                Blocks.WoodSlab.Oak.EncodeState(SlabPart.South), 4);
+            SetSnapshotCell(blocks, states, fluids, 15, 31, 0, Blocks.Log.Oak,
+                Blocks.Log.Oak.EncodeState(LogAxis.Z), 10);
 
             ChunkSnapshot source = new(new ChunkCoord(-3, 5), blocks, states, fluids, 17);
             Chunk chunk = CreateChunk(source);
@@ -275,13 +275,13 @@ namespace Tests.Editor
             Assert.AreEqual(LogAxis.Z, chunk.GetBlock(15, 31, 0).Data);
             Assert.AreEqual(4, chunk.GetFluid(0, 16, 15).Amount);
             Assert.IsTrue(chunk.GetFluid(15, 31, 0).IsFalling);
-            Assert.AreEqual(Blocks.OakSlab.BlockId, chunk.Data.GetBlockId(0, 16, 15));
-            Assert.AreEqual(Blocks.OakSlab.EncodeState(SlabPart.South), chunk.Data.GetStateId(0, 16, 15));
+            Assert.AreEqual(Blocks.WoodSlab.Oak.BlockId, chunk.Data.GetBlockId(0, 16, 15));
+            Assert.AreEqual(Blocks.WoodSlab.Oak.EncodeState(SlabPart.South), chunk.Data.GetStateId(0, 16, 15));
 
             int changedIndex = ChunkSnapshot.Index(8, 64, 8);
-            blocks[changedIndex] = Blocks.OakSlab.BlockId;
-            states[changedIndex] = Blocks.OakSlab.EncodeState(SlabPart.Top);
-            chunk.SetBlock(8, 64, 8, Blocks.OakSlab, SlabPart.Top);
+            blocks[changedIndex] = Blocks.WoodSlab.Oak.BlockId;
+            states[changedIndex] = Blocks.WoodSlab.Oak.EncodeState(SlabPart.Top);
+            chunk.SetBlock(8, 64, 8, Blocks.WoodSlab.Oak, SlabPart.Top);
 
             Assert.IsTrue(chunk.TryCreatePersistenceSnapshot(out ChunkSnapshot roundTrip));
             Assert.AreEqual(source.Coord, roundTrip.Coord);
@@ -371,7 +371,7 @@ namespace Tests.Editor
             System.Random random = new(170218);
             Block[] choices =
             {
-                Blocks.Air, Blocks.Stone, Blocks.WhiteStainedGlass, Blocks.OakLeave, Blocks.OakSlab, Blocks.OakStairs
+                Blocks.Air, Blocks.Stone, Blocks.StainedGlass.White, Blocks.OakLeave, Blocks.WoodSlab.Oak, Blocks.WoodStairs.Oak
             };
             for (int operation = 0; operation < 4000; operation++)
             {
@@ -381,9 +381,9 @@ namespace Tests.Editor
                 if ((operation & 1) == 0)
                 {
                     Block block = choices[random.Next(choices.Length)];
-                    object state = block.BlockId == Blocks.OakSlab.BlockId
+                    object state = block.BlockId == Blocks.WoodSlab.Oak.BlockId
                         ? (SlabPart)random.Next(0, 7)
-                        : block.BlockId == Blocks.OakStairs.BlockId
+                        : block.BlockId == Blocks.WoodStairs.Oak.BlockId
                             ? (StairState)random.Next(0, 24)
                             : block.DefaultState;
                     chunk.SetBlock(x, y, z, block, state);
@@ -427,11 +427,11 @@ namespace Tests.Editor
         {
             Chunk chunk = CreateEmptyChunk();
             Vector3Int position = new(8, 64, 8);
-            Block[] renderedBlocks = { Blocks.Stone, Blocks.WhiteStainedGlass };
+            Block[] renderedBlocks = { Blocks.Stone, Blocks.StainedGlass.White };
 
             foreach (Block block in Blocks.BlockList)
             {
-                object[] states = block.BlockId == Blocks.OakSlab.BlockId
+                object[] states = block.BlockId == Blocks.WoodSlab.Oak.BlockId
                     ? new object[] { SlabPart.Bottom, SlabPart.Top, SlabPart.Both, SlabPart.East,
                         SlabPart.West, SlabPart.North, SlabPart.South }
                     : new[] { block.DefaultState };

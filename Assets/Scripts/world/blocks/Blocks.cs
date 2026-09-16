@@ -24,28 +24,13 @@ namespace world.blocks
         // Generation-only marker; Chunk converts it to source fluid before the chunk is visible.
         internal static readonly Block GenerationWater;
         public static readonly Block Sand;
-        public static readonly Block OakLog;
+        public static readonly WoodBlocks Log;
         public static readonly Block OakLeave;
         public static readonly Block Gravel;
-        public static readonly Block WhiteStainedGlass;
-        public static readonly Block LightGrayStainedGlass;
-        public static readonly Block GrayStainedGlass;
-        public static readonly Block BlackStainedGlass;
-        public static readonly Block BrownStainedGlass;
-        public static readonly Block RedStainedGlass;
-        public static readonly Block OrangeStainedGlass;
-        public static readonly Block YellowStainedGlass;
-        public static readonly Block LimeStainedGlass;
-        public static readonly Block GreenStainedGlass;
-        public static readonly Block CyanStainedGlass;
-        public static readonly Block LightBlueStainedGlass;
-        public static readonly Block BlueStainedGlass;
-        public static readonly Block PurpleStainedGlass;
-        public static readonly Block MagentaStainedGlass;
-        public static readonly Block PinkStainedGlass;
-        public static readonly Block OakPlanks;
-        public static readonly Block OakSlab;
-        public static readonly Block OakStairs;
+        public static readonly ColoredBlocks StainedGlass;
+        public static readonly WoodBlocks Planks;
+        public static readonly WoodBlocks WoodSlab;
+        public static readonly WoodBlocks WoodStairs;
 
         static Blocks()
         {
@@ -56,35 +41,21 @@ namespace world.blocks
             Stone = new Block(4, BlockProperty.Default(7));
             GenerationWater = new Block(5, BlockProperty.Default(32).SetSolid(false) with { Collide = false });
             Sand = new GravityBlock(6, BlockProperty.Default(5));
-            OakLog = new Log(7);
+            Log = new WoodBlocks(38, new Log(38, BlockProperty.Pillar(64, 64, 65)), 7);
             OakLeave = new LeavesBlock(8, BlockProperty.Default(108) with { ReplaceTerrain = false, IsSolid = false });
             Gravel = new GravityBlock(9, BlockProperty.Default(4));
-            WhiteStainedGlass = new Block(10, BlockProperty.Default(16).SetTransparent(true));
-            LightGrayStainedGlass = new Block(11, BlockProperty.Default(17).SetTransparent(true));
-            GrayStainedGlass = new Block(12, BlockProperty.Default(18).SetTransparent(true));
-            BlackStainedGlass = new Block(13, BlockProperty.Default(19).SetTransparent(true));
-            BrownStainedGlass = new Block(14, BlockProperty.Default(20).SetTransparent(true));
-            RedStainedGlass = new Block(15, BlockProperty.Default(21).SetTransparent(true));
-            OrangeStainedGlass = new Block(16, BlockProperty.Default(22).SetTransparent(true));
-            YellowStainedGlass = new Block(17, BlockProperty.Default(23).SetTransparent(true));
-            LimeStainedGlass = new Block(18, BlockProperty.Default(24).SetTransparent(true));
-            GreenStainedGlass = new Block(19, BlockProperty.Default(25).SetTransparent(true));
-            CyanStainedGlass = new Block(20, BlockProperty.Default(26).SetTransparent(true));
-            LightBlueStainedGlass = new Block(21, BlockProperty.Default(27).SetTransparent(true));
-            BlueStainedGlass = new Block(22, BlockProperty.Default(28).SetTransparent(true));
-            PurpleStainedGlass = new Block(23, BlockProperty.Default(29).SetTransparent(true));
-            MagentaStainedGlass = new Block(24, BlockProperty.Default(30).SetTransparent(true));
-            PinkStainedGlass = new Block(25, BlockProperty.Default(31).SetTransparent(true));
-            OakPlanks = new Block(26, BlockProperty.Default(90));
-            OakSlab = new Slab(27);
-            OakStairs = new Stair(28);
+            StainedGlass = new ColoredBlocks(10, new BatchableBlock(10, BlockProperty.Default(16).SetTransparent(true)));
+            Planks = new WoodBlocks(47, new BatchableBlock(47, BlockProperty.Default(66)), 26);
+            WoodSlab = new WoodBlocks(56, new Slab(56, BlockProperty.Default(66).SetSolid(false)), 27);
+            WoodStairs = new WoodBlocks(29, new Stair(29, 66), 28);
         }
 
         internal static void Register(Block block)
         {
             if ((uint)block.BlockId > ushort.MaxValue)
                 throw new InvalidDataException($"Block ID {block.BlockId} exceeds the compact chunk format limit.");
-            if (!BlocksById.TryAdd(block.BlockId, block)) throw new InvalidDataException($"Duplicate block ID {block.BlockId}.");
+            if (!BlocksById.TryAdd(block.BlockId, block)) 
+                throw new InvalidDataException($"Duplicate block ID {block.BlockId}.");
             if (block.BlockId >= _blocksByCompactId.Length)
             {
                 int length = _blocksByCompactId.Length;
