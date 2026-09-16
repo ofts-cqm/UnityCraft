@@ -21,7 +21,7 @@ namespace world.blocks
         South
     }
 
-    public record Slab(int Id) : Block(Id, BlockProperty.Default(90).SetSolid(false), SlabPart.Bottom)
+    public record Slab(int Id, BlockProperty property) : Block(Id, property, SlabPart.Bottom), IBatchableBlock
     {
         private static readonly int[,] Triangles =
         {
@@ -321,5 +321,12 @@ namespace world.blocks
                 _ => (new Vector3(.5f, .5f, .5f), center)
             };
         }
+
+        public Block CloneAndRegister(int id, BlockProperty block)
+        {
+            return new Slab(id, block);
+        }
+
+        public BlockProperty GetProperty() => Property;
     }
 }

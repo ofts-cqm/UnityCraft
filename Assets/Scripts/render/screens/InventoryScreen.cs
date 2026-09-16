@@ -185,8 +185,8 @@ namespace render.screens
             hotbarRenderer.OnUpdate += Hotbar.Instance.InventoryUpdateCallBack;
             
             _ = new InventoryTab(natureTab, topLeftActive, topLeftInactive, Items.GrassBlock, Items.NatureBlockList.ToArray(), "Natural Blocks", true);
-            _ = new InventoryTab(buildingTab, topMiddleActive, topMiddleInactive, Items.OakLog, Items.BuildingBlockList.ToArray(), "Building Blocks");
-            _ = new InventoryTab(coloredTab, topMiddleActive, topMiddleInactive, Items.BlueStainedGlass, Items.ColoredBlockList.ToArray(), "Colored Blocks");
+            _ = new InventoryTab(buildingTab, topMiddleActive, topMiddleInactive, Items.Log.Oak, Items.BuildingBlockList.ToArray(), "Building Blocks");
+            _ = new InventoryTab(coloredTab, topMiddleActive, topMiddleInactive, Items.StainedGlass.Blue, Items.ColoredBlockList.ToArray(), "Colored Blocks");
             _ = new InventoryTab(toolsTab, bottomLeftActive, bottomLeftInactive, Items.WaterBucket, Items.ToolItemList.ToArray(), "Tools");
             _ = new BackpackTab(backpackTab, bottomRightActive, bottomRightInactive);
             _ = new SearchTab(searchTab, topRightActive, topRightInactive);

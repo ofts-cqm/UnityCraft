@@ -19,28 +19,13 @@ namespace world.items
         public static readonly Item Dirt;
         public static readonly Item Stone;
         public static readonly Item Sand;
-        public static readonly Item OakLog;
+        public static readonly WoodBlockItem Log;
         public static readonly Item OakLeave;
         public static readonly Item Gravel;
-        public static readonly Item WhiteStainedGlass;
-        public static readonly Item LightGrayStainedGlass;
-        public static readonly Item GrayStainedGlass;
-        public static readonly Item BlackStainedGlass;
-        public static readonly Item BrownStainedGlass;
-        public static readonly Item RedStainedGlass;
-        public static readonly Item OrangeStainedGlass;
-        public static readonly Item YellowStainedGlass;
-        public static readonly Item LimeStainedGlass;
-        public static readonly Item GreenStainedGlass;
-        public static readonly Item CyanStainedGlass;
-        public static readonly Item LightBlueStainedGlass;
-        public static readonly Item BlueStainedGlass;
-        public static readonly Item PurpleStainedGlass;
-        public static readonly Item MagentaStainedGlass;
-        public static readonly Item PinkStainedGlass;
-        public static readonly Item OakPlanks;
-        public static readonly Item OakSlab;
-        public static readonly Item OakStairs;
+        public static readonly ColoredBlockItem StainedGlass;
+        public static readonly WoodBlockItem Planks;
+        public static readonly WoodBlockItem WoodSlab;
+        public static readonly WoodBlockItem WoodStairs;
         public static readonly Item WaterBucket;
         public static readonly Item Bucket;
         public static readonly Item SearchIcon;
@@ -59,14 +44,6 @@ namespace world.items
             ItemStack itemStack = ItemStack.CreativeStack(item);
             AllItemsList.Add(itemStack);
             NatureBlockList.Add(itemStack);
-            return item;
-        }
-
-        private static Item RegisterColoredItem(this Item item)
-        {
-            ItemStack itemStack = ItemStack.CreativeStack(item);
-            AllItemsList.Add(itemStack);
-            ColoredBlockList.Add(itemStack);
             return item;
         }
 
@@ -92,28 +69,13 @@ namespace world.items
             Dirt = new BlockItem(2, "Dirt", Blocks.Dirt).RegisterNatureItem();
             Stone = new BlockItem(3, "Stone", Blocks.Stone).RegisterNatureItem();
             Sand = new BlockItem(4, "Sand", Blocks.Sand).RegisterNatureItem();
-            OakLog = new BlockItem(5, "Oak Log", Blocks.OakLog).RegisterBuildingItem();
+            Log = new WoodBlockItem(38, "Log", Blocks.Log, 5);
             OakLeave = new BlockItem(6, "Oak Leave", Blocks.OakLeave).RegisterNatureItem();
             Gravel = new BlockItem(7, "Gravel", Blocks.Gravel).RegisterNatureItem();
-            WhiteStainedGlass = new BlockItem(8, "White Stained Glass", Blocks.WhiteStainedGlass).RegisterColoredItem();
-            LightGrayStainedGlass = new BlockItem(9, "Light Gray Stained Glass", Blocks.LightGrayStainedGlass).RegisterColoredItem();
-            GrayStainedGlass = new BlockItem(10, "Gray Stained Glass", Blocks.GrayStainedGlass).RegisterColoredItem();
-            BlackStainedGlass = new BlockItem(11, "Black Stained Glass", Blocks.BlackStainedGlass).RegisterColoredItem();
-            BrownStainedGlass = new BlockItem(12, "Brown Stained Glass", Blocks.BrownStainedGlass).RegisterColoredItem();
-            RedStainedGlass = new BlockItem(13, "Red Stained Glass", Blocks.RedStainedGlass).RegisterColoredItem();
-            OrangeStainedGlass = new BlockItem(14, "Orange Stained Glass", Blocks.OrangeStainedGlass).RegisterColoredItem();
-            YellowStainedGlass = new BlockItem(15, "Yellow Stained Glass", Blocks.YellowStainedGlass).RegisterColoredItem();
-            LimeStainedGlass = new BlockItem(16, "Lime Stained Glass", Blocks.LimeStainedGlass).RegisterColoredItem();
-            GreenStainedGlass = new BlockItem(17, "Green Stained Glass", Blocks.GreenStainedGlass).RegisterColoredItem();
-            CyanStainedGlass = new BlockItem(18, "Cyan Stained Glass", Blocks.CyanStainedGlass).RegisterColoredItem();
-            LightBlueStainedGlass = new BlockItem(19, "Light Blue Stained Glass", Blocks.LightBlueStainedGlass).RegisterColoredItem();
-            BlueStainedGlass = new BlockItem(20, "Blue Stained Glass", Blocks.BlueStainedGlass).RegisterColoredItem();
-            PurpleStainedGlass = new BlockItem(21, "Purple Stained Glass", Blocks.PurpleStainedGlass).RegisterColoredItem();
-            MagentaStainedGlass = new BlockItem(22, "Magenta Stained Glass", Blocks.MagentaStainedGlass).RegisterColoredItem();
-            PinkStainedGlass = new BlockItem(23, "Pink Stained Glass", Blocks.PinkStainedGlass).RegisterColoredItem();
-            OakPlanks = new BlockItem(24, "Oak Planks", Blocks.OakPlanks).RegisterBuildingItem();
-            OakSlab = new BlockItem(25, "Oak Slab", Blocks.OakSlab).RegisterBuildingItem();
-            OakStairs = new BlockItem(28, "Oak Stairs", Blocks.OakStairs).RegisterBuildingItem();
+            StainedGlass = new ColoredBlockItem(8, "Stained Glass", Blocks.StainedGlass);
+            Planks = new WoodBlockItem(47, "Planks", Blocks.Planks, 24);
+            WoodSlab = new WoodBlockItem(56, "Slab", Blocks.WoodSlab, 25);
+            WoodStairs = new WoodBlockItem(29, "Stairs", Blocks.WoodStairs, 28);
             WaterBucket = new WaterBucket(26).RegisterToolItem();
             Bucket = new Bucket(27).RegisterToolItem();
             SearchIcon = new SimpleItem(-1, "", "items/search");
@@ -129,7 +91,8 @@ namespace world.items
 
         internal static void Register(Item item)
         {
-            if (!ItemsById.TryAdd(item.ItemId, item)) throw new InvalidDataException($"Duplicate item ID {item.ItemId}.");
+            if (!ItemsById.TryAdd(item.ItemId, item)) 
+                throw new InvalidDataException($"Duplicate item ID {item.ItemId} when adding {item.Name} (previous instance is {ItemsById[item.ItemId].Name})");
         }
 
         public static bool TryGetById(int itemId, out Item item)

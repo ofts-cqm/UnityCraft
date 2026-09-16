@@ -19,5 +19,21 @@ namespace world.blocks
         
         public BlockProperty SetTransparent(bool transparent) 
             => this with { Transparent = transparent, IsSolid = !transparent };
+
+        public BlockProperty SetTexture(int texture) => this with
+        {
+            Texture = new[] { texture, texture, texture, texture, texture, texture }
+        };
+
+        public BlockProperty OffsetTexture(int offset)
+        {
+            int[] texture = new int[6];
+            for (int i = 0; i < 6; i++)
+            {
+                texture[i] = Texture[i] + offset;
+            }
+
+            return this with { Texture = texture };
+        }
     }
 }
