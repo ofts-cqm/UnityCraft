@@ -44,6 +44,7 @@ namespace render.screens
                     Screen.titleText.SetText(_name);
                     Background.sprite = Active;
                     Transform.SetSiblingIndex(SiblingIndex + 1);
+                    Screen.UpdateScroller(ItemStacks);
                 }
             }
 
