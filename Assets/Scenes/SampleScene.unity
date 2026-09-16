@@ -151,8 +151,8 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 1715157206}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
+  m_AnchorMin: {x: 0, y: 0.9}
+  m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 20, y: 20}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -176,7 +176,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: f4562f8a77c60f13884bf0cc30f73b33, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 72cb0580e8af17abcb6bf6b053b9c83a, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -1163,7 +1163,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 611777704}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2a4db7a114972834c8e4117be1d82ba3, type: 3}
   m_Name: 
@@ -1181,7 +1181,7 @@ MonoBehaviour:
     m_HighlightedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
     m_PressedColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 1}
     m_SelectedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
-    m_DisabledColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 0.5019608}
+    m_DisabledColor: {r: 1, g: 1, b: 1, a: 1}
     m_ColorMultiplier: 1
     m_FadeDuration: 0.1
   m_SpriteState:
@@ -1201,7 +1201,7 @@ MonoBehaviour:
   m_Direction: 3
   m_Value: 0
   m_Size: 0.1
-  m_NumberOfSteps: 0
+  m_NumberOfSteps: 1
   m_OnValueChanged:
     m_PersistentCalls:
       m_Calls: []
@@ -3516,13 +3516,14 @@ MonoBehaviour:
   titleText: {fileID: 656219889}
   searchField: {fileID: 218330465}
   inventoryTexture: {fileID: 1912195333}
-  sliderTexture: {fileID: 0}
   natureTab: {fileID: 817333579}
   buildingTab: {fileID: 588176761}
   backpackTab: {fileID: 1208582382}
   coloredTab: {fileID: 1712462372}
   toolsTab: {fileID: 186123749}
   searchTab: {fileID: 1315510456}
+  scrollbar: {fileID: 611777706}
+  scrollbarImage: {fileID: 20335667}
   topLeftActive: {fileID: 21300000, guid: d0986cda7fc9c6da9bf3c7fcb9e03968, type: 3}
   topMiddleActive: {fileID: 21300000, guid: eb5d3aad189096a3ba8ed3fb54cb53de, type: 3}
   topLeftInactive: {fileID: 21300000, guid: c80c0a678eaedffe7acf59dc386921dd, type: 3}
@@ -3536,6 +3537,8 @@ MonoBehaviour:
   creativeInventory: {fileID: 21300000, guid: ae93e9436849f94ff87f99ea2b031406, type: 3}
   creativeBackpack: {fileID: 21300000, guid: dccfdbc0ec73935e1a8a48473dd507cb, type: 3}
   searchInventory: {fileID: 21300000, guid: 93405d5a1af86edad9436accb194b05a, type: 3}
+  scrollbarActive: {fileID: 21300000, guid: f4562f8a77c60f13884bf0cc30f73b33, type: 3}
+  scrollbarInactive: {fileID: 21300000, guid: 72cb0580e8af17abcb6bf6b053b9c83a, type: 3}
   inventoryRenderer: {fileID: 566663598}
   hotbarRenderer: {fileID: 526706127}
   backpackRenderer: {fileID: 951614305}
