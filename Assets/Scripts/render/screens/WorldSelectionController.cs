@@ -26,6 +26,7 @@ namespace render.screens
         }
 
         private FileWorldStorage _storage;
+        private DialogController _dialog;
         private Material _backgroundMaterial;
         private RectTransform _worldList;
         private TextMeshProUGUI _emptyMessage;
@@ -39,14 +40,6 @@ namespace render.screens
         private TMP_InputField _nameInput;
         private TMP_InputField _seedInput;
         private TextMeshProUGUI _createError;
-
-        private GameObject _dialogOverlay;
-        private TextMeshProUGUI _dialogTitle;
-        private TextMeshProUGUI _dialogMessage;
-        private Button _dialogPrimary;
-        private TextMeshProUGUI _dialogPrimaryLabel;
-        private Button _dialogSecondary;
-        private Action _dialogAction;
         private Camera _gameCamera;
 
         private void Awake()
@@ -61,7 +54,7 @@ namespace render.screens
             RefreshWorlds();
 
             string pendingError = WorldSession.ConsumeError();
-            if (!string.IsNullOrWhiteSpace(pendingError)) ShowDialog("Could Not Load World", pendingError, "OK");
+            if (!string.IsNullOrWhiteSpace(pendingError)) _dialog.ShowDialog("Could Not Load World", pendingError, "OK");
             
             _gameCamera = GameObject.Find("Camera").GetComponent<Camera>();
         }
@@ -118,7 +111,7 @@ namespace render.screens
             MenuUiFactory.ApplyTextStyle(_statusText, MenuTextStyle.Warning);
 
             BuildCreateOverlay(canvas.transform);
-            BuildDialogOverlay(canvas.transform);
+            _dialog = new DialogController(canvas.transform);
             _settingsMenu = SettingsMenuController.Create(canvas.transform, null);
         }
 
@@ -204,7 +197,7 @@ namespace render.screens
         private void CreateUnavailableRow(string worldId, string error)
         {
             Button button = MenuUiFactory.CreateButton(_worldList, worldId, $"{worldId}\n<size=16><color=#{MenuUiFactory.ErrorTextHex}>Unavailable save</color></size>",
-                () => ShowDialog("Unavailable World", error, "OK"));
+                () => _dialog.ShowDialog("Unavailable World", error, "OK"));
             button.gameObject.AddComponent<LayoutElement>().preferredHeight = 76;
             TextMeshProUGUI label = button.GetComponentInChildren<TextMeshProUGUI>();
             label.alignment = TextAlignmentOptions.MidlineLeft;
@@ -229,11 +222,11 @@ namespace render.screens
             }
             catch (NewerContentConfirmationRequiredException exception)
             {
-                ShowDialog("Newer World Version",
+                _dialog.ShowDialog("Newer World Version",
                     $"{exception.Descriptor.DisplayName} was saved by a newer content version. Unknown blocks may be replaced if you continue.",
                     "LOAD ANYWAY", () => EnterWorld(SaveVersionPolicy.Authorize(exception.Descriptor, true)), "CANCEL");
             }
-            catch (Exception exception) { ShowDialog("Could Not Load World", exception.Message, "OK"); }
+            catch (Exception exception) { _dialog.ShowDialog("Could Not Load World", exception.Message, "OK"); }
         }
 
         private static void EnterWorld(WorldLoadAuthorization authorization)
@@ -317,64 +310,6 @@ namespace render.screens
                 EnterWorld(SaveVersionPolicy.Authorize(descriptor));
             }
             catch (Exception exception) { _createError.text = exception.Message; }
-        }
-
-        private void BuildDialogOverlay(Transform parent)
-        {
-            Image shade = MenuUiFactory.CreatePanel(parent, "Dialog Overlay", new Color(0, 0, 0, 0.78f));
-            _dialogOverlay = shade.gameObject;
-            MenuUiFactory.Stretch(shade.rectTransform);
-            Image panel = MenuUiFactory.CreateThemedPanel(shade.transform, "Dialog", MenuPanelStyle.Modal);
-            MenuUiFactory.SetAnchoredRect(panel.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(-370, -175), new Vector2(370, 175));
-
-            _dialogTitle = MenuUiFactory.CreateText(panel.transform, "Title", string.Empty, 32);
-            MenuUiFactory.SetAnchoredRect(_dialogTitle.rectTransform, new Vector2(0, 1), new Vector2(1, 1),
-                new Vector2(30, -66), new Vector2(-30, -18));
-            _dialogTitle.fontStyle = FontStyles.Bold;
-            MenuUiFactory.ApplyTextStyle(_dialogTitle, MenuTextStyle.Title);
-            _dialogMessage = MenuUiFactory.CreateText(panel.transform, "Message", string.Empty, 21);
-            MenuUiFactory.SetAnchoredRect(_dialogMessage.rectTransform, new Vector2(0, 0), new Vector2(1, 1),
-                new Vector2(45, 92), new Vector2(-45, -78));
-            MenuUiFactory.ApplyTextStyle(_dialogMessage, MenuTextStyle.Body);
-
-            _dialogSecondary = MenuUiFactory.CreateButton(panel.transform, "Secondary", "CANCEL", CloseDialog);
-            MenuUiFactory.SetAnchoredRect(_dialogSecondary.GetComponent<RectTransform>(), new Vector2(0, 0), new Vector2(0.5f, 0),
-                new Vector2(45, 25), new Vector2(-8, 78));
-            _dialogPrimary = MenuUiFactory.CreateButton(panel.transform, "Primary", "OK", InvokeDialogAction);
-            MenuUiFactory.SetAnchoredRect(_dialogPrimary.GetComponent<RectTransform>(), new Vector2(0.5f, 0), new Vector2(1, 0),
-                new Vector2(8, 25), new Vector2(-45, 78));
-            _dialogPrimaryLabel = _dialogPrimary.GetComponentInChildren<TextMeshProUGUI>();
-            _dialogOverlay.SetActive(false);
-        }
-
-        private void ShowDialog(string title, string message, string primary, Action action = null, string secondary = null)
-        {
-            _dialogTitle.text = title;
-            _dialogMessage.text = message;
-            _dialogPrimaryLabel.text = primary;
-            _dialogAction = action;
-            _dialogSecondary.gameObject.SetActive(!string.IsNullOrEmpty(secondary));
-            if (!string.IsNullOrEmpty(secondary)) _dialogSecondary.GetComponentInChildren<TextMeshProUGUI>().text = secondary;
-            RectTransform primaryRect = _dialogPrimary.GetComponent<RectTransform>();
-            if (string.IsNullOrEmpty(secondary))
-                MenuUiFactory.SetAnchoredRect(primaryRect, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(-180, 25), new Vector2(180, 78));
-            else
-                MenuUiFactory.SetAnchoredRect(primaryRect, new Vector2(0.5f, 0), new Vector2(1, 0), new Vector2(8, 25), new Vector2(-45, 78));
-            _dialogOverlay.SetActive(true);
-        }
-
-        private void InvokeDialogAction()
-        {
-            Action action = _dialogAction;
-            CloseDialog();
-            action?.Invoke();
-        }
-
-        private void CloseDialog()
-        {
-            _dialogOverlay.SetActive(false);
-            _dialogAction = null;
         }
 
         private static DateTime SavedSortKey(WorldDescriptor descriptor)

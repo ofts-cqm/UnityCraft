@@ -32,6 +32,7 @@ namespace player
         private InputAction _inventoryAction;
         private InputAction _sprintPendingAction;
         private InputAction _pauseAction;
+        private InputAction _screenshotAction;
         
         private int _blockLayer;
         
@@ -108,11 +109,13 @@ namespace player
             _inventoryAction = InputSystem.actions.FindAction("Inventory");
             _sprintPendingAction = InputSystem.actions.FindAction("SprintPending");
             _pauseAction = InputSystem.actions.FindAction("Pause");
+            _screenshotAction = InputSystem.actions.FindAction("Screenshot");
             _sprintAction.performed += OnSprintPerformed;
             _inventoryAction.performed += OnInventoryPerformed;
             _sprintPendingAction.started += OnSprintPendingStarted;
             _jumpAction.started += OnJumpStarted;
             _pauseAction.started += OnPauseStarted;
+            _screenshotAction.performed += OnScreenshot;
             Cursor.lockState = _gameplayReady ? CursorLockMode.Locked : CursorLockMode.None;
             Cursor.visible = !_gameplayReady;
             _blockLayer = LayerMask.GetMask("Blocks");
@@ -393,6 +396,12 @@ namespace player
             else GameplayMenuController.Instance.ShowPause();
         }
 
+        private void OnScreenshot(InputAction.CallbackContext context)
+        {
+            if (!_gameplayReady || Paused) return;
+            camera.GetComponent<ScreenshotManager>().Screenshot();
+        }
+
         private void OnDestroy()
         {
             if (_sprintAction != null) _sprintAction.performed -= OnSprintPerformed;
@@ -400,6 +409,7 @@ namespace player
             if (_sprintPendingAction != null) _sprintPendingAction.started -= OnSprintPendingStarted;
             if (_jumpAction != null) _jumpAction.started -= OnJumpStarted;
             if (_pauseAction != null) _pauseAction.started -= OnPauseStarted;
+            if (_screenshotAction != null) _screenshotAction.performed -= OnScreenshot;
             if (_underwaterOverlayMaterial != null) Destroy(_underwaterOverlayMaterial);
             if (Instance == this) Instance = null;
         }

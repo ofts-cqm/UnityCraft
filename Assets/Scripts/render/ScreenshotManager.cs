@@ -1,4 +1,6 @@
 using System.IO;
+using player;
+using render.screens;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -9,17 +11,30 @@ namespace render
         [Header("Capture Settings")]
         [Tooltip("The width of the 360 image. Height will automatically be half of this (2:1 aspect ratio).")]
         public int imageWidth = 4096; 
-        public string fileName = "360_Capture";
+        public string fileName = "Screenshot";
 
         private Camera _targetCamera;
 
         void Start()
         {
             _targetCamera = GetComponent<Camera>();
-            InputSystem.actions.FindAction("Screenshot").performed += _ => Capture360();
         }
 
-        private void Capture360()
+        public void Screenshot()
+        {
+            Keyboard keyboard = Keyboard.current;
+            bool shiftPressed = keyboard != null && (keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed);
+            string fileNameWithTime = $"{fileName}_{System.DateTime.Now:yyyyMMdd_HHmmss}.png";
+            string path = Path.GetFullPath(Path.Combine(Application.dataPath, $"../{fileNameWithTime}"));
+
+            if (shiftPressed) Capture360(path);
+            else ScreenCapture.CaptureScreenshot(path);
+            
+            Player.PauseGame();
+            GameplayMenuController.Dialog.ShowDialog("Screenshot captured", $"Screenshot saved as {fileNameWithTime}", "Open File", () => Application.OpenURL("file://" + path), "Cancel");
+        }
+
+        private void Capture360(string path)
         {
             int imageHeight = imageWidth / 2;
 
@@ -53,11 +68,7 @@ namespace render
             byte[] bytes = finalImage.EncodeToPNG();
             Destroy(finalImage);
 
-            string path = Path.GetFullPath(Path.Combine(Application.dataPath, $"../{fileName}_{System.DateTime.Now:yyyyMMdd_HHmmss}.png"));
             File.WriteAllBytes(path, bytes);
-
-            Debug.Log($"📷 360 Equirectangular image saved to: {path}");
         }
     }
-
 }

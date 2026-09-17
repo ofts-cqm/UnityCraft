@@ -4,6 +4,8 @@ using UnityEngine;
 using UnityEngine.UI;
 using player;
 using render.ui;
+using Button = UnityEngine.UI.Button;
+using Canvas = UnityEngine.Canvas;
 
 namespace render.screens
 {
@@ -35,6 +37,7 @@ namespace render.screens
         private static readonly int[] LoadingBackgroundSlices = { 7, 0, 2, 4, 5, 6 };
         private static readonly int AtlasSlice = Shader.PropertyToID("_Slice");
 
+        public static DialogController Dialog;
         private GameObject _hud;
         private GameObject _loadingOverlay;
         private TextMeshProUGUI _loadingText;
@@ -75,6 +78,7 @@ namespace render.screens
             canvas.transform.SetParent(transform, false);
             BuildLoadingOverlay(canvas.transform);
             BuildPauseOverlay(canvas.transform);
+            Dialog = new DialogController(canvas.transform);
             _settingsMenu = SettingsMenuController.Create(canvas.transform, OnSettingsClosed);
         }
 

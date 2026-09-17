@@ -852,7 +852,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::render.ScreenshotManager
   imageWidth: 4096
-  fileName: 360_Capture
+  fileName: Screenshot
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0
