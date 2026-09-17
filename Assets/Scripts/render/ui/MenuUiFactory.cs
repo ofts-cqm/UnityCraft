@@ -7,14 +7,56 @@ using UnityEngine.UI;
 
 namespace render.ui
 {
+    public enum MenuPanelStyle
+    {
+        Panel,
+        Modal,
+        Inset,
+        Row
+    }
+
+    public enum MenuTextStyle
+    {
+        Title,
+        Body,
+        Secondary,
+        Warning,
+        Error
+    }
+
     public static class MenuUiFactory
     {
         public static readonly Color PanelColor = new(0.08f, 0.08f, 0.08f, 0.88f);
         public static readonly Color ButtonColor = new(0.34f, 0.34f, 0.34f, 1f);
         public static readonly Color SelectedColor = new(0.48f, 0.48f, 0.48f, 1f);
+        private const string SkinResourceName = "MenuUiSkin";
         private static readonly int TerrainTextures = Shader.PropertyToID("_TerrainTextures");
         private static readonly int Atlas = Shader.PropertyToID("_Atlas");
         private static readonly int Slice = Shader.PropertyToID("_Slice");
+        private static MenuUiSkin _skin;
+        private static bool _reportedMissingSkin;
+
+        public static MenuUiSkin Skin
+        {
+            get
+            {
+                if (_skin == null) _skin = Resources.Load<MenuUiSkin>(SkinResourceName);
+                if (_skin == null && !_reportedMissingSkin)
+                {
+                    Debug.LogError("MenuUiSkin resource is missing. Runtime menus will use their plain-color fallback.");
+                    _reportedMissingSkin = true;
+                }
+                return _skin;
+            }
+        }
+
+        public static string SecondaryTextHex => Skin == null
+            ? "C8C8C8"
+            : ColorUtility.ToHtmlStringRGB(Skin.secondaryText);
+
+        public static string ErrorTextHex => Skin == null
+            ? "FF8888"
+            : ColorUtility.ToHtmlStringRGB(Skin.errorText);
 
         public static Canvas CreateCanvas(string name, int sortingOrder = 0)
         {
@@ -74,6 +116,29 @@ namespace render.ui
             return image;
         }
 
+        public static Image CreateThemedPanel(Transform parent, string name, MenuPanelStyle style)
+        {
+            Image image = CreatePanel(parent, name, Color.white);
+            MenuUiSkin skin = Skin;
+            if (skin == null)
+            {
+                image.color = style == MenuPanelStyle.Inset || style == MenuPanelStyle.Row
+                    ? new Color(0.03f, 0.03f, 0.03f, 0.95f)
+                    : PanelColor;
+                return image;
+            }
+
+            image.sprite = style switch
+            {
+                MenuPanelStyle.Modal => skin.modalPanel,
+                MenuPanelStyle.Inset => skin.inset,
+                MenuPanelStyle.Row => skin.row,
+                _ => skin.panel
+            };
+            image.type = Image.Type.Sliced;
+            return image;
+        }
+
         public static TextMeshProUGUI CreateText(Transform parent, string name, string value, float size,
             TextAlignmentOptions alignment = TextAlignmentOptions.Center)
         {
@@ -92,20 +157,50 @@ namespace render.ui
         {
             Image image = CreatePanel(parent, name, ButtonColor);
             Button button = image.gameObject.AddComponent<Button>();
+            ApplyButtonSkin(button, false);
+            if (onClick != null) button.onClick.AddListener(() => onClick());
+
+            TextMeshProUGUI text = CreateText(button.transform, "Label", label, 24);
+            Stretch(text.rectTransform, 8, 8, 4, 4);
+            ApplyTextStyle(text, MenuTextStyle.Body);
+            return button;
+        }
+
+        public static void SetButtonSelected(Button button, bool selected)
+        {
+            if (button == null) return;
+            ApplyButtonSkin(button, selected);
+        }
+
+        private static void ApplyButtonSkin(Button button, bool selected)
+        {
+            Image image = button.GetComponent<Image>();
+            MenuUiSkin skin = Skin;
+            if (skin != null)
+            {
+                image.color = Color.white;
+                image.sprite = selected ? skin.buttonSelected : skin.buttonNormal;
+                image.type = Image.Type.Sliced;
+                button.transition = Selectable.Transition.SpriteSwap;
+                button.spriteState = new SpriteState
+                {
+                    highlightedSprite = skin.buttonHighlighted,
+                    pressedSprite = skin.buttonPressed,
+                    selectedSprite = selected ? skin.buttonSelected : skin.buttonHighlighted,
+                    disabledSprite = skin.buttonDisabled
+                };
+                return;
+            }
+
             image.color = Color.white;
             ColorBlock colors = button.colors;
-            colors.normalColor = ButtonColor;
+            colors.normalColor = selected ? SelectedColor : ButtonColor;
             colors.highlightedColor = new Color(0.48f, 0.48f, 0.48f, 1f);
             colors.pressedColor = new Color(0.22f, 0.22f, 0.22f, 1f);
             colors.selectedColor = colors.highlightedColor;
             colors.disabledColor = new Color(0.18f, 0.18f, 0.18f, 0.75f);
             colors.colorMultiplier = 1f;
             button.colors = colors;
-            if (onClick != null) button.onClick.AddListener(() => onClick());
-
-            TextMeshProUGUI text = CreateText(button.transform, "Label", label, 24);
-            Stretch(text.rectTransform, 8, 8, 4, 4);
-            return button;
         }
 
         public static TMP_InputField CreateInput(Transform parent, string name, string placeholder)
@@ -113,6 +208,21 @@ namespace render.ui
             Image background = CreatePanel(parent, name, new Color(0.03f, 0.03f, 0.03f, 0.95f));
             TMP_InputField input = background.gameObject.AddComponent<TMP_InputField>();
             input.targetGraphic = background;
+            MenuUiSkin skin = Skin;
+            if (skin != null)
+            {
+                background.color = Color.white;
+                background.sprite = skin.inputNormal;
+                background.type = Image.Type.Sliced;
+                input.transition = Selectable.Transition.SpriteSwap;
+                input.spriteState = new SpriteState
+                {
+                    highlightedSprite = skin.inputFocused,
+                    pressedSprite = skin.inputFocused,
+                    selectedSprite = skin.inputFocused,
+                    disabledSprite = skin.buttonDisabled
+                };
+            }
 
             GameObject viewportObject = new("Text Area", typeof(RectTransform), typeof(RectMask2D));
             viewportObject.transform.SetParent(input.transform, false);
@@ -134,6 +244,48 @@ namespace render.ui
             input.pointSize = 23;
             input.lineType = TMP_InputField.LineType.SingleLine;
             return input;
+        }
+
+        public static void ApplySliderSkin(Slider slider, Image track, Image fill, Image handle)
+        {
+            MenuUiSkin skin = Skin;
+            if (skin == null) return;
+
+            SetSlicedSprite(track, skin.sliderTrack);
+            SetSlicedSprite(fill, skin.sliderFill);
+            SetSlicedSprite(handle, skin.sliderHandle);
+            // The handle has a unique narrow silhouette, so interaction states
+            // tint that sprite instead of swapping in rectangular button art.
+            slider.transition = Selectable.Transition.ColorTint;
+            ColorBlock colors = slider.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(1f, 0.93f, 0.72f, 1f);
+            colors.pressedColor = new Color(0.72f, 0.78f, 0.72f, 1f);
+            colors.selectedColor = colors.highlightedColor;
+            colors.disabledColor = new Color(0.45f, 0.52f, 0.52f, 0.75f);
+            colors.colorMultiplier = 1f;
+            slider.colors = colors;
+        }
+
+        public static void ApplyTextStyle(TextMeshProUGUI text, MenuTextStyle style)
+        {
+            MenuUiSkin skin = Skin;
+            if (skin == null) return;
+            text.color = style switch
+            {
+                MenuTextStyle.Title => skin.titleText,
+                MenuTextStyle.Secondary => skin.secondaryText,
+                MenuTextStyle.Warning => skin.warningText,
+                MenuTextStyle.Error => skin.errorText,
+                _ => skin.bodyText
+            };
+        }
+
+        private static void SetSlicedSprite(Image image, Sprite sprite)
+        {
+            image.color = Color.white;
+            image.sprite = sprite;
+            image.type = Image.Type.Sliced;
         }
 
         public static void Stretch(RectTransform rect, float left = 0, float right = 0, float top = 0, float bottom = 0)

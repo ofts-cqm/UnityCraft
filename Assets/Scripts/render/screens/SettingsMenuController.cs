@@ -77,7 +77,7 @@ namespace render.screens
 
         private void BuildUi()
         {
-            Image panel = MenuUiFactory.CreatePanel(transform, "Settings Panel", MenuUiFactory.PanelColor);
+            Image panel = MenuUiFactory.CreateThemedPanel(transform, "Settings Panel", MenuPanelStyle.Modal);
             MenuUiFactory.SetAnchoredRect(panel.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(-520, -330), new Vector2(520, 330));
 
@@ -85,8 +85,9 @@ namespace render.screens
             MenuUiFactory.SetAnchoredRect(title.rectTransform, new Vector2(0, 1), new Vector2(1, 1),
                 new Vector2(30, -68), new Vector2(-30, -18));
             title.fontStyle = FontStyles.Bold;
+            MenuUiFactory.ApplyTextStyle(title, MenuTextStyle.Title);
 
-            Image viewportImage = MenuUiFactory.CreatePanel(panel.transform, "Viewport", new Color(0, 0, 0, 0.22f));
+            Image viewportImage = MenuUiFactory.CreateThemedPanel(panel.transform, "Viewport", MenuPanelStyle.Inset);
             RectTransform viewport = viewportImage.rectTransform;
             MenuUiFactory.SetAnchoredRect(viewport, Vector2.zero, Vector2.one,
                 new Vector2(28, 112), new Vector2(-28, -82));
@@ -124,7 +125,7 @@ namespace render.screens
                 TextAlignmentOptions.MidlineLeft);
             MenuUiFactory.SetAnchoredRect(_warning.rectTransform, new Vector2(0, 0), new Vector2(1, 0),
                 new Vector2(30, 80), new Vector2(-30, 108));
-            _warning.color = new Color(1f, 0.65f, 0.2f, 1f);
+            MenuUiFactory.ApplyTextStyle(_warning, MenuTextStyle.Warning);
             _warning.textWrappingMode = TextWrappingModes.Normal;
 
             Button reset = MenuUiFactory.CreateButton(panel.transform, "Reset", "RESET DEFAULTS", ResetDefaults);
@@ -165,19 +166,21 @@ namespace render.screens
                 TextAlignmentOptions.MidlineLeft);
             controls.gameObject.AddComponent<LayoutElement>().preferredHeight = 44;
             controls.fontStyle = FontStyles.Bold;
+            MenuUiFactory.ApplyTextStyle(controls, MenuTextStyle.Title);
         }
 
         private Slider CreateSliderRow(string labelText, float minimum, float maximum, bool wholeNumbers,
             out TextMeshProUGUI valueLabel)
         {
-            Image row = MenuUiFactory.CreatePanel(_content, labelText, new Color(0.13f, 0.13f, 0.13f, 0.96f));
+            Image row = MenuUiFactory.CreateThemedPanel(_content, labelText, MenuPanelStyle.Row);
             row.gameObject.AddComponent<LayoutElement>().preferredHeight = 62;
             TextMeshProUGUI label = MenuUiFactory.CreateText(row.transform, "Label", labelText, 20,
                 TextAlignmentOptions.MidlineLeft);
             MenuUiFactory.SetAnchoredRect(label.rectTransform, Vector2.zero, Vector2.one,
                 new Vector2(16, 0), new Vector2(-570, 0));
+            MenuUiFactory.ApplyTextStyle(label, MenuTextStyle.Secondary);
 
-            Image track = MenuUiFactory.CreatePanel(row.transform, "Slider", new Color(0.04f, 0.04f, 0.04f, 1f));
+            Image track = MenuUiFactory.CreatePanel(row.transform, "Slider", Color.white);
             MenuUiFactory.SetAnchoredRect(track.rectTransform, new Vector2(0.43f, 0.5f), new Vector2(0.86f, 0.5f),
                 new Vector2(0, -8), new Vector2(0, 8));
             Slider slider = track.gameObject.AddComponent<Slider>();
@@ -185,18 +188,19 @@ namespace render.screens
             slider.maxValue = maximum;
             slider.wholeNumbers = wholeNumbers;
 
-            Image fill = MenuUiFactory.CreatePanel(track.transform, "Fill", new Color(0.42f, 0.75f, 0.3f, 1f));
+            Image fill = MenuUiFactory.CreatePanel(track.transform, "Fill", Color.white);
             RectTransform fillRect = fill.rectTransform;
             fillRect.anchorMin = Vector2.zero;
             fillRect.anchorMax = Vector2.one;
             fillRect.offsetMin = new Vector2(4, 4);
             fillRect.offsetMax = new Vector2(-4, -4);
-            Image handle = MenuUiFactory.CreatePanel(track.transform, "Handle", new Color(0.86f, 0.86f, 0.86f, 1f));
+            Image handle = MenuUiFactory.CreatePanel(track.transform, "Handle", Color.white);
             RectTransform handleRect = handle.rectTransform;
             handleRect.sizeDelta = new Vector2(18, 30);
             slider.fillRect = fillRect;
             slider.handleRect = handleRect;
             slider.targetGraphic = handle;
+            MenuUiFactory.ApplySliderSkin(slider, track, fill, handle);
 
             valueLabel = MenuUiFactory.CreateText(row.transform, "Value", string.Empty, 20);
             MenuUiFactory.SetAnchoredRect(valueLabel.rectTransform, new Vector2(0.87f, 0), Vector2.one,
@@ -241,12 +245,13 @@ namespace render.screens
 
         private void CreateBindingRow(InputAction action, int bindingIndex, string labelText)
         {
-            Image row = MenuUiFactory.CreatePanel(_content, labelText, new Color(0.13f, 0.13f, 0.13f, 0.96f));
+            Image row = MenuUiFactory.CreateThemedPanel(_content, labelText, MenuPanelStyle.Row);
             row.gameObject.AddComponent<LayoutElement>().preferredHeight = 54;
             TextMeshProUGUI label = MenuUiFactory.CreateText(row.transform, "Action", labelText, 19,
                 TextAlignmentOptions.MidlineLeft);
             MenuUiFactory.SetAnchoredRect(label.rectTransform, Vector2.zero, new Vector2(0.55f, 1),
                 new Vector2(16, 0), new Vector2(-8, 0));
+            MenuUiFactory.ApplyTextStyle(label, MenuTextStyle.Secondary);
             Button button = MenuUiFactory.CreateButton(row.transform, "Binding", string.Empty, null);
             MenuUiFactory.SetAnchoredRect(button.GetComponent<RectTransform>(), new Vector2(0.55f, 0), Vector2.one,
                 new Vector2(8, 5), new Vector2(-8, -5));

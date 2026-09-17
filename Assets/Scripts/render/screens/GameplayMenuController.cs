@@ -131,13 +131,14 @@ namespace render.screens
             _pauseOverlay = root.gameObject;
             MenuUiFactory.Stretch(root.rectTransform);
 
-            Image panel = MenuUiFactory.CreatePanel(root.transform, "Pause Panel", MenuUiFactory.PanelColor);
+            Image panel = MenuUiFactory.CreateThemedPanel(root.transform, "Pause Panel", MenuPanelStyle.Modal);
             MenuUiFactory.SetAnchoredRect(panel.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(-300, -225), new Vector2(300, 225));
             TextMeshProUGUI title = MenuUiFactory.CreateText(panel.transform, "Title", "GAME PAUSED", 38);
             MenuUiFactory.SetAnchoredRect(title.rectTransform, new Vector2(0, 1), new Vector2(1, 1),
                 new Vector2(30, -80), new Vector2(-30, -24));
             title.fontStyle = FontStyles.Bold;
+            MenuUiFactory.ApplyTextStyle(title, MenuTextStyle.Title);
 
             _resumeButton = MenuUiFactory.CreateButton(panel.transform, "Resume", "RESUME GAME", Resume);
             MenuUiFactory.SetAnchoredRect(_resumeButton.GetComponent<RectTransform>(), new Vector2(0, 1), new Vector2(1, 1),
@@ -152,7 +153,7 @@ namespace render.screens
             _pauseStatus = MenuUiFactory.CreateText(panel.transform, "Status", string.Empty, 18);
             MenuUiFactory.SetAnchoredRect(_pauseStatus.rectTransform, new Vector2(0, 0), new Vector2(1, 0),
                 new Vector2(30, 34), new Vector2(-30, 78));
-            _pauseStatus.color = new Color(1f, 0.85f, 0.45f, 1f);
+            MenuUiFactory.ApplyTextStyle(_pauseStatus, MenuTextStyle.Warning);
             _pauseOverlay.SetActive(false);
         }
 
