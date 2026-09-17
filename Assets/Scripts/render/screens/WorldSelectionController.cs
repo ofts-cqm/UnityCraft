@@ -47,6 +47,7 @@ namespace render.screens
         private TextMeshProUGUI _dialogPrimaryLabel;
         private Button _dialogSecondary;
         private Action _dialogAction;
+        private Camera _gameCamera;
 
         private void Awake()
         {
@@ -61,15 +62,26 @@ namespace render.screens
 
             string pendingError = WorldSession.ConsumeError();
             if (!string.IsNullOrWhiteSpace(pendingError)) ShowDialog("Could Not Load World", pendingError, "OK");
+            
+            _gameCamera = GameObject.Find("Camera").GetComponent<Camera>();
+        }
+
+        private void FixedUpdate()
+        {
+            _gameCamera.transform.Rotate(Vector3.up, 0.05f);
         }
 
         private void BuildUi()
         {
             Canvas canvas = MenuUiFactory.CreateCanvas("World Selection", 100);
             canvas.transform.SetParent(transform, false);
+            
+            // Atlas background is no longer needed
+            /*
             _backgroundMaterial = MenuUiFactory.CreateAtlasMaterial(0);
             RawImage background = MenuUiFactory.CreateAtlasBackground(canvas.transform, _backgroundMaterial, new Vector2(64, 36));
             background.color = new Color(0.72f, 0.72f, 0.72f, 1f);
+            */
 
             Image shade = MenuUiFactory.CreatePanel(canvas.transform, "Background Shade", new Color(0, 0, 0, 0.42f));
             MenuUiFactory.Stretch(shade.rectTransform);
