@@ -4,6 +4,8 @@ using UnityEngine;
 using UnityEngine.UI;
 using player;
 using render.ui;
+using Button = UnityEngine.UI.Button;
+using Canvas = UnityEngine.Canvas;
 
 namespace render.screens
 {
@@ -26,9 +28,16 @@ namespace render.screens
             "Infinitely generated terrain!",
             "You may see the same tip twice.",
             "Made by OFTS_CQM and Codex in Unity",
-            "Does not use any assets or libs from Unity Store"
+            "Does not use any assets or libs from Unity Store",
+            "Click the background to switch!",
+            "Enjoy the stairs",
+            "F2 to screenshot, press shift to get a 360-degree view!"
         };
+        // Opaque terrain tiles keep the loading backdrop readable while providing variety.
+        private static readonly int[] LoadingBackgroundSlices = { 7, 0, 2, 4, 5, 6 };
+        private static readonly int AtlasSlice = Shader.PropertyToID("_Slice");
 
+        public static DialogController Dialog;
         private GameObject _hud;
         private GameObject _loadingOverlay;
         private TextMeshProUGUI _loadingText;
@@ -41,6 +50,7 @@ namespace render.screens
         private SettingsMenuController _settingsMenu;
         private TextMeshProUGUI _pauseStatus;
         private Material _backgroundMaterial;
+        private int _loadingBackgroundSliceIndex;
         private bool _quitting;
 
         public static GameplayMenuController Create(World.World world)
@@ -68,6 +78,7 @@ namespace render.screens
             canvas.transform.SetParent(transform, false);
             BuildLoadingOverlay(canvas.transform);
             BuildPauseOverlay(canvas.transform);
+            Dialog = new DialogController(canvas.transform);
             _settingsMenu = SettingsMenuController.Create(canvas.transform, OnSettingsClosed);
         }
 
@@ -76,11 +87,20 @@ namespace render.screens
             Image root = MenuUiFactory.CreatePanel(parent, "Loading World", Color.black);
             _loadingOverlay = root.gameObject;
             MenuUiFactory.Stretch(root.rectTransform);
-            _backgroundMaterial = MenuUiFactory.CreateAtlasMaterial(7);
+            _backgroundMaterial = MenuUiFactory.CreateAtlasMaterial(LoadingBackgroundSlices[_loadingBackgroundSliceIndex]);
             RawImage texture = MenuUiFactory.CreateAtlasBackground(root.transform, _backgroundMaterial, new Vector2(64, 36));
             texture.color = new Color(0.55f, 0.55f, 0.55f, 1f);
+
+            Image backgroundClickTarget = MenuUiFactory.CreatePanel(root.transform, "Next Background", Color.clear);
+            MenuUiFactory.Stretch(backgroundClickTarget.rectTransform);
+            Button backgroundButton = backgroundClickTarget.gameObject.AddComponent<Button>();
+            backgroundButton.targetGraphic = backgroundClickTarget;
+            backgroundButton.transition = Selectable.Transition.None;
+            backgroundButton.onClick.AddListener(ShowNextLoadingBackground);
+
             Image shade = MenuUiFactory.CreatePanel(root.transform, "Shade", new Color(0, 0, 0, 0.55f));
             MenuUiFactory.Stretch(shade.rectTransform);
+            shade.raycastTarget = false;
 
             TextMeshProUGUI title = MenuUiFactory.CreateText(root.transform, "Title", "LOADING WORLD", 42);
             MenuUiFactory.SetAnchoredRect(title.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
@@ -125,19 +145,30 @@ namespace render.screens
             _loadingTipText.text = LoadingTips[Random.Range(0, LoadingTips.Length)];
         }
 
+        private void ShowNextLoadingBackground()
+        {
+            if (_backgroundMaterial == null || LoadingBackgroundSlices.Length == 0) return;
+            if (LoadingBackgroundSlices.Length > 1)
+            {
+                _loadingBackgroundSliceIndex = Random.Range(0, LoadingBackgroundSlices.Length);
+            }
+            _backgroundMaterial.SetFloat(AtlasSlice, LoadingBackgroundSlices[_loadingBackgroundSliceIndex]);
+        }
+
         private void BuildPauseOverlay(Transform parent)
         {
             Image root = MenuUiFactory.CreatePanel(parent, "Pause Menu", new Color(0, 0, 0, 0.72f));
             _pauseOverlay = root.gameObject;
             MenuUiFactory.Stretch(root.rectTransform);
 
-            Image panel = MenuUiFactory.CreatePanel(root.transform, "Pause Panel", MenuUiFactory.PanelColor);
+            Image panel = MenuUiFactory.CreateThemedPanel(root.transform, "Pause Panel", MenuPanelStyle.Modal);
             MenuUiFactory.SetAnchoredRect(panel.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 new Vector2(-300, -225), new Vector2(300, 225));
             TextMeshProUGUI title = MenuUiFactory.CreateText(panel.transform, "Title", "GAME PAUSED", 38);
             MenuUiFactory.SetAnchoredRect(title.rectTransform, new Vector2(0, 1), new Vector2(1, 1),
                 new Vector2(30, -80), new Vector2(-30, -24));
             title.fontStyle = FontStyles.Bold;
+            MenuUiFactory.ApplyTextStyle(title, MenuTextStyle.Title);
 
             _resumeButton = MenuUiFactory.CreateButton(panel.transform, "Resume", "RESUME GAME", Resume);
             MenuUiFactory.SetAnchoredRect(_resumeButton.GetComponent<RectTransform>(), new Vector2(0, 1), new Vector2(1, 1),
@@ -152,7 +183,7 @@ namespace render.screens
             _pauseStatus = MenuUiFactory.CreateText(panel.transform, "Status", string.Empty, 18);
             MenuUiFactory.SetAnchoredRect(_pauseStatus.rectTransform, new Vector2(0, 0), new Vector2(1, 0),
                 new Vector2(30, 34), new Vector2(-30, 78));
-            _pauseStatus.color = new Color(1f, 0.85f, 0.45f, 1f);
+            MenuUiFactory.ApplyTextStyle(_pauseStatus, MenuTextStyle.Warning);
             _pauseOverlay.SetActive(false);
         }
 
