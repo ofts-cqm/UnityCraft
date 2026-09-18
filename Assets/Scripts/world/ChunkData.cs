@@ -57,6 +57,10 @@ namespace World
         }
 
         public ushort GetBlockId(int x, int y, int z) => _blockIds[Index(x, y, z)];
+
+        // Copies run on the owning thread; workers never read mutable world arrays.
+        internal lighting.LightInput CaptureLighting() => new(
+            (ushort[])_blockIds.Clone(), (ushort[])_stateIds.Clone(), (byte[])_fluidAmounts.Clone());
         public ushort GetStateId(int x, int y, int z) => _stateIds[Index(x, y, z)];
         public byte GetFluidRaw(int x, int y, int z) => _fluidAmounts[Index(x, y, z)];
 

@@ -42,6 +42,7 @@ namespace Render
         private MeshFilter _waterMeshFilter;
         private GameObject _waterObject;
         private Mesh _waterMesh;
+        private lighting.WorldLighting.MeshBinding _opaqueLight, _transparentLight, _waterLight;
 
         private MeshCollider _waterSourceCollider;
         private WaterSourceColliderProperty _waterSourceColliderProperty;
@@ -387,6 +388,7 @@ namespace Render
             {
                 EnsureOpaqueChannel();
                 builder.OpaqueMesh.UploadTo(_opaqueMesh);
+                BindLight(ref _opaqueLight, _opaqueMesh, builder.OpaqueMesh);
                 _opaqueRenderer.enabled = true;
             }
 
@@ -405,6 +407,7 @@ namespace Render
             {
                 EnsureTransparentChannel();
                 builder.TransparentMesh.UploadTo(_transparentMesh);
+                BindLight(ref _transparentLight, _transparentMesh, builder.TransparentMesh);
                 _transparentRenderer.enabled = true;
             }
         }
@@ -420,6 +423,7 @@ namespace Render
 
             EnsureWaterChannel();
             builder.WaterMesh.UploadTo(_waterMesh, false);
+            BindLight(ref _waterLight, _waterMesh, builder.WaterMesh);
             _waterRenderer.enabled = true;
             _hasWaterGeometry = true;
         }
@@ -444,6 +448,7 @@ namespace Render
 
         private void ReleaseOpaqueChannel()
         {
+            RetireLight(ref _opaqueLight);
             if (_opaqueRenderer != null)
             {
                 _opaqueRenderer.enabled = false;
@@ -479,6 +484,7 @@ namespace Render
 
         private void ReleaseTransparentChannel()
         {
+            RetireLight(ref _transparentLight);
             if (_transparentMeshFilter != null) _transparentMeshFilter.sharedMesh = null;
             if (_transparentRenderer != null) _transparentRenderer.enabled = false;
             if (_transparentObject != null)
@@ -495,6 +501,7 @@ namespace Render
 
         private void ReleaseWaterChannel()
         {
+            RetireLight(ref _waterLight);
             if (_waterMeshFilter != null) _waterMeshFilter.sharedMesh = null;
             if (_waterRenderer != null) _waterRenderer.enabled = false;
             if (_waterObject != null)
@@ -527,6 +534,17 @@ namespace Render
         private bool HasAllocatedChannel =>
             _opaqueMesh != null || _colliderMesh != null || _transparentMesh != null || _waterMesh != null ||
             _waterSourceColliderMesh != null;
+
+        private void BindLight(ref lighting.WorldLighting.MeshBinding binding, Mesh mesh, MeshBuilder.TexturedMeshHolder data)
+        {
+            binding = World.World.Instance?.Lighting?.Bind(mesh, data.Vertices, data.Normals, _chunkPosition, binding);
+        }
+
+        private static void RetireLight(ref lighting.WorldLighting.MeshBinding binding)
+        {
+            World.World.Instance?.Lighting?.Retire(binding);
+            binding = null;
+        }
 
         private void RefreshRootActivity()
         {

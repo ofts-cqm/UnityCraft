@@ -205,6 +205,7 @@ namespace World
                 BlockState unchangedBlock = existingBlock.AsState(x, y, z, existingState);
                 if (unchangedBlockFluid.IsEmpty || CanContainFluid(unchangedBlock)) return;
                 _data.SetFluidRaw(x, y, z, 0);
+                _world?.Lighting?.Invalidate(ChunkPosition);
                 _persistenceRevision++;
                 MarkFluidDirty(x, y, z);
                 ScheduleFluidNeighbors(new Vector3Int(x, y, z));
@@ -213,6 +214,10 @@ namespace World
 
             FluidState existingFluid = FluidState.FromRaw(_data.GetFluidRawUnchecked(x, y, z));
             _data.SetBlock(x, y, z, block, nextStateId);
+            if (lighting.VoxelLightSolver.Occupancy(existingBlock, existingStateId) != lighting.VoxelLightSolver.Occupancy(block, nextStateId) ||
+                existingBlock.LightEmission(existingStateId) != block.LightEmission(nextStateId) ||
+                (existingBlock == Blocks.OakLeave) != (block == Blocks.OakLeave))
+                _world?.Lighting?.Invalidate(ChunkPosition);
             _persistenceRevision++;
             _renderObjects[y / ChunkSize].MarkDirty(ChunkRenderDirtyFlags.All);
             
@@ -225,6 +230,7 @@ namespace World
             if (!existingFluid.IsEmpty && !CanContainFluid(GetBlock(x, y, z)))
             {
                 _data.SetFluidRaw(x, y, z, 0);
+                _world?.Lighting?.Invalidate(ChunkPosition);
                 MarkFluidDirty(x, y, z);
             }
             ScheduleFluidNeighbors(new Vector3Int(x, y, z));
@@ -258,7 +264,9 @@ namespace World
         {
             if (y < 0 || y >= ChunkHeight) return;
             if (x < 0 || x >= ChunkSize || z < 0 || z >= ChunkSize) { _world.SetFluid(ChunkPosition.X * ChunkSize + x, y, ChunkPosition.Z * ChunkSize + z, state); return; }
-            if (_data.GetFluidRawUnchecked(x, y, z) == state.RawAmount) return;
+            byte previousFluid = _data.GetFluidRawUnchecked(x, y, z);
+            if (previousFluid == state.RawAmount) return;
+            if ((previousFluid == 0) != state.IsEmpty) _world?.Lighting?.Invalidate(ChunkPosition);
             _data.SetFluidRaw(x, y, z, state.RawAmount);
             _persistenceRevision++;
             MarkFluidDirty(x, y, z);

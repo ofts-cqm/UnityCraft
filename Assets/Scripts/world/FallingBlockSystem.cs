@@ -187,6 +187,16 @@ namespace World
         private bool _active;
         private bool _waitingForColliderRefresh;
         private Vector3 _pendingVelocity;
+        private MaterialPropertyBlock _lightProperties;
+
+        private void LateUpdate()
+        {
+            if (!_active || _renderer == null || World.Instance?.Lighting == null) return;
+            Vector2 light = World.Instance.Lighting.Sample(transform.position);
+            _lightProperties ??= new MaterialPropertyBlock();
+            _lightProperties.SetVector("_VoxelDynamicLight", new Vector4(light.x, light.y, 0, 1));
+            _renderer.SetPropertyBlock(_lightProperties);
+        }
 
         internal ChunkCoord OwnerCoord { get; private set; }
         internal Block Block { get; private set; }
