@@ -7,6 +7,7 @@ using System.IO;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.Rendering.Universal;
 using World;
 using World.blocks;
 using world.blocks;
@@ -55,6 +56,7 @@ namespace render
             string id = "lighting-validation-" + DateTime.UtcNow.Ticks.ToString(CultureInfo.InvariantCulture);
             var descriptor = storage.CreateWorld(id, "Lighting validation", "482719");
             var auth = SaveVersionPolicy.Authorize(descriptor);
+            bool shadowCheck = Array.IndexOf(Environment.GetCommandLineArgs(), "--shadow-stability-check") >= 0;
             for (int cx = -4; cx <= 4; cx++) for (int cz = -4; cz <= 4; cz++)
             {
                 int[] blocks = new int[ChunkSnapshot.CellCount];
@@ -63,14 +65,14 @@ namespace render
                 {
                     int wx = cx * 16 + x, wz = cz * 16 + z;
                     bool ground = y <= 49;
-                    bool room = wx >= 1 && wx <= 14 && wz >= 1 && wz <= 14 && y >= 50 && y <= 59 &&
+                    bool room = !shadowCheck && wx >= 1 && wx <= 14 && wz >= 1 && wz <= 14 && y >= 50 && y <= 59 &&
                         (wx == 1 || wx == 14 || wz == 1 || wz == 14 || y == 59);
                     bool tower = wx >= 22 && wx <= 25 && wz >= 8 && wz <= 11 && y < 61;
                     bool shaft = wx >= -8 && wx <= -6 && wz >= 4 && wz <= 6 && y >= 12;
                     bool cave = wx >= -7 && wx <= 32 && wz >= 4 && wz <= 6 && y >= 12 && y <= 15;
                     if ((ground || room || tower) && !shaft && !cave)
                         blocks[ChunkSnapshot.Index(x, y, z)] = y == 49 ? Blocks.GrassBlock.BlockId : Blocks.Stone.BlockId;
-                    if (y == 50 && wx >= 3 && wx <= 6 && wz >= 3 && wz <= 6)
+                    if (!shadowCheck && y == 50 && wx >= 3 && wx <= 6 && wz >= 3 && wz <= 6)
                         fluids[ChunkSnapshot.Index(x, y, z)] = FluidState.Source.RawAmount;
                 }
                 storage.SaveChunk(auth, new ChunkSnapshot(new ChunkCoord(cx, cz), blocks, new int[blocks.Length], fluids));
@@ -99,6 +101,13 @@ namespace render
             var camera = player.camera;
             camera.transform.SetParent(null, true);
             object cycle = typeof(World.World).GetProperty("Daylight")?.GetValue(world);
+            // Reproduce the old settings in this disposable diagnostic Player only, for both
+            // shadow captures and the normal performance route.
+            if (Array.IndexOf(Environment.GetCommandLineArgs(), "--shadow-baseline") >= 0)
+            {
+                RenderSettings.sun.GetUniversalAdditionalLightData().softShadowQuality = SoftShadowQuality.Low;
+                ((UniversalRenderPipelineAsset)QualitySettings.renderPipeline).shadowDepthBias = .1f;
+            }
             Action<double> setTime = seconds => cycle?.GetType().GetProperty("ElapsedSeconds").SetValue(cycle, seconds);
             setTime(300);
             camera.transform.position = new Vector3(8, 68, -24);
@@ -108,6 +117,14 @@ namespace render
             yield return null;
             object initialLight = typeof(World.World).GetProperty("Lighting")?.GetValue(world);
             Debug.Log($"LIGHTING_ROOF {initialLight?.GetType().GetMethod("Sample")?.Invoke(initialLight, new object[] { new Vector3(8, 60.1f, 8) })}");
+            if (Array.IndexOf(Environment.GetCommandLineArgs(), "--shadow-stability-check") >= 0)
+            {
+                yield return CheckShadowStability(world, camera, setTime);
+                world.SaveAndQuitToWorldSelection();
+                yield return null;
+                Application.Quit();
+                yield break;
+            }
             if (Array.IndexOf(Environment.GetCommandLineArgs(), "--remesh-flash-check") >= 0)
             {
                 yield return CheckRemeshFlash(world);
@@ -219,6 +236,33 @@ namespace render
             world.SaveAndQuitToWorldSelection();
             yield return null;
             Application.Quit();
+        }
+
+        private IEnumerator CheckShadowStability(World.World world, Camera camera, Action<double> setTime)
+        {
+            // Fixed camera and clock samples make moving-shadow aliasing reproducible across builds.
+            // The frozen control separates it from time-dependent texture/AO noise.
+            world.enabled = false;
+            Application.targetFrameRate = 60;
+            var pixels = new Texture2D(Screen.width, Screen.height, TextureFormat.RGB24, false);
+            foreach (var phase in new[] { ("frozen", 150d, 16f), ("morning", 60d, -8f), ("midmorning", 150d, 16f), ("evening", 450d, 32f) })
+            {
+                camera.transform.position = new Vector3(phase.Item3, 56, -2);
+                camera.transform.LookAt(new Vector3(phase.Item3, 50, 10));
+                for (int frame = -3; frame < 90; frame++)
+                {
+                    setTime(phase.Item2 + (phase.Item1 == "frozen" ? 0 : Math.Max(0, frame) / 60d));
+                    world.Daylight.Advance(0);
+                    yield return new WaitForEndOfFrame();
+                    if (frame < 0) continue;
+                    pixels.ReadPixels(new Rect(0, 0, Screen.width, Screen.height), 0, 0);
+                    pixels.Apply();
+                    File.WriteAllBytes(Path.Combine(_output, $"shadow-{phase.Item1}-{frame:D3}.png"), pixels.EncodeToPNG());
+                }
+            }
+            Destroy(pixels);
+            world.enabled = true;
+            Debug.Log("LIGHTING_SHADOW_CAPTURE_COMPLETE frames=360 step=1/60");
         }
 
         private IEnumerator CheckRemeshFlash(World.World world)

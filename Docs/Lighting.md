@@ -24,6 +24,25 @@ gated by voxel skylight and the sun's elevation; there is no light from below th
 reflections and the underwater overlay are also attenuated, while inventory sprite baking remains
 independent of world lighting. Falling blocks sample the current field via a material override.
 
+## Moving sun shadows
+
+The gameplay sun inherits soft-shadow quality from the active URP asset. The PC preset requests
+the high-quality 7×7 tent filter; a per-light low-quality override previously reduced this to
+four comparison samples and made rotating shadow silhouettes visibly oscillate. Inheriting the
+preset keeps quality ownership in one place and preserves Mobile's existing hard-shadow budget.
+
+PC depth bias is 1 shadow-texel unit instead of 0.1; normal bias remains 0.5. The wider filter
+samples neighboring depths on sloped receivers, so the old depth bias produced self-shadow
+shimmer when high-quality filtering was enabled. Bias and filtering must be tuned together.
+The 2048 atlas, four cascades, and 50-block distance stay unchanged. The sun and sky continue to
+move every frame: pausing or stepping the daylight clock would hide aliasing by making shadows
+stop or jump, and would change the intended cycle. Finite-resolution shadow maps can still show
+small residual sampling variation; these settings address the pronounced edge flashing.
+The terrain/water lighting helper skips shadow-map comparisons when the voxel sky channel,
+surface orientation, sun elevation, or sun color prevents direct illumination. Such samples
+cannot affect the result; avoiding them offsets part of the wider filter's GPU cost, especially
+on sealed caves and back-facing surfaces.
+
 ## Ownership and update pipeline
 
 `WorldLighting` owns one background worker. The main thread copies changed chunk buffers and
@@ -101,6 +120,15 @@ The same harness runs against the original checkout, enabling a matched comparis
 Add `--remesh-flash-check` for a shorter regression run that alternates ten roof block edits
 and checks unchanged lit vertices after every rendered frame. This catches transient cleared
 light streams that would be invisible in screenshots taken only after lighting settles.
+
+Use `--shadow-stability-check` for fixed-camera frozen-sun, low-sun, midmorning, and evening
+sequences (90 frames each, at deterministic 1/60-second daylight increments). This fixture omits
+the room so it cannot obscure the tower's shadow. `--shadow-baseline` restores the previous
+low filter and 0.1 depth bias in the diagnostic Player, including on the normal performance route.
+Compare capture directories with `python Docs/Validation/analyze_shadow_stability.py <before> <after>`
+(requires Pillow). The analysis separates intended shadow motion from brightness reversals,
+and the frozen control checks for unrelated temporal rendering noise. Capture PNG writes are
+synchronous, so this mode is for image comparisons, not frame-time benchmarking.
 
 Acceptance compares the PC preset at identical resolution/view distance: median frame time
 within 5% and p99 within 10% of the baseline. A successful build or Editor test alone does not

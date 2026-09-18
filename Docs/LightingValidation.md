@@ -103,3 +103,62 @@ not a guarantee against OS/GC/geometry stalls. Both final comparison runs left t
 open, with no concurrent validation build or test process. Final raw frame data is under
 `/private/tmp/unitycraft-lighting-remesh-final-performance/`; the fresh baseline is under
 `/private/tmp/unitycraft-lighting-remesh-baseline/`.
+
+## Daylight shadow-edge regression
+
+The moving sun exposed shadow-map aliasing: the gameplay light forced Low soft-shadow quality,
+overriding PC's High setting. The sun now inherits the pipeline quality. PC depth bias increases
+from 0.1 to 1 because the wider filter otherwise introduces receiver self-shadow shimmer.
+Normal bias, atlas resolution, cascades, shadow distance, and the continuous daylight clock stay
+unchanged. See [Lighting.md](Lighting.md#moving-sun-shadows) for the design decision.
+
+The final macOS Development Player captured 360 frames per configuration at 1280×720 / PC:
+a frozen-sun control and three sun angles, each using a fixed camera and 90 deterministic
+1/60-second clock samples. The old settings were reproduced with `--shadow-baseline` before the
+shader optimization, using the same capture harness. Cameras expose the shadow tip at each angle;
+the room is omitted from this fixture.
+
+| Sequence | Old peak frame change | Fixed peak frame change | Old peak reversal | Fixed peak reversal |
+| --- | ---: | ---: | ---: | ---: |
+| Frozen sun | 0 | 0 | 0 | 0 |
+| Morning (60 seconds) | 22 | 11 | 4 | 3 |
+| Midmorning (150 seconds) | 36 | 15 | 10 | 4 |
+| Evening (450 seconds) | 41 | 16 | 3 | 2 |
+
+Values are 8-bit image luminance measured in fixed ground crops, excluding the sky, tower and HUD.
+A reversal means brightening while a shadow extends, or darkening while it recedes. Midmorning
+reversals of at least four levels fell from **5,906 to 15** across the sampled pixel/frame pairs.
+Peak jumps decreased by 50–61%. Integrated temporal variation did not materially decrease:
+filtering spreads changes over a wider, softer edge. This establishes a reduction in pronounced
+flashes, not elimination of every subpixel fluctuation or proof for every camera/world/hardware.
+Final morning and evening screenshots were inspected for shadow shape and contact.
+
+The shader now avoids shadow comparisons on faces receiving no direct sunlight. All 360 images
+were recaptured after this optimization; differences from the unoptimized correction were small
+(at most 6 RGB levels) and confined to contact shading around the tower/shaft. The measured shadow
+edge peaks and reversals above are preserved. Sealed-room and nighttime Player images were also
+inspected after the shader change.
+
+The **94-test Editor suite passed**, and the final Development Player built successfully.
+Artifacts: `/private/tmp/unitycraft-shadow-final-before/`,
+`/private/tmp/unitycraft-shadow-optimized-captures/`, `/private/tmp/unitycraft-shadow-comparison-final-0918.json`,
+and `/private/tmp/unitycraft-shadow-tests-0918.xml`. Reproduce the image measurements with
+`Docs/Validation/analyze_shadow_stability.py` and the capture flags documented in `Lighting.md`.
+
+Sequential uncapped runs of the normal performance route used the same PC preset, resolution,
+fixture and view distance. No Unity Editor, build or test run was active during measurements.
+
+| Scenario | Old median (ms) | Fixed median (ms) | Old p99 (ms) | Fixed p99 (ms) |
+| --- | ---: | ---: | ---: | ---: |
+| Camera orbit | 1.113 | 1.202 | 2.328 | 2.394 |
+| Roof edits | 1.119 | 1.372 | 2.219 | 2.805 |
+| Chunk streaming | 1.189 | 1.562 | 5.799 | 7.280 |
+
+The corrected filtering costs **0.089–0.373 ms** in median frame time on this Mac. This does **not**
+meet the earlier lighting feature's 5% median / 10% p99 budget: median increases are approximately
+8%, 23%, and 31%, and the edit/streaming p99 values also exceed it. The High filter uses 16
+comparison samples instead of four; skipping irrelevant samples offsets only part of that cost.
+This change prioritizes smoother shadow edges while retaining the PC preset's intended High
+quality. These single-machine results are not mobile or capped-frame-rate measurements.
+Raw frame samples/logs are under `/private/tmp/unitycraft-shadow-perf-before` and
+`/private/tmp/unitycraft-shadow-perf-optimized` (with `.log` siblings).
