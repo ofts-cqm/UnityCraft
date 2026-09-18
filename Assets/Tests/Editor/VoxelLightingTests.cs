@@ -10,6 +10,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using World;
 using world.blocks;
+using world.lighting;
 using world.persistence;
 
 namespace Tests.Editor

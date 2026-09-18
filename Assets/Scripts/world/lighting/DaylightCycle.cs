@@ -1,17 +1,27 @@
 using System;
 using UnityEngine;
 
-namespace lighting
+namespace world.lighting
 {
     /// <summary>Global daylight changes are constant-cost: voxel sky access never depends on time.</summary>
     public sealed class DaylightCycle : IDisposable
     {
-        public const double DefaultDaySeconds = 1200;
+        private static readonly int VoxelSkyStrength = Shader.PropertyToID("_VoxelSkyStrength");
+        private static readonly int VoxelDarkness = Shader.PropertyToID("_VoxelDarkness");
+        private static readonly int VoxelSkyColor = Shader.PropertyToID("_VoxelSkyColor");
+        private static readonly int Exposure = Shader.PropertyToID("_Exposure");
+        private static readonly int SkyTint = Shader.PropertyToID("_SkyTint");
+        private static readonly int AtmosphereThickness = Shader.PropertyToID("_AtmosphereThickness");
+        private static readonly int TwilightGlowColor = Shader.PropertyToID("_TwilightGlowColor");
+        private static readonly int TwilightGlowStrength = Shader.PropertyToID("_TwilightGlowStrength");
+        private static readonly int DaylightSunDirection = Shader.PropertyToID("_DaylightSunDirection");
+        private static readonly int GroundColor = Shader.PropertyToID("_GroundColor");
+        private const double DefaultDaySeconds = 1200;
         public const double MorningSeconds = 60;
         public double ElapsedSeconds { get; private set; }
-        public double DaySeconds { get; set; } = DefaultDaySeconds;
-        public float SkyStrength { get; private set; }
-        public const float DarknessFloor = .035f;
+        private double DaySeconds => DefaultDaySeconds;
+        private float SkyStrength { get; set; }
+        private const float DarknessFloor = .035f;
         private readonly Light _sun;
         private readonly Material _sky, _originalSky;
         private readonly Light _originalSun;
@@ -66,18 +76,18 @@ namespace lighting
             _sun.color = Color.Lerp(Color.white, warm, twilight);
             _sun.intensity = 1.35f * daylight;
             SkyStrength = .34f * Mathf.SmoothStep(0, 1, Mathf.Clamp01((elevation + .12f) / .32f));
-            Shader.SetGlobalFloat("_VoxelSkyStrength", SkyStrength);
-            Shader.SetGlobalFloat("_VoxelDarkness", DarknessFloor);
-            Shader.SetGlobalColor("_VoxelSkyColor", Color.Lerp(new Color(.65f, .76f, 1f), warm, twilight * .4f));
+            Shader.SetGlobalFloat(VoxelSkyStrength, SkyStrength);
+            Shader.SetGlobalFloat(VoxelDarkness, DarknessFloor);
+            Shader.SetGlobalColor(VoxelSkyColor, Color.Lerp(new Color(.65f, .76f, 1f), warm, twilight * .4f));
             if (_sky != null)
             {
-                _sky.SetFloat("_Exposure", Mathf.Lerp(.025f, 1.25f, Mathf.Clamp01(SkyStrength / .34f)) + .22f * twilight);
-                _sky.SetFloat("_AtmosphereThickness", Mathf.Lerp(1f, 1.5f, twilight));
-                _sky.SetColor("_SkyTint", new Color(.5f, .5f, .5f));
-                _sky.SetColor("_TwilightGlowColor", warm);
-                _sky.SetFloat("_TwilightGlowStrength", twilight);
-                _sky.SetVector("_DaylightSunDirection", towardSun);
-                _sky.SetColor("_GroundColor", Color.Lerp(new Color(.015f, .02f, .03f), new Color(.32f, .3f, .28f), daylight));
+                _sky.SetFloat(Exposure, Mathf.Lerp(.025f, 1.25f, Mathf.Clamp01(SkyStrength / .34f)) + .22f * twilight);
+                _sky.SetFloat(AtmosphereThickness, Mathf.Lerp(1f, 1.5f, twilight));
+                _sky.SetColor(SkyTint, new Color(.5f, .5f, .5f));
+                _sky.SetColor(TwilightGlowColor, warm);
+                _sky.SetFloat(TwilightGlowStrength, twilight);
+                _sky.SetVector(DaylightSunDirection, towardSun);
+                _sky.SetColor(GroundColor, Color.Lerp(new Color(.015f, .02f, .03f), new Color(.32f, .3f, .28f), daylight));
             }
         }
 

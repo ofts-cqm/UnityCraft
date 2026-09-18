@@ -12,6 +12,7 @@ using world.persistence;
 using render.screens;
 using settings;
 using Render;
+using world.lighting;
 
 namespace World
 {
@@ -27,7 +28,7 @@ namespace World
         public static World Instance;
         public WorldSaveCoordinator Persistence { get; private set; }
         public lighting.WorldLighting Lighting { get; private set; }
-        public lighting.DaylightCycle Daylight { get; private set; }
+        public DaylightCycle Daylight { get; private set; }
         private IWorldStorage Storage { get; set; }
         private WorldLoadAuthorization LoadAuthorization { get; set; }
 
@@ -117,7 +118,7 @@ namespace World
 
                 WorldDescriptor descriptor = Storage.ReadWorldDescriptor(LoadAuthorization.WorldId);
                 Lighting = new lighting.WorldLighting(this);
-                Daylight = new lighting.DaylightCycle(descriptor.daylight?.elapsedSeconds ?? lighting.DaylightCycle.MorningSeconds);
+                Daylight = new DaylightCycle(descriptor.daylight?.elapsedSeconds ?? DaylightCycle.MorningSeconds);
                 WorldGenerationSettings generationSettings = WorldGenerationSettings.FromSeed(descriptor.worldSeed);
                 ChunkGenerator.Initialize(generationSettings);
                 _randomTickSeed = generationSettings.FeatureSeed ^ generationSettings.StructureSeed;
