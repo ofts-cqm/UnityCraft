@@ -26,9 +26,9 @@ namespace render.ui
 
     public static class MenuUiFactory
     {
-        public static readonly Color PanelColor = new(0.08f, 0.08f, 0.08f, 0.88f);
-        public static readonly Color ButtonColor = new(0.34f, 0.34f, 0.34f, 1f);
-        public static readonly Color SelectedColor = new(0.48f, 0.48f, 0.48f, 1f);
+        private static readonly Color PanelColor = new(0.08f, 0.08f, 0.08f, 0.88f);
+        private static readonly Color ButtonColor = new(0.34f, 0.34f, 0.34f, 1f);
+        private static readonly Color SelectedColor = new(0.48f, 0.48f, 0.48f, 1f);
         private const string SkinResourceName = "MenuUiSkin";
         private static readonly int TerrainTextures = Shader.PropertyToID("_TerrainTextures");
         private static readonly int Atlas = Shader.PropertyToID("_Atlas");
@@ -36,7 +36,7 @@ namespace render.ui
         private static MenuUiSkin _skin;
         private static bool _reportedMissingSkin;
 
-        public static MenuUiSkin Skin
+        private static MenuUiSkin Skin
         {
             get
             {

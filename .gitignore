@@ -118,3 +118,6 @@ Tools
 
 # codex
 .codex
+
+# rider config
+Packages/com.unity.ide.rider/*

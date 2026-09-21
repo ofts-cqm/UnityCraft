@@ -76,6 +76,9 @@ namespace World.blocks
         /// <summary>Whether this block can receive the uniformly sampled section random tick.</summary>
         public virtual bool ReceivesRandomTicks => false;
 
+        /// <summary>Scalar voxel emission, independent of material color and Unity light counts.</summary>
+        public virtual byte LightEmission(ushort stateId) => 0;
+
         /// <summary>Handles a random tick for this block.</summary>
         public virtual void OnRandomTick(World world, BlockState state) { }
 

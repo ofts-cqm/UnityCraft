@@ -12,7 +12,7 @@ namespace world.persistence
     /// </summary>
     public sealed class WorldSaveCoordinator : IDisposable
     {
-        private enum WorkKind { Player, Chunk }
+        private enum WorkKind { Player, Chunk, Clock }
 
         public readonly struct SaveCompletion
         {
@@ -49,6 +49,40 @@ namespace world.persistence
         private bool _disposed;
         private bool _descriptorUpdated;
         private bool _working;
+        private double _latestClock;
+        private long _clockRevision;
+        private bool _clockQueued;
+
+        public void QueueClock(double elapsedSeconds)
+        {
+            lock (_gate)
+            {
+                ThrowIfStopping();
+                _latestClock = elapsedSeconds;
+                _clockRevision++;
+                if (!_clockQueued) { _clockQueued = true; _queue.Enqueue((WorkKind.Clock, default)); }
+                Monitor.Pulse(_gate);
+            }
+        }
+
+        private void SaveLatestClock()
+        {
+            double seconds;
+            long revision;
+            lock (_gate) { seconds = _latestClock; revision = _clockRevision; }
+            try
+            {
+                if (_storage is not IWorldClockStorage clocks)
+                    throw new InvalidOperationException("World storage does not support daylight persistence.");
+                clocks.SaveClock(_authorization.WorldId, seconds);
+            }
+            catch (Exception exception) { _completions.Enqueue(new SaveCompletion(null, 0, exception)); }
+            lock (_gate)
+            {
+                if (revision == _clockRevision) _clockQueued = false;
+                else _queue.Enqueue((WorkKind.Clock, default));
+            }
+        }
 
         public WorldSaveCoordinator(IWorldStorage storage, WorldLoadAuthorization authorization)
         {
@@ -141,6 +175,7 @@ namespace world.persistence
                 try
                 {
                     if (work.kind == WorkKind.Player) SaveLatestPlayer();
+                    else if (work.kind == WorkKind.Clock) SaveLatestClock();
                     else SaveLatestChunk(work.coord);
                 }
                 finally

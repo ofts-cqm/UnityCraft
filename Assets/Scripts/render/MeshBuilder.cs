@@ -83,6 +83,21 @@ namespace render
 
         public sealed class TexturedMeshHolder : MeshHolder
         {
+            private struct GeometryVertex
+            {
+                public Vector3 Position, Normal;
+                public Vector2 Uv;
+                public Vector4 Texture;
+            }
+            private readonly List<GeometryVertex> _geometry = new();
+            private static readonly VertexAttributeDescriptor[] Layout =
+            {
+                new(VertexAttribute.Position, VertexAttributeFormat.Float32, 3, 0),
+                new(VertexAttribute.Normal, VertexAttributeFormat.Float32, 3, 0),
+                new(VertexAttribute.TexCoord0, VertexAttributeFormat.Float32, 2, 0),
+                new(VertexAttribute.TexCoord1, VertexAttributeFormat.Float32, 4, 0),
+                new(VertexAttribute.Color, VertexAttributeFormat.UNorm8, 4, 1)
+            };
             public readonly List<Vector2> Uvs = new();
             public readonly List<Vector4> TextureIndices = new();
             public readonly List<Vector3> Normals = new();
@@ -126,11 +141,23 @@ namespace render
             {
                 PrepareMesh(mesh, Vertices.Count);
                 if (IsEmpty) return;
-                mesh.SetVertices(Vertices);
-                if (useProvidedFlatNormals) mesh.SetNormals(Normals);
-                mesh.SetUVs(0, Uvs);
-                mesh.SetUVs(1, TextureIndices);
+                // Geometry and lighting have independent GPU streams. A light upload is four bytes
+                // per vertex and cannot rebuild geometry, bounds, or the physics mesh.
+                _geometry.Clear();
+                Vector3 minimum = Vertices[0], maximum = Vertices[0];
+                for (int i = 0; i < Vertices.Count; i++)
+                {
+                    _geometry.Add(new GeometryVertex { Position = Vertices[i], Normal = Normals[i], Uv = Uvs[i], Texture = TextureIndices[i] });
+                    minimum = Vector3.Min(minimum, Vertices[i]);
+                    maximum = Vector3.Max(maximum, Vertices[i]);
+                }
+                mesh.SetVertexBufferParams(Vertices.Count, Layout);
+                mesh.SetVertexBufferData(_geometry, 0, 0, _geometry.Count, 0);
                 mesh.SetTriangles(Triangles, 0, true);
+                // SetTriangles does not populate bounds for this explicit multi-stream layout.
+                // Keep culling correct, including water's existing shader displacement.
+                mesh.bounds = new Bounds((minimum + maximum) * .5f,
+                    maximum - minimum + (useProvidedFlatNormals ? Vector3.zero : Vector3.up * .5f));
                 // Fluid surface quads can be non-planar. Preserve RecalculateNormals' two-triangle
                 // smoothing for those meshes while block faces use the cheaper supplied flat normals.
                 if (!useProvidedFlatNormals) mesh.RecalculateNormals();

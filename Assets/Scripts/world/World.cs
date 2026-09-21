@@ -12,6 +12,7 @@ using world.persistence;
 using render.screens;
 using settings;
 using Render;
+using world.lighting;
 
 namespace World
 {
@@ -26,6 +27,8 @@ namespace World
         public Transform player;
         public static World Instance;
         public WorldSaveCoordinator Persistence { get; private set; }
+        public WorldLighting Lighting { get; private set; }
+        public DaylightCycle Daylight { get; private set; }
         private IWorldStorage Storage { get; set; }
         private WorldLoadAuthorization LoadAuthorization { get; set; }
 
@@ -54,6 +57,7 @@ namespace World
         private GameplayMenuController _menus;
         private Exception _lastPersistenceError;
         [SerializeField, Min(0.1f)] private float renderRebuildBudgetMilliseconds = 4f;
+        [SerializeField, Min(0.05f)] private float lightingUploadBudgetMilliseconds = .25f;
         private readonly SortedDictionary<int, Queue<RenderWork>> _renderQueue = new();
         private readonly object _renderQueueLock = new();
         private int _queuedRenderCount;
@@ -113,6 +117,8 @@ namespace World
                 if (LoadAuthorization == null) throw new InvalidOperationException("Select a world before opening gameplay.");
 
                 WorldDescriptor descriptor = Storage.ReadWorldDescriptor(LoadAuthorization.WorldId);
+                Lighting = new WorldLighting(this);
+                Daylight = new DaylightCycle(descriptor.daylight?.elapsedSeconds ?? DaylightCycle.MorningSeconds);
                 WorldGenerationSettings generationSettings = WorldGenerationSettings.FromSeed(descriptor.worldSeed);
                 ChunkGenerator.Initialize(generationSettings);
                 _randomTickSeed = generationSettings.FeatureSeed ^ generationSettings.StructureSeed;
@@ -154,19 +160,23 @@ namespace World
             ProcessSaveCompletions();
             ChunkLoader.ProcessCompletedLoads();
             if (_shuttingDown) return;
-            ProcessRenderQueue();
+            double lightingTime;
+            try { lightingTime = Lighting.Pump(Math.Min(lightingUploadBudgetMilliseconds, renderRebuildBudgetMilliseconds)); }
+            catch (Exception exception) { AbortWorldLoad(exception.Message); return; }
+            ProcessRenderQueue(Math.Max(0, renderRebuildBudgetMilliseconds - lightingTime));
 
             if (!_gameplayReady)
             {
                 int loaded = 0;
                 foreach (ChunkCoord coord in _initialChunks)
-                    if (ChunkMap.TryGetValue(coord, out Chunk chunk) && chunk.IsRenderReady) loaded++;
+                    if (ChunkMap.TryGetValue(coord, out Chunk chunk) && chunk.IsRenderReady && Lighting.IsReady(coord)) loaded++;
                 _menus.SetLoadingProgress(loaded, _initialChunks.Count);
                 if (loaded == _initialChunks.Count) CompleteInitialLoad();
                 return;
             }
 
             if (!new ChunkCoord(player.transform.position).Equals(_playerLastChunkCoord)) CheckViewDistance();
+            Daylight.Advance(Time.deltaTime);
             if (Time.unscaledTime >= _nextAutosaveTime)
             {
                 RequestSave();
@@ -236,6 +246,7 @@ namespace World
         {
             if (!_persistenceReady || _shuttingDown || Persistence == null) return;
             if (_playerComponent != null) Persistence.QueuePlayer(_playerComponent.CreatePersistenceSnapshot());
+            Persistence.QueueClock(Daylight.ElapsedSeconds);
             foreach (Chunk chunk in ChunkMap.Values) QueueChunkSave(chunk);
         }
 
@@ -271,6 +282,7 @@ namespace World
             enabled = false;
             _shuttingDown = true;
             ChunkLoader.StopWorker();
+            Lighting?.Dispose();
             Persistence?.FlushAndStop();
             ProcessSaveCompletions();
             _persistenceReady = false;
@@ -314,6 +326,8 @@ namespace World
         {
             GameSettings.Applied -= OnSettingsApplied;
             ShutdownPersistence();
+            Lighting?.Dispose();
+            Daylight?.Dispose();
             foreach (Chunk chunk in ChunkMap.Values) chunk.DestroyChunk();
             ChunkMap.Clear();
             _fluidScheduler.Clear();
@@ -363,10 +377,11 @@ namespace World
             }
         }
 
-        private void ProcessRenderQueue()
+        private void ProcessRenderQueue(double availableMilliseconds)
         {
+            if (availableMilliseconds <= 0) return;
             long started = Stopwatch.GetTimestamp();
-            double budgetSeconds = Math.Max(0.1f, renderRebuildBudgetMilliseconds) / 1000.0;
+            double budgetSeconds = availableMilliseconds / 1000.0;
             bool processedAny = false;
             while ((!processedAny || (double)(Stopwatch.GetTimestamp() - started) / Stopwatch.Frequency < budgetSeconds) &&
                    TryDequeueRenderWork(out RenderWork work))
@@ -610,7 +625,11 @@ namespace World
 
         internal byte ResolveLeafDistance(Vector3Int position) => _leafDistanceCache.Resolve(this, position);
 
-        internal void OnChunkTopologyChanged(ChunkCoord coord) => _leafDistanceCache.OnChunkTopologyChanged(this, coord);
+        internal void OnChunkTopologyChanged(ChunkCoord coord)
+        {
+            _leafDistanceCache.OnChunkTopologyChanged(this, coord);
+            Lighting?.Invalidate(coord);
+        }
 
         internal void TryStartFallingBlock(BlockState scheduledState)
         {

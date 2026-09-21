@@ -19,7 +19,12 @@ namespace world.persistence
         void SaveChunk(WorldLoadAuthorization authorization, ChunkSnapshot snapshot);
     }
 
-    public sealed class FileWorldStorage : IWorldStorage
+    public interface IWorldClockStorage
+    {
+        void SaveClock(string worldId, double elapsedSeconds);
+    }
+
+    public sealed class FileWorldStorage : IWorldStorage, IWorldClockStorage
     {
         public const string DescriptorMagic = "UNITYCRAFT_WORLD";
         private const uint PlayerMagic = 0x52504355; // UCPR
@@ -104,6 +109,16 @@ namespace world.persistence
             WorldDescriptor descriptor = ReadWorldDescriptor(worldId);
             descriptor.schemaVersion = version.Schema;
             descriptor.contentVersion = version.Content;
+            descriptor.lastSavedUtc = DateTime.UtcNow.ToString("O");
+            WriteDescriptor(descriptor);
+        }
+
+        public void SaveClock(string worldId, double elapsedSeconds)
+        {
+            if (double.IsNaN(elapsedSeconds) || double.IsInfinity(elapsedSeconds) || elapsedSeconds < 0)
+                throw new ArgumentOutOfRangeException(nameof(elapsedSeconds));
+            WorldDescriptor descriptor = ReadWorldDescriptor(worldId);
+            descriptor.daylight = new DaylightSnapshot { elapsedSeconds = elapsedSeconds };
             descriptor.lastSavedUtc = DateTime.UtcNow.ToString("O");
             WriteDescriptor(descriptor);
         }

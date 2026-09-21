@@ -29,9 +29,12 @@ Shader "UnityCraft/Water Surface"
             #pragma target 3.5
             #pragma vertex Vert
             #pragma fragment Frag
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/ImageBasedLighting.hlsl"
+            #include "../Resources/VoxelLighting.hlsl"
 
             TEXTURE2D_ARRAY(_TerrainTextures);
             SAMPLER(sampler_TerrainTextures);
@@ -52,6 +55,7 @@ Shader "UnityCraft/Water Surface"
                 float3 normalOS : NORMAL;
                 float2 uv : TEXCOORD0;
                 float4 textureData : TEXCOORD1;
+                half4 light : COLOR;
             };
 
             struct Varyings
@@ -61,6 +65,7 @@ Shader "UnityCraft/Water Surface"
                 float3 normalWS : TEXCOORD1;
                 float2 uv : TEXCOORD2;
                 float4 textureData : TEXCOORD3;
+                half2 light : TEXCOORD4;
             };
 
             half3 DecodeWaterEnvironment(half4 encodedColor, half4 decodeInstructions)
@@ -85,6 +90,7 @@ Shader "UnityCraft/Water Surface"
                 output.normalWS = TransformObjectToWorldNormal(input.normalOS);
                 output.uv = input.uv;
                 output.textureData = input.textureData;
+                output.light = input.light.rg;
                 return output;
             }
 
@@ -103,6 +109,10 @@ Shader "UnityCraft/Water Surface"
                     unity_SpecCube0_HDR);
                 float fresnel = pow(1.0 - saturate(dot(normalize(input.normalWS), viewDirectionWS)), _FresnelPower);
                 float reflectionAmount = fresnel * _ReflectionStrength * isSurface;
+                water.rgb *= VoxelIllumination(input.positionWS, normalize(input.normalWS), input.light, input.positionCS.xy / _ScaledScreenParams.xy);
+                // The baked environment must not glow through a cave roof or throughout the night.
+                reflection *= input.light.x * _VoxelSkyStrength;
+                reflectionAmount *= input.light.x;
                 water.rgb = lerp(water.rgb, reflection, reflectionAmount);
                 return water;
             }

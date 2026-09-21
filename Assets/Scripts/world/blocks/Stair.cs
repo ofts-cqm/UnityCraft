@@ -294,7 +294,7 @@ namespace world.blocks
             return true;
         }
 
-        private static bool Occupies(StairState state, int x, int y, int z)
+        public static bool Occupies(StairState state, int x, int y, int z)
         {
             if (!IsCell(x, y, z)) return false;
             bool baseLayer = Half(state) == StairHalf.Bottom ? y == 0 : y == 1;

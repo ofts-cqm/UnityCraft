@@ -56,6 +56,12 @@ namespace world.persistence
     }
 
     [Serializable]
+    public sealed class DaylightSnapshot
+    {
+        public double elapsedSeconds;
+    }
+
+    [Serializable]
     public sealed class WorldDescriptor
     {
         public string magic = FileWorldStorage.DescriptorMagic;
@@ -66,6 +72,8 @@ namespace world.persistence
         public string createdUtc;
         public string lastSavedUtc;
         public string worldSeed;
+        // Optional additive metadata: old schema-1/2 descriptors initialize to morning.
+        public DaylightSnapshot daylight;
 
         public SaveVersion Version => new(schemaVersion, contentVersion);
         public string WorldId => worldId;

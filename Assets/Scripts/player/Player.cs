@@ -212,7 +212,16 @@ namespace player
             if (_underwaterOverlay == null) return;
             bool submerged = IsCameraSubmerged();
             _underwaterOverlay.enabled = submerged;
-            if (submerged) UpdateUnderwaterOverlayAnimation();
+            if (submerged)
+            {
+                UpdateUnderwaterOverlayAnimation();
+                var world = World.World.Instance;
+                if (world?.Lighting != null && world.Daylight != null)
+                {
+                    float brightness = world.Daylight.Brightness(world.Lighting.Sample(cameraTransform.position));
+                    _underwaterOverlay.color = new Color(brightness, brightness, brightness, UnderwaterOverlayAlpha);
+                }
+            }
         }
 
         private void FixedUpdate()
