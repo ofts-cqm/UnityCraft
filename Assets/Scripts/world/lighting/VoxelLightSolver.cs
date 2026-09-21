@@ -53,7 +53,7 @@ namespace lighting
 
         public static byte Occupancy(World.blocks.Block block, ushort state)
         {
-            if (block.IsAir || block.Transparent || block == world.blocks.Blocks.OakLeave) return 0;
+            if (block.IsAir || block.Transparent || block == Blocks.OakLeave) return 0;
             if (block is Stair)
             {
                 byte mask = 0;
@@ -105,12 +105,12 @@ namespace lighting
             var palette = new Dictionary<uint, (byte mask, byte absorption, byte emission)>();
             for (int i = 0; i < ChunkData.CellCount; i++)
             {
-                uint key = (uint)input.Blocks[i] | ((uint)input.States[i] << 16);
+                uint key = input.Blocks[i] | ((uint)input.States[i] << 16);
                 if (!palette.TryGetValue(key, out var optics))
                 {
-                    var block = world.blocks.Blocks.GetByCompactId(input.Blocks[i]);
+                    var block = Blocks.GetByCompactId(input.Blocks[i]);
                     optics = (Occupancy(block, input.States[i]),
-                        (byte)(block == world.blocks.Blocks.OakLeave ? 1 : 0),
+                        (byte)(block == Blocks.OakLeave ? 1 : 0),
                         (byte)Math.Min(15, (int)block.LightEmission(input.States[i])));
                     palette.Add(key, optics);
                 }
@@ -127,13 +127,13 @@ namespace lighting
         {
             var region = new Dictionary<ChunkCoord, LightColumn>();
             foreach (ChunkCoord c in dirty)
-            for (int z = -1; z <= 1; z++) for (int x = -1; x <= 1; x++)
-            {
-                var coord = new ChunkCoord(c.X + x, c.Z + z);
-                if (region.ContainsKey(coord) || !existing.TryGetValue(coord, out var old)) continue;
-                var next = new LightColumn(old);
-                region.Add(coord, next);
-            }
+                for (int z = -1; z <= 1; z++) for (int x = -1; x <= 1; x++)
+                {
+                    var coord = new ChunkCoord(c.X + x, c.Z + z);
+                    if (region.ContainsKey(coord) || !existing.TryGetValue(coord, out var old)) continue;
+                    var next = new LightColumn(old);
+                    region.Add(coord, next);
+                }
             var queue = new Queue<(ChunkCoord coord, int index)>();
             foreach (var pair in region)
             {
@@ -174,15 +174,15 @@ namespace lighting
                 {
                     int i = Index(x, y, z);
                     if (x == 0 || x == 15 || z == 0 || z == 15)
-                    for (int face = 2; face < 6; face++)
-                    {
-                        Neighbor(pair.Key, x, y, z, face, out var nc, out int ni);
-                        if (nc.Equals(pair.Key) || region.ContainsKey(nc) || !existing.TryGetValue(nc, out var n)) continue;
-                        if (!Connects(n.Occupancy[ni], c.Occupancy[i], face ^ 1)) continue;
-                        int loss = Math.Max(1, (int)c.Absorption[i]);
-                        c.Sky[i] = (byte)Math.Max(c.Sky[i], n.Sky[ni] - loss);
-                        c.Local[i] = (byte)Math.Max(c.Local[i], n.Local[ni] - loss);
-                    }
+                        for (int face = 2; face < 6; face++)
+                        {
+                            Neighbor(pair.Key, x, y, z, face, out var nc, out int ni);
+                            if (nc.Equals(pair.Key) || region.ContainsKey(nc) || !existing.TryGetValue(nc, out var n)) continue;
+                            if (!Connects(n.Occupancy[ni], c.Occupancy[i], face ^ 1)) continue;
+                            int loss = Math.Max(1, (int)c.Absorption[i]);
+                            c.Sky[i] = (byte)Math.Max(c.Sky[i], n.Sky[ni] - loss);
+                            c.Local[i] = (byte)Math.Max(c.Local[i], n.Local[ni] - loss);
+                        }
                     if (c.Sky[i] <= 1 && c.Local[i] <= 1) continue;
                     // Only the light frontier needs a queue entry. Enqueuing every sky-lit air
                     // cell allocated a world-sized queue even when almost no propagation was needed.

@@ -2,10 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
+using lighting;
 using UnityEngine;
 using World;
 
-namespace lighting
+namespace world.lighting
 {
     /// <summary>
     /// Main-thread facade around a worker-owned light world. Inputs are copied, output buffers are

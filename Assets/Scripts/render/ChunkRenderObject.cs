@@ -5,6 +5,7 @@ using UnityEngine;
 using World;
 using world.blocks;
 using World.blocks;
+using world.lighting;
 
 namespace Render
 {
@@ -42,7 +43,7 @@ namespace Render
         private MeshFilter _waterMeshFilter;
         private GameObject _waterObject;
         private Mesh _waterMesh;
-        private lighting.WorldLighting.MeshBinding _opaqueLight, _transparentLight, _waterLight;
+        private WorldLighting.MeshBinding _opaqueLight, _transparentLight, _waterLight;
 
         private MeshCollider _waterSourceCollider;
         private WaterSourceColliderProperty _waterSourceColliderProperty;
@@ -535,12 +536,12 @@ namespace Render
             _opaqueMesh != null || _colliderMesh != null || _transparentMesh != null || _waterMesh != null ||
             _waterSourceColliderMesh != null;
 
-        private void BindLight(ref lighting.WorldLighting.MeshBinding binding, Mesh mesh, MeshBuilder.TexturedMeshHolder data)
+        private void BindLight(ref WorldLighting.MeshBinding binding, Mesh mesh, MeshBuilder.TexturedMeshHolder data)
         {
             binding = World.World.Instance?.Lighting?.Bind(mesh, data.Vertices, data.Normals, _chunkPosition, binding);
         }
 
-        private static void RetireLight(ref lighting.WorldLighting.MeshBinding binding)
+        private static void RetireLight(ref WorldLighting.MeshBinding binding)
         {
             World.World.Instance?.Lighting?.Retire(binding);
             binding = null;

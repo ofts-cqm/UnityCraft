@@ -1,6 +1,7 @@
+using lighting;
 using UnityEngine;
 
-namespace lighting
+namespace world.lighting
 {
     /// <summary>A scalar emitter for a future torch/lamp prefab. It never allocates a Unity Light.</summary>
     public sealed class VoxelLightSource : MonoBehaviour

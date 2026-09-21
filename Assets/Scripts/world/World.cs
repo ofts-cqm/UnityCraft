@@ -27,7 +27,7 @@ namespace World
         public Transform player;
         public static World Instance;
         public WorldSaveCoordinator Persistence { get; private set; }
-        public lighting.WorldLighting Lighting { get; private set; }
+        public WorldLighting Lighting { get; private set; }
         public DaylightCycle Daylight { get; private set; }
         private IWorldStorage Storage { get; set; }
         private WorldLoadAuthorization LoadAuthorization { get; set; }
@@ -117,7 +117,7 @@ namespace World
                 if (LoadAuthorization == null) throw new InvalidOperationException("Select a world before opening gameplay.");
 
                 WorldDescriptor descriptor = Storage.ReadWorldDescriptor(LoadAuthorization.WorldId);
-                Lighting = new lighting.WorldLighting(this);
+                Lighting = new WorldLighting(this);
                 Daylight = new DaylightCycle(descriptor.daylight?.elapsedSeconds ?? DaylightCycle.MorningSeconds);
                 WorldGenerationSettings generationSettings = WorldGenerationSettings.FromSeed(descriptor.worldSeed);
                 ChunkGenerator.Initialize(generationSettings);
