@@ -83,11 +83,11 @@ namespace world.lighting
             {
                 _sky.SetFloat(Exposure, Mathf.Lerp(.025f, 1.25f, Mathf.Clamp01(SkyStrength / .34f)) + .22f * twilight);
                 _sky.SetFloat(AtmosphereThickness, Mathf.Lerp(1f, 1.5f, twilight));
-                _sky.SetColor(SkyTint, new Color(.5f, .5f, .5f));
+                _sky.SetColor(SkyTint, new Color(0.6431373f, 0.7843137f, 0.737255f));
                 _sky.SetColor(TwilightGlowColor, warm);
                 _sky.SetFloat(TwilightGlowStrength, twilight);
                 _sky.SetVector(DaylightSunDirection, towardSun);
-                _sky.SetColor(GroundColor, Color.Lerp(new Color(.015f, .02f, .03f), new Color(.32f, .3f, .28f), daylight));
+                _sky.SetColor(GroundColor, Color.Lerp(new Color(.015f, .02f, .4f), new Color(.556f, .741f, 1f), daylight));
             }
         }
 
