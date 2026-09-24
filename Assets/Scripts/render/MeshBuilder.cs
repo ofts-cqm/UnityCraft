@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.Rendering;
 using World.blocks;
@@ -193,7 +194,13 @@ namespace render
             WaterSourceTriangleCoordinate.Clear();
         }
 
-        public record CubicModel(Vector3[] VerticesLookup, int[,] TrianglesLookup, Vector2[] UvsLookup);
+        public record CubicModel(Vector3[] VerticesLookup, int[,] TrianglesLookup, Vector2[] UvsLookup)
+        {
+            public CubicModel Rotate(Matrix4x4 matrix)
+            {
+                return this with { VerticesLookup = VerticesLookup.Select(matrix.MultiplyPoint3x4).ToArray() };
+            }
+        }
 
         public static readonly CubicModel DefaultModel = new(
             new Vector3[]

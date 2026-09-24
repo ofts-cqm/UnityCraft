@@ -18,7 +18,8 @@ namespace world.blocks
     
     public record Torch: Block
     {
-        public Torch(int blockId) : base(blockId, BlockProperty.Pillar(11, 12, 10) with { IsSolid = false, Collide = false, ReplaceTerrain = true, Transparent = false}, TorchBase.Bottom)
+        public Torch(int blockId) : base(blockId, BlockProperty.Pillar(11, 12, 10)
+            .SetAllowsLightPassThrough(true) with { IsSolid = false, Collide = false, ReplaceTerrain = true, Transparent = false, AllowsLightPassThrough = true }, TorchBase.Bottom)
         {
         }
 
@@ -71,16 +72,26 @@ namespace world.blocks
             }
         );
 
+        private static readonly MeshBuilder.CubicModel[] ModelLookup =
+        {
+            TorchModel,
+            TorchModel.Rotate(Matrix4x4.Rotate(Quaternion.Euler(0, 0, 30f))),
+            TorchModel.Rotate(Matrix4x4.Rotate(Quaternion.Euler(0, 0, -30f))),
+            TorchModel.Rotate(Matrix4x4.Rotate(Quaternion.Euler(30, 0, 0))),
+            TorchModel.Rotate(Matrix4x4.Rotate(Quaternion.Euler(-30, 0, 0))),
+        };
+
         public override byte LightEmission(ushort stateId) => 15;
 
         public override void Render(BlockState state, IBlockProvider chunk, MeshBuilder builder, Vector3Int position, Vector3 localPosition)
         {
-            builder.AddFace(ChunkRenderObject.TopFace,  localPosition, this, TorchModel, true);
-            builder.AddFace(ChunkRenderObject.BottomFace,  localPosition, this, TorchModel, true);
-            builder.AddFace(ChunkRenderObject.LeftFace,  localPosition, this, TorchModel, true);
-            builder.AddFace(ChunkRenderObject.RightFace,  localPosition, this, TorchModel, true);
-            builder.AddFace(ChunkRenderObject.FrontFace,  localPosition, this, TorchModel, true);
-            builder.AddFace(ChunkRenderObject.BackFace,  localPosition, this, TorchModel, true);
+            MeshBuilder.CubicModel model = ModelLookup[(int)(state.Data as TorchBase? ?? TorchBase.Bottom)];
+            builder.AddFace(ChunkRenderObject.TopFace,  localPosition, this, model, true);
+            builder.AddFace(ChunkRenderObject.BottomFace,  localPosition, this, model, true);
+            builder.AddFace(ChunkRenderObject.LeftFace,  localPosition, this, model, true);
+            builder.AddFace(ChunkRenderObject.RightFace,  localPosition, this, model, true);
+            builder.AddFace(ChunkRenderObject.FrontFace,  localPosition, this, model, true);
+            builder.AddFace(ChunkRenderObject.BackFace,  localPosition, this, model, true);
         }
 
         public override object GetStateToPlace(int face, Vector3Int original, ref Vector3Int position)
@@ -94,7 +105,7 @@ namespace world.blocks
                 _ => TorchBase.Bottom
             };
         }
-        
+
         public override int EncodeState(object state)
         {
             return state is TorchBase torch ? torch switch

@@ -215,8 +215,7 @@ namespace World
             FluidState existingFluid = FluidState.FromRaw(_data.GetFluidRawUnchecked(x, y, z));
             _data.SetBlock(x, y, z, block, nextStateId);
             if (lighting.VoxelLightSolver.Occupancy(existingBlock, existingStateId) != lighting.VoxelLightSolver.Occupancy(block, nextStateId) ||
-                existingBlock.LightEmission(existingStateId) != block.LightEmission(nextStateId) ||
-                (existingBlock == Blocks.OakLeave) != (block == Blocks.OakLeave))
+                existingBlock.LightEmission(existingStateId) != block.LightEmission(nextStateId))
                 _world?.Lighting?.Invalidate(ChunkPosition);
             _persistenceRevision++;
             _renderObjects[y / ChunkSize].MarkDirty(ChunkRenderDirtyFlags.All);

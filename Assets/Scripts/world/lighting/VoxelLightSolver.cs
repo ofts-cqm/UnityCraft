@@ -53,7 +53,7 @@ namespace lighting
 
         public static byte Occupancy(World.blocks.Block block, ushort state)
         {
-            if (block.IsAir || block.Transparent || block == Blocks.OakLeave) return 0;
+            if (block.IsAir || block.AllowsLightPassThrough) return 0;
             if (block is Stair)
             {
                 byte mask = 0;
@@ -110,7 +110,7 @@ namespace lighting
                 {
                     var block = Blocks.GetByCompactId(input.Blocks[i]);
                     optics = (Occupancy(block, input.States[i]),
-                        (byte)(block == Blocks.OakLeave ? 1 : 0),
+                        0,
                         (byte)Math.Min(15, (int)block.LightEmission(input.States[i])));
                     palette.Add(key, optics);
                 }

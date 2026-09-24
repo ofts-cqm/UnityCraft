@@ -157,6 +157,7 @@ namespace World.blocks
         // Blocks are dry by default. Blocks that can hold or transmit fluid opt in explicitly.
         public virtual (int max, int min) GetFlowingAmountLimit(BlockState state, int face) => (0, 10);
         public bool Transparent => Property.Transparent;
+        public bool AllowsLightPassThrough => Property.AllowsLightPassThrough;
         public bool IsAirOrVoid => BlockId == Blocks.Air.BlockId || BlockId == Blocks.Void.BlockId;
         public BlockState AsState(Vector3Int position, [CanBeNull] object data = null) => new(position, this, data ?? DefaultState);
         public BlockState AsState(int x, int y, int z, [CanBeNull] object data = null) => new(new(x, y, z), this, data ?? DefaultState);

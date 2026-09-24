@@ -43,7 +43,8 @@ namespace world.blocks
             GenerationWater = new Block(5, BlockProperty.Default(32).SetSolid(false) with { Collide = false });
             Sand = new GravityBlock(6, BlockProperty.Default(5));
             Log = new WoodBlocks(38, new Log(38, BlockProperty.Pillar(64, 64, 65)), 7);
-            OakLeave = new LeavesBlock(8, BlockProperty.Default(108) with { ReplaceTerrain = false, IsSolid = false });
+            OakLeave = new LeavesBlock(8, BlockProperty.Default(108)
+                .SetAllowsLightPassThrough(true) with { ReplaceTerrain = false, IsSolid = false });
             Gravel = new GravityBlock(9, BlockProperty.Default(4));
             StainedGlass = new ColoredBlocks(10, new BatchableBlock(10, BlockProperty.Default(16).SetTransparent(true)));
             Planks = new WoodBlocks(47, new BatchableBlock(47, BlockProperty.Default(66)), 26);
