@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.Rendering;
 using World.blocks;
@@ -14,7 +15,8 @@ namespace render
             Opaque = 1 << 0,
             Transparent = 1 << 1,
             Collider = 1 << 2,
-            Water = 1 << 3
+            Water = 1 << 3,
+            Selection = 1 << 4
         }
 
         public class MeshHolder
@@ -30,8 +32,8 @@ namespace render
                 AddQuad(vertices[0], vertices[1], vertices[2], vertices[3], reverse);
             }
 
-            public virtual void AddQuad(Vector3 first, Vector3 second, Vector3 third, Vector3 fourth,
-                bool reverse = false)
+            public void AddQuad(Vector3 first, Vector3 second, Vector3 third, Vector3 fourth,
+                bool reverse = false, bool doubleSide = false)
             {
                 int vertexIndex = VertexCount;
                 Vertices.Add(first);
@@ -39,7 +41,7 @@ namespace render
                 Vertices.Add(third);
                 Vertices.Add(fourth);
 
-                if (reverse)
+                if (reverse || doubleSide)
                 {
                     Triangles.Add(vertexIndex + 2);
                     Triangles.Add(vertexIndex + 1);
@@ -48,7 +50,8 @@ namespace render
                     Triangles.Add(vertexIndex + 1);
                     Triangles.Add(vertexIndex + 2);
                 }
-                else
+                
+                if (!reverse || doubleSide)
                 {
                     Triangles.Add(vertexIndex);
                     Triangles.Add(vertexIndex + 1);
@@ -110,9 +113,9 @@ namespace render
 
             public void AddQuad(Vector3 first, Vector3 second, Vector3 third, Vector3 fourth,
                 Vector2 firstUv, Vector2 secondUv, Vector2 thirdUv, Vector2 fourthUv,
-                Vector4 texture, bool reverse = false)
+                Vector4 texture, bool reverse = false, bool doubleSide = false)
             {
-                base.AddQuad(first, second, third, fourth, reverse);
+                base.AddQuad(first, second, third, fourth, reverse, doubleSide);
                 Uvs.Add(firstUv);
                 Uvs.Add(secondUv);
                 Uvs.Add(thirdUv);
@@ -168,9 +171,12 @@ namespace render
         public readonly TexturedMeshHolder TransparentMesh = new();
         public readonly TexturedMeshHolder WaterMesh = new();
         public readonly MeshHolder ColliderMesh = new();
+        public readonly MeshHolder SelectionMesh = new();
         public readonly MeshHolder WaterSourceColliderMesh = new();
         public readonly List<int> TriangleCoordinate = new();
         public readonly List<int> TriangleFace = new();
+        public readonly List<int> SelectionTriangleCoordinate = new();
+        public readonly List<int> SelectionTriangleFace = new();
         public readonly List<int> WaterSourceTriangleCoordinate = new();
 
         public void Clear()
@@ -179,13 +185,22 @@ namespace render
             TransparentMesh.Clear();
             WaterMesh.Clear();
             ColliderMesh.Clear();
+            SelectionMesh.Clear();
             WaterSourceColliderMesh.Clear();
             TriangleCoordinate.Clear();
             TriangleFace.Clear();
+            SelectionTriangleCoordinate.Clear();
+            SelectionTriangleFace.Clear();
             WaterSourceTriangleCoordinate.Clear();
         }
 
-        public record CubicModel(Vector3[] VerticesLookup, int[,] TrianglesLookup, Vector2[] UvsLookup);
+        public record CubicModel(Vector3[] VerticesLookup, int[,] TrianglesLookup, Vector2[] UvsLookup)
+        {
+            public CubicModel Rotate(Matrix4x4 matrix)
+            {
+                return this with { VerticesLookup = VerticesLookup.Select(matrix.MultiplyPoint3x4).ToArray() };
+            }
+        }
 
         public static readonly CubicModel DefaultModel = new(
             new Vector3[]
@@ -220,9 +235,9 @@ namespace render
             AddFace(face, position, block, DefaultModel, new Vector4(block.TextureIndex(face), 1, 1, 0), DefaultTargets(block));
         }
 
-        public void AddFace(int face, Vector3 position, Block block, CubicModel model)
+        public void AddFace(int face, Vector3 position, Block block, CubicModel model, bool doubleSided = false)
         {
-            AddFace(face, position, block, model, new Vector4(block.TextureIndex(face), 1, 1, 0), DefaultTargets(block));
+            AddFace(face, position, block, model, new Vector4(block.TextureIndex(face), 1, 1, 0), DefaultTargets(block), doubleSided);
         }
 
         public void AddFace(int face, Vector3 position, Block block, MeshTargets targets)
@@ -235,26 +250,43 @@ namespace render
             AddFace(face, position, block, model, new Vector4(block.TextureIndex(face), 1, 1, 0), targets);
         }
 
-        public void AddFace(int face, Vector3 position, Block block, CubicModel model, Vector4 texture, MeshTargets targets)
+        public void AddFace(int face, Vector3 position, Block block, CubicModel model, Vector4 texture, MeshTargets targets, bool doubleSide = false)
         {
-            AddFace(face, position, block, model, model.UvsLookup, texture, targets);
+            AddFace(face, position, block, model, model.UvsLookup, texture, targets, doubleSide);
         }
 
         public void AddFace(int face, Vector3 position, Block block, CubicModel model, Vector2[] uvs, Vector4 texture,
-            MeshTargets targets)
+            MeshTargets targets, bool doubleSide = false)
         {
+            // Every rendered non-colliding block remains targetable. The chunk renderer never calls
+            // AddFace for air, and water uses its separate fluid mesh rather than this block path.
+            if (!block.Collide)
+            {
+                targets &= ~MeshTargets.Collider;
+                if ((targets & (MeshTargets.Opaque | MeshTargets.Transparent)) != 0)
+                    targets |= MeshTargets.Selection;
+            }
+
             Vector3 first = model.VerticesLookup[model.TrianglesLookup[face, 0]] + position;
             Vector3 second = model.VerticesLookup[model.TrianglesLookup[face, 1]] + position;
             Vector3 third = model.VerticesLookup[model.TrianglesLookup[face, 2]] + position;
             Vector3 fourth = model.VerticesLookup[model.TrianglesLookup[face, 3]] + position;
 
-            AddQuad(first, second, third, fourth, uvs[0], uvs[1], uvs[2], uvs[3], texture, targets);
-
-            if ((targets & MeshTargets.Collider) == 0) return;
+            AddQuad(first, second, third, fourth, uvs[0], uvs[1], uvs[2], uvs[3], texture, targets, doubleSide:doubleSide);
+            
+            if ((targets & (MeshTargets.Collider | MeshTargets.Selection)) == 0) return;
 
             int serialized = ((int)position.x << 16) | ((int)position.y << 8) | (int)position.z;
-            TriangleCoordinate.Add(serialized);
-            TriangleFace.Add(face);
+            if ((targets & MeshTargets.Collider) != 0)
+            {
+                TriangleCoordinate.Add(serialized);
+                TriangleFace.Add(face);
+            }
+            if ((targets & MeshTargets.Selection) != 0)
+            {
+                SelectionTriangleCoordinate.Add(serialized);
+                SelectionTriangleFace.Add(face);
+            }
         }
 
         public void AddWaterSourceColliderFace(int face, Vector3 position)
@@ -277,16 +309,18 @@ namespace render
 
         public void AddQuad(Vector3 first, Vector3 second, Vector3 third, Vector3 fourth,
             Vector2 firstUv, Vector2 secondUv, Vector2 thirdUv, Vector2 fourthUv,
-            Vector4 texture, MeshTargets targets, bool reverse = false)
+            Vector4 texture, MeshTargets targets, bool reverse = false, bool doubleSide = false)
         {
             if ((targets & MeshTargets.Opaque) != 0)
-                OpaqueMesh.AddQuad(first, second, third, fourth, firstUv, secondUv, thirdUv, fourthUv, texture, reverse);
+                OpaqueMesh.AddQuad(first, second, third, fourth, firstUv, secondUv, thirdUv, fourthUv, texture, reverse, doubleSide);
             if ((targets & MeshTargets.Transparent) != 0)
-                TransparentMesh.AddQuad(first, second, third, fourth, firstUv, secondUv, thirdUv, fourthUv, texture, reverse);
+                TransparentMesh.AddQuad(first, second, third, fourth, firstUv, secondUv, thirdUv, fourthUv, texture, reverse, doubleSide);
             if ((targets & MeshTargets.Water) != 0)
                 WaterMesh.AddQuad(first, second, third, fourth, firstUv, secondUv, thirdUv, fourthUv, texture, reverse);
             if ((targets & MeshTargets.Collider) != 0)
                 ColliderMesh.AddQuad(first, second, third, fourth, reverse);
+            if ((targets & MeshTargets.Selection) != 0)
+                SelectionMesh.AddQuad(first, second, third, fourth, reverse);
         }
 
         private static MeshTargets DefaultTargets(Block block)

@@ -7,7 +7,7 @@ namespace world.blocks
 {
     public static class Blocks
     {
-        private record AirBlock() : Block(0, BlockProperty.Default(0).SetSolid(false) with { Collide = false })
+        private record AirBlock() : Block(0, BlockProperty.Default(0).SetSolid(false) with { Collide = false, ReplaceByPlace = true })
         {
             public override (int max, int min) GetFlowingAmountLimit(BlockState state, int face) => (10, 0);
         }
@@ -31,6 +31,7 @@ namespace world.blocks
         public static readonly WoodBlocks Planks;
         public static readonly WoodBlocks WoodSlab;
         public static readonly WoodBlocks WoodStairs;
+        public static readonly Torch Torch;
 
         static Blocks()
         {
@@ -42,12 +43,14 @@ namespace world.blocks
             GenerationWater = new Block(5, BlockProperty.Default(32).SetSolid(false) with { Collide = false });
             Sand = new GravityBlock(6, BlockProperty.Default(5));
             Log = new WoodBlocks(38, new Log(38, BlockProperty.Pillar(64, 64, 65)), 7);
-            OakLeave = new LeavesBlock(8, BlockProperty.Default(108) with { ReplaceTerrain = false, IsSolid = false });
+            OakLeave = new LeavesBlock(8, BlockProperty.Default(108)
+                .SetAllowsLightPassThrough(true) with { ReplaceTerrain = false, IsSolid = false });
             Gravel = new GravityBlock(9, BlockProperty.Default(4));
             StainedGlass = new ColoredBlocks(10, new BatchableBlock(10, BlockProperty.Default(16).SetTransparent(true)));
             Planks = new WoodBlocks(47, new BatchableBlock(47, BlockProperty.Default(66)), 26);
             WoodSlab = new WoodBlocks(56, new Slab(56, BlockProperty.Default(66).SetSolid(false)), 27);
             WoodStairs = new WoodBlocks(29, new Stair(29, 66), 28);
+            Torch = new Torch(65);
         }
 
         internal static void Register(Block block)

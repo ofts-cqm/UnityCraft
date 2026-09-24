@@ -118,7 +118,7 @@ namespace player
             _screenshotAction.performed += OnScreenshot;
             Cursor.lockState = _gameplayReady ? CursorLockMode.Locked : CursorLockMode.None;
             Cursor.visible = !_gameplayReady;
-            _blockLayer = LayerMask.GetMask("Blocks");
+            _blockLayer = LayerMask.GetMask("Blocks", "Selectable Blocks");
             
             hotbar.LoadFromPlayer(this);
         }
@@ -443,8 +443,10 @@ namespace player
                 {
                     if (!targetOutline.activeSelf) targetOutline.SetActive(true);
                     
-                    TargetLocation = renderObjectProperty.RenderObject.GetBlockPositionOfTriangle(hitInfo.triangleIndex);
-                    TargetFace = renderObjectProperty.RenderObject.GetTriangleFacing(hitInfo.triangleIndex);
+                    TargetLocation = renderObjectProperty.RenderObject.GetBlockPositionOfTriangle(
+                        hitInfo.triangleIndex, renderObjectProperty.SelectionOnly);
+                    TargetFace = renderObjectProperty.RenderObject.GetTriangleFacing(
+                        hitInfo.triangleIndex, renderObjectProperty.SelectionOnly);
                     HasTargetLocation = true;
                     
                     targetOutline.transform.position = TargetLocation;

@@ -123,6 +123,8 @@ namespace Tests.Editor
                     Assert.AreEqual(Stair.Occupies((StairState)state, bit & 1, bit >> 2, (bit >> 1) & 1), (mask & (1 << bit)) != 0);
             }
             Assert.AreEqual(0, VoxelLightSolver.Occupancy(Blocks.StainedGlass.White, 0));
+            Assert.AreEqual(0, VoxelLightSolver.Occupancy(Blocks.OakLeave, 0));
+            Assert.AreEqual(0, VoxelLightSolver.Occupancy(Blocks.Torch, 0));
         }
 
         [Test]
