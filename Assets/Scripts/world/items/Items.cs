@@ -30,6 +30,7 @@ namespace world.items
         public static readonly Item Bucket;
         public static readonly Item SearchIcon;
         public static readonly Item BackpackIcon;
+        public static readonly Item Torch;
 
         private static Item RegisterBuildingItem(this Item item)
         {
@@ -80,6 +81,7 @@ namespace world.items
             Bucket = new Bucket(27).RegisterToolItem();
             SearchIcon = new SimpleItem(-1, "", "items/search");
             BackpackIcon = new SimpleItem(-1, "", "items/backpack");
+            Torch = new BlockItem(65, "Torch", Blocks.Torch).RegisterToolItem();
             
             FinalizeItemInventory(NatureBlockList);
             FinalizeItemInventory(BuildingBlockList);

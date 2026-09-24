@@ -14,6 +14,9 @@
     "7": "Core/stone.png",
     "8": "Core/sandstone_top.png",
     "9": "Core/sandstone_bottom.png",
+    "10": "Core/torch_side.png",
+    "11": "Core/torch_top.png",
+    "12": "Core/torch_bottom.png",
     "16": "Core/stained_glass_white.png",
     "17": "Core/stained_glass_light_gray.png",
     "18": "Core/stained_glass_gray.png",
@@ -111,9 +114,6 @@
     "110": "Leaves/spruce_leaves.png"
   },
   "empty_indices": [
-    10,
-    11,
-    12,
     13,
     14,
     15
