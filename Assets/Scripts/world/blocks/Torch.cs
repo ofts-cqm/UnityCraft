@@ -75,12 +75,12 @@ namespace world.blocks
 
         public override void Render(BlockState state, IBlockProvider chunk, MeshBuilder builder, Vector3Int position, Vector3 localPosition)
         {
-            builder.AddFace(ChunkRenderObject.TopFace,  localPosition, this, TorchModel);
-            builder.AddFace(ChunkRenderObject.BottomFace,  localPosition, this, TorchModel);
-            builder.AddFace(ChunkRenderObject.LeftFace,  localPosition, this, TorchModel);
-            builder.AddFace(ChunkRenderObject.RightFace,  localPosition, this, TorchModel);
-            builder.AddFace(ChunkRenderObject.FrontFace,  localPosition, this, TorchModel);
-            builder.AddFace(ChunkRenderObject.BackFace,  localPosition, this, TorchModel);
+            builder.AddFace(ChunkRenderObject.TopFace,  localPosition, this, TorchModel, true);
+            builder.AddFace(ChunkRenderObject.BottomFace,  localPosition, this, TorchModel, true);
+            builder.AddFace(ChunkRenderObject.LeftFace,  localPosition, this, TorchModel, true);
+            builder.AddFace(ChunkRenderObject.RightFace,  localPosition, this, TorchModel, true);
+            builder.AddFace(ChunkRenderObject.FrontFace,  localPosition, this, TorchModel, true);
+            builder.AddFace(ChunkRenderObject.BackFace,  localPosition, this, TorchModel, true);
         }
 
         public override object GetStateToPlace(int face, Vector3Int original, ref Vector3Int position)
