@@ -7,7 +7,7 @@ namespace world.blocks
 {
     public static class Blocks
     {
-        private record AirBlock() : Block(0, BlockProperty.Default(0).SetSolid(false) with { Collide = false })
+        private record AirBlock() : Block(0, BlockProperty.Default(0).SetSolid(false) with { Collide = false, ReplaceByPlace = true })
         {
             public override (int max, int min) GetFlowingAmountLimit(BlockState state, int face) => (10, 0);
         }

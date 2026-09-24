@@ -11,7 +11,7 @@ namespace World.blocks
     public record Block
     {
         public int BlockId { get; }
-        protected BlockProperty Property { get; }
+        public BlockProperty Property { get; }
         public object DefaultState { get; }
         private object[] _decodedStateCache = new object[8];
         private Dictionary<ushort, object> _exceptionalDecodedStates;

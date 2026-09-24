@@ -81,7 +81,7 @@ namespace world.items
             Bucket = new Bucket(27).RegisterToolItem();
             SearchIcon = new SimpleItem(-1, "", "items/search");
             BackpackIcon = new SimpleItem(-1, "", "items/backpack");
-            Torch = new BlockItem(65, "Torch", Blocks.Torch).RegisterToolItem();
+            Torch = new RawTextureBlockItem(65, "Torch", "items/torch", Blocks.Torch).RegisterToolItem();
             
             FinalizeItemInventory(NatureBlockList);
             FinalizeItemInventory(BuildingBlockList);

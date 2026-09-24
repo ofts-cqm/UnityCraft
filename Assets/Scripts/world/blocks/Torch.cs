@@ -14,6 +14,7 @@ namespace world.blocks
         West,
         North,
         South,
+        Rejected
     }
     
     public record Torch: Block
@@ -86,6 +87,12 @@ namespace world.blocks
 
         public override byte LightEmission(ushort stateId) => 15;
 
+        public override bool CanPlace(BlockState existing, object placementData)
+        {
+            if (placementData is TorchBase.Rejected) return false;
+            return existing.Block.Property.ReplaceByPlace;
+        }
+
         public override void Render(BlockState state, IBlockProvider chunk, MeshBuilder builder, Vector3Int position, Vector3 localPosition)
         {
             MeshBuilder.CubicModel model = ModelLookup[(int)(state.Data as TorchBase? ?? TorchBase.Bottom)];
@@ -99,6 +106,8 @@ namespace world.blocks
 
         public override object GetStateToPlace(int face, Vector3Int original, ref Vector3Int position)
         {
+            if (!World.World.Instance.GetBlock(original).IsSolid(face)) return TorchBase.Rejected;
+            
             return face switch
             {
                 ChunkRenderObject.LeftFace => TorchBase.East,

@@ -6,7 +6,8 @@ namespace world.blocks
         bool Collide,
         bool ReplaceTerrain,
         bool Transparent,
-        bool AllowsLightPassThrough)
+        bool AllowsLightPassThrough,
+        bool ReplaceByPlace = false)
     {
         public static BlockProperty Default(int texture) => Default(new[] { texture, texture, texture, texture, texture, texture });
 

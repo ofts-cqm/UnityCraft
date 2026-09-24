@@ -28,6 +28,8 @@ namespace world.blocks
 
         public bool IsAir => Block.IsAir;
 
+        public bool IsSolid(int face) => Block.IsSolid(this, face);
+
         public bool Equals(BlockState other)
         {
             return Position.Equals(other.Position) && EqualityComparer<Block>.Default.Equals(Block, other.Block) &&
