@@ -71,14 +71,17 @@ namespace world.blocks
                 new(1, 1)
             }
         );
+        
+        private static readonly Matrix4x4 OffsetMatrix = Matrix4x4.Translate(new Vector3(0.5f, 0.8f, 0.5f));
+        private static readonly Matrix4x4 ReverseMatrix = Matrix4x4.Translate(new Vector3(-0.5f, -0.8f, -0.5f));
 
         private static readonly MeshBuilder.CubicModel[] ModelLookup =
         {
             TorchModel,
-            TorchModel.Rotate(Matrix4x4.Rotate(Quaternion.Euler(0, 0, 30f))),
-            TorchModel.Rotate(Matrix4x4.Rotate(Quaternion.Euler(0, 0, -30f))),
-            TorchModel.Rotate(Matrix4x4.Rotate(Quaternion.Euler(30, 0, 0))),
-            TorchModel.Rotate(Matrix4x4.Rotate(Quaternion.Euler(-30, 0, 0))),
+            TorchModel.Rotate(OffsetMatrix * Matrix4x4.Rotate(Quaternion.Euler(0, 0, 30f)) * ReverseMatrix),
+            TorchModel.Rotate(OffsetMatrix * Matrix4x4.Rotate(Quaternion.Euler(0, 0, -30f)) * ReverseMatrix),
+            TorchModel.Rotate(OffsetMatrix * Matrix4x4.Rotate(Quaternion.Euler(30, 0, 0)) * ReverseMatrix),
+            TorchModel.Rotate(OffsetMatrix * Matrix4x4.Rotate(Quaternion.Euler(-30, 0, 0)) * ReverseMatrix)
         };
 
         public override byte LightEmission(ushort stateId) => 15;
