@@ -7,6 +7,7 @@ namespace render
     public class RenderObjectProperty : MonoBehaviour
     {
         public ChunkRenderObject RenderObject { get; set; }
+        public bool SelectionOnly { get; set; }
     }
 
     public class WaterSourceColliderProperty : MonoBehaviour

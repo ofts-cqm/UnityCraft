@@ -24,6 +24,7 @@ namespace Render
         // list allocation without retaining a second full copy of every section mesh.
         private static readonly MeshBuilder SharedMeshBuilder = new();
         private static bool _waterLayerCollisionConfigured;
+        private static bool _selectionLayerCollisionConfigured;
 
         private readonly Chunk _owner;
         private MeshRenderer _opaqueRenderer;
@@ -33,6 +34,11 @@ namespace Render
         private GameObject _chunkObject;
         private Mesh _opaqueMesh;
         private Mesh _colliderMesh;
+
+        private MeshCollider _selectionCollider;
+        private RenderObjectProperty _selectionProperty;
+        private GameObject _selectionObject;
+        private Mesh _selectionMesh;
 
         private MeshRenderer _transparentRenderer;
         private MeshFilter _transparentMeshFilter;
@@ -55,6 +61,8 @@ namespace Render
 
         private readonly List<int> _triangleCoordinate = new();
         private readonly List<int> _triangleFace = new();
+        private readonly List<int> _selectionTriangleCoordinate = new();
+        private readonly List<int> _selectionTriangleFace = new();
         private readonly List<int> _waterSourceTriangleCoordinate = new();
         private readonly object _dirtyLock = new();
         private ChunkRenderDirtyFlags _dirtyFlags = ChunkRenderDirtyFlags.All;
@@ -64,6 +72,7 @@ namespace Render
         private bool _active;
         private bool _hasBlockGeometry;
         private bool _hasColliderGeometry;
+        private bool _hasSelectionGeometry;
         private bool _hasWaterGeometry;
         private bool _hasWaterSourceColliderGeometry;
 
@@ -153,6 +162,30 @@ namespace Render
                 _renderObjectProperty.RenderObject = this;
             }
             if (_colliderMesh == null) _colliderMesh = CreatePersistentMesh("Collider");
+        }
+
+        private void EnsureSelectionChannel()
+        {
+            EnsureRootObject();
+            if (_selectionObject == null)
+            {
+                int selectionLayer = GetRequiredLayer("Selectable Blocks");
+                if (!_selectionLayerCollisionConfigured)
+                {
+                    for (int layer = 0; layer < 32; layer++) Physics.IgnoreLayerCollision(selectionLayer, layer, true);
+                    _selectionLayerCollisionConfigured = true;
+                }
+                _selectionObject = new GameObject("Selection Collider");
+                _selectionObject.SetActive(false);
+                _selectionObject.layer = selectionLayer;
+                _selectionObject.transform.SetParent(_chunkObject.transform, false);
+                _selectionCollider = _selectionObject.AddComponent<MeshCollider>();
+                _selectionProperty = _selectionObject.AddComponent<RenderObjectProperty>();
+                _selectionProperty.RenderObject = this;
+                _selectionProperty.SelectionOnly = true;
+            }
+            if (_selectionMesh == null) _selectionMesh = CreatePersistentMesh("Selection Collider");
+            _selectionObject.SetActive(true);
         }
 
         private void EnsureTransparentChannel()
@@ -245,14 +278,18 @@ namespace Render
                     // regenerated if the chunk returns to view, avoiding thousands of hidden Unity objects.
                     _hasBlockGeometry = false;
                     _hasColliderGeometry = false;
+                    _hasSelectionGeometry = false;
                     _hasWaterGeometry = false;
                     _hasWaterSourceColliderGeometry = false;
                     _triangleCoordinate.Clear();
                     _triangleFace.Clear();
+                    _selectionTriangleCoordinate.Clear();
+                    _selectionTriangleFace.Clear();
                     _waterSourceTriangleCoordinate.Clear();
                     lock (_dirtyLock) _queued = false;
                     ReleaseOpaqueChannel();
                     ReleaseColliderChannel();
+                    ReleaseSelectionChannel();
                     ReleaseTransparentChannel();
                     ReleaseWaterChannel();
                     ReleaseWaterSourceColliderChannel();
@@ -274,10 +311,12 @@ namespace Render
             _active = false;
             _hasBlockGeometry = false;
             _hasColliderGeometry = false;
+            _hasSelectionGeometry = false;
             _hasWaterGeometry = false;
             _hasWaterSourceColliderGeometry = false;
             ReleaseOpaqueChannel();
             ReleaseColliderChannel();
+            ReleaseSelectionChannel();
             ReleaseTransparentChannel();
             ReleaseWaterChannel();
             ReleaseWaterSourceColliderChannel();
@@ -369,6 +408,10 @@ namespace Render
                 _triangleCoordinate.AddRange(SharedMeshBuilder.TriangleCoordinate);
                 _triangleFace.Clear();
                 _triangleFace.AddRange(SharedMeshBuilder.TriangleFace);
+                _selectionTriangleCoordinate.Clear();
+                _selectionTriangleCoordinate.AddRange(SharedMeshBuilder.SelectionTriangleCoordinate);
+                _selectionTriangleFace.Clear();
+                _selectionTriangleFace.AddRange(SharedMeshBuilder.SelectionTriangleFace);
                 _hasBlockGeometry = !(SharedMeshBuilder.OpaqueMesh.IsEmpty && SharedMeshBuilder.TransparentMesh.IsEmpty);
             }
 
@@ -402,6 +445,16 @@ namespace Render
                 _meshCollider.sharedMesh = _colliderMesh;
             }
             _hasColliderGeometry = !builder.ColliderMesh.IsEmpty;
+
+            if (builder.SelectionMesh.IsEmpty) ReleaseSelectionChannel();
+            else
+            {
+                EnsureSelectionChannel();
+                _selectionCollider.sharedMesh = null;
+                builder.SelectionMesh.UploadTo(_selectionMesh);
+                _selectionCollider.sharedMesh = _selectionMesh;
+            }
+            _hasSelectionGeometry = !builder.SelectionMesh.IsEmpty;
 
             if (builder.TransparentMesh.IsEmpty) ReleaseTransparentChannel();
             else
@@ -483,6 +536,21 @@ namespace Render
             _colliderMesh = null;
         }
 
+        private void ReleaseSelectionChannel()
+        {
+            if (_selectionCollider != null) _selectionCollider.sharedMesh = null;
+            if (_selectionObject != null)
+            {
+                _selectionObject.SetActive(false);
+                UnityEngine.Object.Destroy(_selectionObject);
+            }
+            DestroyMesh(_selectionMesh);
+            _selectionObject = null;
+            _selectionCollider = null;
+            _selectionProperty = null;
+            _selectionMesh = null;
+        }
+
         private void ReleaseTransparentChannel()
         {
             RetireLight(ref _transparentLight);
@@ -533,7 +601,8 @@ namespace Render
         }
 
         private bool HasAllocatedChannel =>
-            _opaqueMesh != null || _colliderMesh != null || _transparentMesh != null || _waterMesh != null ||
+            _opaqueMesh != null || _colliderMesh != null || _selectionMesh != null ||
+            _transparentMesh != null || _waterMesh != null ||
             _waterSourceColliderMesh != null;
 
         private void BindLight(ref WorldLighting.MeshBinding binding, Mesh mesh, MeshBuilder.TexturedMeshHolder data)
@@ -555,7 +624,7 @@ namespace Render
                 return;
             }
 
-            _chunkObject.SetActive(_active && (_hasBlockGeometry || _hasColliderGeometry || _hasWaterGeometry ||
+            _chunkObject.SetActive(_active && (_hasBlockGeometry || _hasColliderGeometry || _hasSelectionGeometry || _hasWaterGeometry ||
                 _hasWaterSourceColliderGeometry));
         }
 
@@ -567,16 +636,16 @@ namespace Render
             _chunkObject = null;
         }
 
-        public Vector3Int GetBlockPositionOfTriangle(int index)
+        public Vector3Int GetBlockPositionOfTriangle(int index, bool selectionOnly = false)
         {
-            int serialized = _triangleCoordinate[index / 2];
+            int serialized = (selectionOnly ? _selectionTriangleCoordinate : _triangleCoordinate)[index / 2];
             return new Vector3Int((serialized >> 16) & 0xFF, (serialized >> 8) & 0xFF, serialized & 0xFF) +
                    _chunkPosition;
         }
 
-        public int GetTriangleFacing(int index)
+        public int GetTriangleFacing(int index, bool selectionOnly = false)
         {
-            return _triangleFace[index / 2];
+            return (selectionOnly ? _selectionTriangleFace : _triangleFace)[index / 2];
         }
 
         public Vector3Int GetWaterSourcePositionOfTriangle(int index)

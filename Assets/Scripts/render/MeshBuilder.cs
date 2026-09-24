@@ -14,7 +14,8 @@ namespace render
             Opaque = 1 << 0,
             Transparent = 1 << 1,
             Collider = 1 << 2,
-            Water = 1 << 3
+            Water = 1 << 3,
+            Selection = 1 << 4
         }
 
         public class MeshHolder
@@ -168,9 +169,12 @@ namespace render
         public readonly TexturedMeshHolder TransparentMesh = new();
         public readonly TexturedMeshHolder WaterMesh = new();
         public readonly MeshHolder ColliderMesh = new();
+        public readonly MeshHolder SelectionMesh = new();
         public readonly MeshHolder WaterSourceColliderMesh = new();
         public readonly List<int> TriangleCoordinate = new();
         public readonly List<int> TriangleFace = new();
+        public readonly List<int> SelectionTriangleCoordinate = new();
+        public readonly List<int> SelectionTriangleFace = new();
         public readonly List<int> WaterSourceTriangleCoordinate = new();
 
         public void Clear()
@@ -179,9 +183,12 @@ namespace render
             TransparentMesh.Clear();
             WaterMesh.Clear();
             ColliderMesh.Clear();
+            SelectionMesh.Clear();
             WaterSourceColliderMesh.Clear();
             TriangleCoordinate.Clear();
             TriangleFace.Clear();
+            SelectionTriangleCoordinate.Clear();
+            SelectionTriangleFace.Clear();
             WaterSourceTriangleCoordinate.Clear();
         }
 
@@ -243,6 +250,15 @@ namespace render
         public void AddFace(int face, Vector3 position, Block block, CubicModel model, Vector2[] uvs, Vector4 texture,
             MeshTargets targets)
         {
+            // Every rendered non-colliding block remains targetable. The chunk renderer never calls
+            // AddFace for air, and water uses its separate fluid mesh rather than this block path.
+            if (!block.Collide)
+            {
+                targets &= ~MeshTargets.Collider;
+                if ((targets & (MeshTargets.Opaque | MeshTargets.Transparent)) != 0)
+                    targets |= MeshTargets.Selection;
+            }
+
             Vector3 first = model.VerticesLookup[model.TrianglesLookup[face, 0]] + position;
             Vector3 second = model.VerticesLookup[model.TrianglesLookup[face, 1]] + position;
             Vector3 third = model.VerticesLookup[model.TrianglesLookup[face, 2]] + position;
@@ -250,11 +266,19 @@ namespace render
 
             AddQuad(first, second, third, fourth, uvs[0], uvs[1], uvs[2], uvs[3], texture, targets);
 
-            if ((targets & MeshTargets.Collider) == 0) return;
+            if ((targets & (MeshTargets.Collider | MeshTargets.Selection)) == 0) return;
 
             int serialized = ((int)position.x << 16) | ((int)position.y << 8) | (int)position.z;
-            TriangleCoordinate.Add(serialized);
-            TriangleFace.Add(face);
+            if ((targets & MeshTargets.Collider) != 0)
+            {
+                TriangleCoordinate.Add(serialized);
+                TriangleFace.Add(face);
+            }
+            if ((targets & MeshTargets.Selection) != 0)
+            {
+                SelectionTriangleCoordinate.Add(serialized);
+                SelectionTriangleFace.Add(face);
+            }
         }
 
         public void AddWaterSourceColliderFace(int face, Vector3 position)
@@ -287,6 +311,8 @@ namespace render
                 WaterMesh.AddQuad(first, second, third, fourth, firstUv, secondUv, thirdUv, fourthUv, texture, reverse);
             if ((targets & MeshTargets.Collider) != 0)
                 ColliderMesh.AddQuad(first, second, third, fourth, reverse);
+            if ((targets & MeshTargets.Selection) != 0)
+                SelectionMesh.AddQuad(first, second, third, fourth, reverse);
         }
 
         private static MeshTargets DefaultTargets(Block block)

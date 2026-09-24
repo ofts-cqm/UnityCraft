@@ -220,6 +220,51 @@ namespace Tests.Editor
         }
 
         [Test]
+        public void NonCollidingTorchHasSelectionGeometryWithoutPhysicalColliderGeometry()
+        {
+            MeshBuilder builder = new();
+            Vector3 position = new(3, 4, 5);
+            Blocks.Torch.Render(Blocks.Torch.AsState(Vector3Int.zero), null, builder, Vector3Int.zero, position);
+
+            Assert.IsTrue(builder.ColliderMesh.IsEmpty);
+            Assert.AreEqual(6 * 4, builder.SelectionMesh.Vertices.Count);
+            Assert.AreEqual(6, builder.SelectionTriangleCoordinate.Count);
+            Assert.AreEqual(6, builder.SelectionTriangleFace.Count);
+            Assert.AreEqual((3 << 16) | (4 << 8) | 5, builder.SelectionTriangleCoordinate[0]);
+
+            GameObject colliderObject = new("Torch Selection Test");
+            Mesh mesh = new();
+            int selectionLayer = LayerMask.NameToLayer("Selectable Blocks");
+            bool[] previousLayerCollisionState = new bool[32];
+            try
+            {
+                colliderObject.layer = selectionLayer;
+                builder.SelectionMesh.UploadTo(mesh);
+                MeshCollider collider = colliderObject.AddComponent<MeshCollider>();
+                collider.sharedMesh = mesh;
+                for (int layer = 0; layer < previousLayerCollisionState.Length; layer++)
+                {
+                    previousLayerCollisionState[layer] = Physics.GetIgnoreLayerCollision(selectionLayer, layer);
+                    Physics.IgnoreLayerCollision(selectionLayer, layer, true);
+                }
+                Physics.SyncTransforms();
+
+                Assert.IsTrue(Physics.Raycast(new Ray(new Vector3(3.5f, 6f, 5.5f), Vector3.down),
+                    out RaycastHit hit, 3f, LayerMask.GetMask("Blocks", "Selectable Blocks"),
+                    QueryTriggerInteraction.Ignore));
+                Assert.AreSame(collider, hit.collider);
+                Assert.AreEqual(ChunkRenderObject.TopFace, builder.SelectionTriangleFace[hit.triangleIndex / 2]);
+            }
+            finally
+            {
+                for (int layer = 0; layer < previousLayerCollisionState.Length; layer++)
+                    Physics.IgnoreLayerCollision(selectionLayer, layer, previousLayerCollisionState[layer]);
+                UnityEngine.Object.DestroyImmediate(colliderObject);
+                UnityEngine.Object.DestroyImmediate(mesh);
+            }
+        }
+
+        [Test]
         public void ChunkRenderObjectConstructorIsWorkerThreadSafe()
         {
             Exception workerException = null;
