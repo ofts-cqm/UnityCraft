@@ -369,6 +369,24 @@ namespace Tests.Editor
             data.ValidateMetadata();
         }
 
+        [TestCase(0, 0)]
+        [TestCase(15, 16)]
+        [TestCase(-1, -16)]
+        [TestCase(-17, 3)]
+        public void ClimateSamplingMatchesGeneratedColumn(int worldX, int worldZ)
+        {
+            ChunkGenerator.Initialize(WorldGenerationSettings.FromSeed("climate-hud-sampling"));
+            ChunkCoord chunk = ChunkCoord.ToChunkCoord(worldX, worldZ);
+            ChunkGenerator.ChunkGenerationContext context = ChunkGenerator.GenerateNoise(chunk.X, chunk.Z);
+            int localX = worldX - chunk.X * Chunk.ChunkSize;
+            int localZ = worldZ - chunk.Z * Chunk.ChunkSize;
+
+            ChunkGenerator.SampleClimate(worldX, worldZ, out float continentality, out float temperature);
+
+            Assert.AreEqual(context.Continental[localX, localZ], continentality);
+            Assert.AreEqual(context.Temperature[localX, localZ], temperature);
+        }
+
         [Test]
         public void CrossBorderTreeGenerationIsIndependentOfChunkOrder()
         {

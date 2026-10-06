@@ -66,7 +66,11 @@ namespace render.screens
             Instance = this;
             _world = world;
             _hud = GameObject.Find("Hud");
-            if (_hud != null) _hud.SetActive(false);
+            if (_hud != null)
+            {
+                _hud.AddComponent<WorldGenerationValuesHud>().Initialize(world.player);
+                _hud.SetActive(false);
+            }
             MenuUiFactory.EnsureEventSystem();
             BuildUi();
             SetLoadingProgress(0, 1);
