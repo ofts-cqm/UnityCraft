@@ -1,3 +1,5 @@
+using render;
+using Render;
 using UnityEngine;
 using BlockState = world.blocks.BlockState;
 using Blocks = world.blocks.Blocks;
@@ -24,6 +26,25 @@ namespace World.blocks
         {
             Vector3Int above = state.Position + Vector3Int.up;
             if (world.IsGrassBlocked(above)) world.SetBlock(state.Position, Blocks.Dirt);
+        }
+
+        public override void Render(BlockState state, IBlockProvider chunk, MeshBuilder builder, Vector3Int position, Vector3 localPosition)
+        {
+            BlockState above = chunk.GetBlock(state.Position + Vector3Int.up);
+            Vector4 face = new(above.Is(Blocks.SnowBlock) || above.Is(Blocks.Snow) ? 14 : 2, 1, 1, 0);
+            
+            if (ShouldRender(chunk, position + Vector3Int.left, ChunkRenderObject.RightFace))
+                builder.AddFace(ChunkRenderObject.LeftFace, localPosition, this, MeshBuilder.DefaultModel, face, MeshBuilder.MeshTargets.Collider | MeshBuilder.MeshTargets.Opaque);
+            if (ShouldRender(chunk, position + Vector3Int.right, ChunkRenderObject.LeftFace))
+                builder.AddFace(ChunkRenderObject.RightFace, localPosition, this, MeshBuilder.DefaultModel, face, MeshBuilder.MeshTargets.Collider | MeshBuilder.MeshTargets.Opaque);
+            if (ShouldRender(chunk, position + Vector3Int.up, ChunkRenderObject.BottomFace))
+                builder.AddFace(ChunkRenderObject.TopFace, localPosition, this);
+            if (ShouldRender(chunk, position + Vector3Int.down, ChunkRenderObject.TopFace))
+                builder.AddFace(ChunkRenderObject.BottomFace, localPosition, this);
+            if (ShouldRender(chunk, position + Vector3Int.forward, ChunkRenderObject.BackFace))
+                builder.AddFace(ChunkRenderObject.FrontFace, localPosition, this, MeshBuilder.DefaultModel, face, MeshBuilder.MeshTargets.Collider | MeshBuilder.MeshTargets.Opaque);
+            if (ShouldRender(chunk, position + Vector3Int.back, ChunkRenderObject.FrontFace))
+                builder.AddFace(ChunkRenderObject.BackFace, localPosition, this, MeshBuilder.DefaultModel, face, MeshBuilder.MeshTargets.Collider | MeshBuilder.MeshTargets.Opaque);
         }
     }
 

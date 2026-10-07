@@ -82,6 +82,8 @@ namespace world.items
             SearchIcon = new SimpleItem(-1, "", "items/search");
             BackpackIcon = new SimpleItem(-1, "", "items/backpack");
             Torch = new RawTextureBlockItem(65, "Torch", "items/torch", Blocks.Torch).RegisterToolItem();
+            new BlockItem(66, "Snow Block", Blocks.SnowBlock).RegisterNatureItem();
+            new BlockItem(67, "Snow", Blocks.Snow).RegisterNatureItem();
             
             FinalizeItemInventory(NatureBlockList);
             FinalizeItemInventory(BuildingBlockList);

@@ -32,6 +32,8 @@ namespace world.blocks
         public static readonly WoodBlocks WoodSlab;
         public static readonly WoodBlocks WoodStairs;
         public static readonly Torch Torch;
+        public static readonly Block SnowBlock;
+        public static readonly Snow Snow;
 
         static Blocks()
         {
@@ -51,6 +53,8 @@ namespace world.blocks
             WoodSlab = new WoodBlocks(56, new Slab(56, BlockProperty.Default(66).SetSolid(false)), 27);
             WoodStairs = new WoodBlocks(29, new Stair(29, 66), 28);
             Torch = new Torch(65);
+            SnowBlock = new Block(66, BlockProperty.Default(13));
+            Snow = new Snow(67);
         }
 
         internal static void Register(Block block)
