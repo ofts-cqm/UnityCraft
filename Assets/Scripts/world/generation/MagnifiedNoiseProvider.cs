@@ -18,7 +18,7 @@ namespace world.generation
 
         private const float OceanPlainBound = -0.15f;
         private const float PlainHillBound = 0.1f;
-        private const float HillMountainBound = 0.35f;
+        private const float HillMountainBound = 0.30f;
         private const float TransitionPeriod = 0.08f;
         
         public void Initialize(WorldGenerationSettings settings)
@@ -30,36 +30,36 @@ namespace world.generation
             _temperatureNoise = new PerlinNoise(settings.TemperatureSeed, TemperatureFrequency, new[] { 5, 3, 2, 4 });
         }
 
-        private int SampleOcean(int worldX, int worldZ)
+        private float SampleOcean(int worldX, int worldZ)
         {
-            return (int)(_oceanNoise.At(worldX, worldZ) * 20) + 18;
+            return _oceanNoise.At(worldX, worldZ) * 20 + 18;
         }
 
-        private int SamplePlain(int worldX, int worldZ)
+        private float SamplePlain(int worldX, int worldZ)
         {
-            return (int)(_plainNoise.At(worldX, worldZ) * 30) + 38;
+            return _plainNoise.At(worldX, worldZ) * 30 + 38;
         }
 
-        private int SampleHill(int worldX, int worldZ)
+        private float SampleHill(int worldX, int worldZ)
         {
-            return (int)(_hillNoise.At(worldX, worldZ) * 50) + 60;
+            return _hillNoise.At(worldX, worldZ) * 50 + 60;
         }
 
-        private int SampleMountain(int worldX, int worldZ)
+        private float SampleMountain(int worldX, int worldZ)
         {
             float noise = _hillNoise.At(worldX, worldZ);
             const float root = 1 / 2f;
             noise = noise > 0 ? Mathf.Pow(noise, root) : -Mathf.Pow(-noise, root);
-            return (int)(noise * 60) + 80;
+            return noise * 60 + 80;
         }
 
-        private int BlendNoise(int noiseA, int noiseB, float bound, float current)
+        private float BlendNoise(float noiseA, float noiseB, float bound, float current)
         {
             float factor = (current - bound + TransitionPeriod) / TransitionPeriod / 2;
-            return (int)(noiseA * (1 - factor) + noiseB * factor);
+            return noiseA * (1 - factor) + noiseB * factor;
         }
 
-        private int SampleLevel(int worldX, int worldZ, float continentality)
+        private float SampleLevel(int worldX, int worldZ, float continentality)
         {
             if (continentality < OceanPlainBound - TransitionPeriod) 
                 return SampleOcean(worldX, worldZ);
@@ -79,6 +79,11 @@ namespace world.generation
             return SampleMountain(worldX, worldZ);
         }
 
+        private int ClampNoise(float noise)
+        {
+            return (int)Mathf.Clamp(noise, 0, 128);
+        }
+
         public void SampleColumn(int worldX, int worldZ, out int height, out ChunkGenerator.BiomeEnum biome, 
             out float continental, out float temperature)
         {
@@ -93,7 +98,7 @@ namespace world.generation
                 biome = temperature > -0.2f ? ChunkGenerator.BiomeEnum.Forest : ChunkGenerator.BiomeEnum.Mountain;
             else biome = ChunkGenerator.BiomeEnum.Mountain;
             
-            height = SampleLevel(worldX, worldZ, continental);
+            height = ClampNoise(SampleLevel(worldX, worldZ, continental));
         }
 
         public int GetSeaLevel() => 32;
