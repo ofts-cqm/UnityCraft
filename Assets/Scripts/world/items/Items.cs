@@ -84,6 +84,7 @@ namespace world.items
             Torch = new RawTextureBlockItem(65, "Torch", "items/torch", Blocks.Torch).RegisterToolItem();
             new BlockItem(66, "Snow Block", Blocks.SnowBlock).RegisterNatureItem();
             new BlockItem(67, "Snow", Blocks.Snow).RegisterNatureItem();
+            new BlockItem(68, "Ice", Blocks.Ice).RegisterNatureItem();
             
             FinalizeItemInventory(NatureBlockList);
             FinalizeItemInventory(BuildingBlockList);

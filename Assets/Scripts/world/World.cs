@@ -620,7 +620,7 @@ namespace World
         internal bool IsGrassBlocked(Vector3Int position)
         {
             BlockState block = GetBlock(position);
-            return !GetFluid(position).IsEmpty || block.Block.IsSolid(block, ChunkRenderObject.BottomFace);
+            return !GetFluid(position).IsEmpty || (block.Block.IsSolid(block, ChunkRenderObject.BottomFace) && block.Block.Collide);
         }
 
         internal byte ResolveLeafDistance(Vector3Int position) => _leafDistanceCache.Resolve(this, position);

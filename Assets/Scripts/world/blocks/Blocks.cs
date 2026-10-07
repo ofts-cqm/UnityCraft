@@ -34,6 +34,7 @@ namespace world.blocks
         public static readonly Torch Torch;
         public static readonly Block SnowBlock;
         public static readonly Snow Snow;
+        public static readonly Block Ice;
 
         static Blocks()
         {
@@ -55,6 +56,7 @@ namespace world.blocks
             Torch = new Torch(65);
             SnowBlock = new Block(66, BlockProperty.Default(13));
             Snow = new Snow(67);
+            Ice = new Block(68, BlockProperty.Default(15).SetTransparent(true));
         }
 
         internal static void Register(Block block)

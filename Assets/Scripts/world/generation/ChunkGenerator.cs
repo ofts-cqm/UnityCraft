@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using World;
 using world.blocks;
@@ -28,6 +29,7 @@ namespace world.generation
             public float[,] Continental { get; }
             public float[,] Temperature { get; }
             public BiomeEnum[,] Biome { get; }
+            public int[,] HeightAfterFeaturePlacement { get; }
 
             internal ChunkGenerationContext(ChunkData data, int[,] heightMap, 
                 float[,] continental, float[,] temperature, BiomeEnum[,] biome)
@@ -37,10 +39,11 @@ namespace world.generation
                 Continental = continental;
                 Temperature = temperature;
                 Biome = biome;
+                HeightAfterFeaturePlacement = (int[,])heightMap.Clone();
             }
         }
 
-        private static INoiseProvider CurrentProvider = new MagnifiedNoiseProvider();
+        private static INoiseProvider _currentProvider = new MagnifiedNoiseProvider();
 
         /// <summary>
         /// Generates directly into the compact buffers used by the live chunk. No full-volume
@@ -51,13 +54,14 @@ namespace world.generation
             ChunkGenerationContext context = GenerateNoise(chunk.X, chunk.Z);
             GenerateFromHeightMap(context);
             StructureGenerator.GenerateTrees(chunk, context);
+            PlaceGroundSnow(context);
             return context.Data;
         }
         
         public static ChunkGenerationContext GenerateNoise(int chunkX, int chunkZ)
         {
             if (!_initialized)
-                throw new System.InvalidOperationException("ChunkGenerator must be initialized with the selected world's generation settings.");
+                throw new InvalidOperationException("ChunkGenerator must be initialized with the selected world's generation settings.");
             
             int[,] heightMap = new int[Chunk.ChunkSize, Chunk.ChunkSize];
             float[,] continentalMap = new float[Chunk.ChunkSize, Chunk.ChunkSize];
@@ -69,7 +73,7 @@ namespace world.generation
             for (int x = 0; x < Chunk.ChunkSize; x++)
             for (int z = 0; z < Chunk.ChunkSize; z++)
             {
-                CurrentProvider.SampleColumn(worldX + x, worldZ + z, out int columnHeight, out BiomeEnum biome,
+                _currentProvider.SampleColumn(worldX + x, worldZ + z, out int columnHeight, out BiomeEnum biome,
                     out float continental, out float temperature);
                 heightMap[x, z] = columnHeight;
                 continentalMap[x, z] = continental;
@@ -136,6 +140,23 @@ namespace world.generation
             return y < _seaLevel ? Blocks.GenerationWater : Blocks.Air;
         }
 
+        private const float SnowyTemperature = -0.2f;
+
+        private static void PlaceGroundSnow(ChunkGenerationContext context)
+        {
+            for (int i = 0; i < Chunk.ChunkSize; i++)
+            {
+                for (int j = 0; j < Chunk.ChunkSize; j++)
+                {
+                    if (context.Temperature[i, j] > SnowyTemperature) continue;
+                    int height = context.HeightAfterFeaturePlacement[i, j];
+                    
+                    if (height < _seaLevel) context.Data.SetBlock(i, _seaLevel, j, Blocks.Ice, 0);
+                    else context.Data.SetBlock(i, height + 1, j, Blocks.Snow, 0);
+                }
+            }
+        }
+
         internal static void PlaceStructureBlock(BlockState blockState, ChunkCoord targetCoord,
             ChunkGenerationContext context)
         {
@@ -151,32 +172,35 @@ namespace world.generation
             context.Data.SetBlock(x, blockState.Position.y, z, blockState.Block,
                 blockState.Block.EncodeStateCompact(blockState.Data));
             if (generatedWater) context.Data.SetFluidRaw(x, blockState.Position.y, z, 0);
+            
+            context.HeightAfterFeaturePlacement[x, z] =
+                Math.Max(context.HeightAfterFeaturePlacement[x, z], blockState.Position.y);
         }
 
         public static void Initialize(WorldGenerationSettings settings, NoiseProviderKind provider = NoiseProviderKind.Magnified)
         {
-            CurrentProvider = provider switch
+            _currentProvider = provider switch
             {
                 NoiseProviderKind.Legacy => new LegacyNoiseProvider(),
                 NoiseProviderKind.Magnified => new MagnifiedNoiseProvider(),
                 _ => throw new System.ArgumentOutOfRangeException(nameof(provider))
             };
-            _seaLevel = CurrentProvider.GetSeaLevel();
-            CurrentProvider.Initialize(settings);
+            _seaLevel = _currentProvider.GetSeaLevel();
+            _currentProvider.Initialize(settings);
             StructureGenerator.Initialize(settings);
             _initialized = true;
         }
         
         internal static void SampleColumn(int worldX, int worldZ, out int height, out BiomeEnum biome)
         {
-            CurrentProvider.SampleColumn(worldX, worldZ, out height, out biome, out _, out _);
+            _currentProvider.SampleColumn(worldX, worldZ, out height, out biome, out _, out _);
         }
 
         public static void SampleClimate(int worldX, int worldZ, out float continentality, out float temperature)
         {
             if (!_initialized)
                 throw new System.InvalidOperationException("ChunkGenerator must be initialized with the selected world's generation settings.");
-            CurrentProvider.SampleColumn(worldX, worldZ, out _, out _, out continentality, out temperature);
+            _currentProvider.SampleColumn(worldX, worldZ, out _, out _, out continentality, out temperature);
         }
 
         private static int ModChunk(int coordinate)

@@ -78,7 +78,6 @@ namespace world.generation
                         if (structure[i, j, k].BlockId == replaceBlock.BlockId
                             && (i == 0 || i == xLength - 1 || j == 0 || j == yLength - 1 || k == 0 || k == zLength - 1
                             || structure[i - 1, j, k].IsAirOrVoid || structure[i + 1, j, k].IsAirOrVoid
-                            || structure[i, j - 1, k].IsAirOrVoid || structure[i, j + 1, k].IsAirOrVoid
                             || structure[i, j, k - 1].IsAirOrVoid || structure[i, j, k + 1].IsAirOrVoid
                         ))
                         {
