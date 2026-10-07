@@ -8,6 +8,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using world.persistence;
 using render.ui;
+using world.generation;
 
 namespace render.screens
 {
@@ -32,6 +33,7 @@ namespace render.screens
         private TextMeshProUGUI _emptyMessage;
         private TextMeshProUGUI _statusText;
         private Button _playButton;
+        private Button _deleteButton;
         private SettingsMenuController _settingsMenu;
         private readonly List<WorldEntry> _entries = new();
         private WorldEntry _selected;
@@ -39,6 +41,8 @@ namespace render.screens
         private GameObject _createOverlay;
         private TMP_InputField _nameInput;
         private TMP_InputField _seedInput;
+        private Button _noiseButton;
+        private NoiseProviderKind _createNoiseProvider;
         private TextMeshProUGUI _createError;
         private Camera _gameCamera;
 
@@ -94,16 +98,21 @@ namespace render.screens
 
             _playButton = MenuUiFactory.CreateButton(canvas.transform, "Play Selected", "PLAY SELECTED", PlaySelected);
             MenuUiFactory.SetAnchoredRect(_playButton.GetComponent<RectTransform>(), new Vector2(0.5f, 0), new Vector2(0.5f, 0),
-                new Vector2(-465, 32), new Vector2(-163, 88));
+                new Vector2(-465, 32), new Vector2(-237, 88));
             _playButton.interactable = false;
+
+            _deleteButton = MenuUiFactory.CreateButton(canvas.transform, "Delete Selected", "DELETE WORLD", ConfirmDeleteSelected);
+            MenuUiFactory.SetAnchoredRect(_deleteButton.GetComponent<RectTransform>(), new Vector2(0.5f, 0), new Vector2(0.5f, 0),
+                new Vector2(-229, 32), new Vector2(-1, 88));
+            _deleteButton.interactable = false;
 
             Button createButton = MenuUiFactory.CreateButton(canvas.transform, "Create World", "CREATE NEW WORLD", OpenCreate);
             MenuUiFactory.SetAnchoredRect(createButton.GetComponent<RectTransform>(), new Vector2(0.5f, 0), new Vector2(0.5f, 0),
-                new Vector2(-151, 32), new Vector2(151, 88));
+                new Vector2(7, 32), new Vector2(235, 88));
 
             Button settingsButton = MenuUiFactory.CreateButton(canvas.transform, "Settings", "SETTINGS", OpenSettings);
             MenuUiFactory.SetAnchoredRect(settingsButton.GetComponent<RectTransform>(), new Vector2(0.5f, 0), new Vector2(0.5f, 0),
-                new Vector2(163, 32), new Vector2(465, 88));
+                new Vector2(243, 32), new Vector2(465, 88));
 
             _statusText = MenuUiFactory.CreateText(canvas.transform, "Status", string.Empty, 18);
             MenuUiFactory.SetAnchoredRect(_statusText.rectTransform, new Vector2(0.5f, 0), new Vector2(0.5f, 0),
@@ -161,6 +170,7 @@ namespace render.screens
             _entries.Clear();
             _selected = null;
             _playButton.interactable = false;
+            _deleteButton.interactable = false;
             int unreadable = 0;
             List<WorldDescriptor> descriptors = new();
 
@@ -208,6 +218,7 @@ namespace render.screens
         {
             _selected = entry;
             _playButton.interactable = true;
+            _deleteButton.interactable = true;
             foreach (WorldEntry candidate in _entries)
                 MenuUiFactory.SetButtonSelected(candidate.Button, candidate == entry);
         }
@@ -235,6 +246,26 @@ namespace render.screens
             SceneManager.LoadScene(GameScenes.Gameplay);
         }
 
+        private void ConfirmDeleteSelected()
+        {
+            if (_selected == null) return;
+            string worldId = _selected.Descriptor.WorldId;
+            string displayName = _selected.Descriptor.DisplayName;
+            _dialog.ShowDialog("Delete World",
+                $"Permanently delete '{displayName}' and all its saved data? This cannot be undone.",
+                "DELETE WORLD", () => DeleteWorld(worldId), "CANCEL");
+        }
+
+        private void DeleteWorld(string worldId)
+        {
+            try
+            {
+                _storage.DeleteWorld(worldId);
+                RefreshWorlds();
+            }
+            catch (Exception exception) { _dialog.ShowDialog("Could Not Delete World", exception.Message, "OK"); }
+        }
+
         private void BuildCreateOverlay(Transform parent)
         {
             Image shade = MenuUiFactory.CreatePanel(parent, "Create World Overlay", new Color(0, 0, 0, 0.75f));
@@ -243,7 +274,7 @@ namespace render.screens
 
             Image panel = MenuUiFactory.CreateThemedPanel(shade.transform, "Create World Panel", MenuPanelStyle.Modal);
             MenuUiFactory.SetAnchoredRect(panel.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                new Vector2(-360, -220), new Vector2(360, 220));
+                new Vector2(-360, -260), new Vector2(360, 260));
 
             TextMeshProUGUI title = MenuUiFactory.CreateText(panel.transform, "Title", "CREATE NEW WORLD", 34);
             MenuUiFactory.SetAnchoredRect(title.rectTransform, new Vector2(0, 1), new Vector2(1, 1),
@@ -268,6 +299,10 @@ namespace render.screens
             MenuUiFactory.SetAnchoredRect(_seedInput.GetComponent<RectTransform>(), new Vector2(0, 1), new Vector2(1, 1),
                 new Vector2(45, -282), new Vector2(-45, -230));
 
+            _noiseButton = MenuUiFactory.CreateButton(panel.transform, "Noise Provider", string.Empty, ToggleNoiseProvider);
+            MenuUiFactory.SetAnchoredRect(_noiseButton.GetComponent<RectTransform>(), new Vector2(0, 1), new Vector2(1, 1),
+                new Vector2(45, -365), new Vector2(-45, -313));
+
             _createError = MenuUiFactory.CreateText(panel.transform, "Error", string.Empty, 17);
             MenuUiFactory.SetAnchoredRect(_createError.rectTransform, new Vector2(0, 0), new Vector2(1, 0),
                 new Vector2(45, 91), new Vector2(-45, 120));
@@ -286,6 +321,8 @@ namespace render.screens
         {
             _nameInput.text = string.Empty;
             _seedInput.text = string.Empty;
+            _createNoiseProvider = NoiseProviderKind.Magnified;
+            UpdateNoiseButton();
             _createError.text = string.Empty;
             _createOverlay.SetActive(true);
             _nameInput.Select();
@@ -293,6 +330,20 @@ namespace render.screens
         }
 
         private void CloseCreate() => _createOverlay.SetActive(false);
+
+        private void ToggleNoiseProvider()
+        {
+            _createNoiseProvider = _createNoiseProvider == NoiseProviderKind.Magnified
+                ? NoiseProviderKind.Legacy : NoiseProviderKind.Magnified;
+            UpdateNoiseButton();
+        }
+
+        private void UpdateNoiseButton()
+        {
+            int seaLevel = _createNoiseProvider == NoiseProviderKind.Legacy ? 64 : 32;
+            _noiseButton.GetComponentInChildren<TextMeshProUGUI>().text =
+                $"TERRAIN: {_createNoiseProvider.ToString().ToUpperInvariant()}  ·  SEA LEVEL {seaLevel}";
+        }
 
         private void CreateWorld()
         {
@@ -306,7 +357,7 @@ namespace render.screens
             try
             {
                 string worldId = WorldIdUtility.CreateUnique(displayName, _storage.ListWorldIds());
-                WorldDescriptor descriptor = _storage.CreateWorld(worldId, displayName, _seedInput.text);
+                WorldDescriptor descriptor = _storage.CreateWorld(worldId, displayName, _seedInput.text, _createNoiseProvider);
                 EnterWorld(SaveVersionPolicy.Authorize(descriptor));
             }
             catch (Exception exception) { _createError.text = exception.Message; }

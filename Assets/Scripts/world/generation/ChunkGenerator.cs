@@ -5,6 +5,8 @@ using World.blocks;
 
 namespace world.generation
 {
+    public enum NoiseProviderKind { Legacy, Magnified }
+
     public static class ChunkGenerator
     {
         private static int _seaLevel = 32;
@@ -38,7 +40,7 @@ namespace world.generation
             }
         }
 
-        private static readonly INoiseProvider CurrentProvider = new MagnifiedNoiseProvider();//LegacyNoiseProvider();
+        private static INoiseProvider CurrentProvider = new MagnifiedNoiseProvider();
 
         /// <summary>
         /// Generates directly into the compact buffers used by the live chunk. No full-volume
@@ -151,8 +153,15 @@ namespace world.generation
             if (generatedWater) context.Data.SetFluidRaw(x, blockState.Position.y, z, 0);
         }
 
-        public static void Initialize(WorldGenerationSettings settings)
+        public static void Initialize(WorldGenerationSettings settings, NoiseProviderKind provider = NoiseProviderKind.Magnified)
         {
+            CurrentProvider = provider switch
+            {
+                NoiseProviderKind.Legacy => new LegacyNoiseProvider(),
+                NoiseProviderKind.Magnified => new MagnifiedNoiseProvider(),
+                _ => throw new System.ArgumentOutOfRangeException(nameof(provider))
+            };
+            _seaLevel = CurrentProvider.GetSeaLevel();
             CurrentProvider.Initialize(settings);
             StructureGenerator.Initialize(settings);
             _initialized = true;

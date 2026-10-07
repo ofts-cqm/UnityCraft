@@ -120,7 +120,7 @@ namespace World
                 Lighting = new WorldLighting(this);
                 Daylight = new DaylightCycle(descriptor.daylight?.elapsedSeconds ?? DaylightCycle.MorningSeconds);
                 WorldGenerationSettings generationSettings = WorldGenerationSettings.FromSeed(descriptor.worldSeed);
-                ChunkGenerator.Initialize(generationSettings);
+                ChunkGenerator.Initialize(generationSettings, descriptor.NoiseProvider);
                 _randomTickSeed = generationSettings.FeatureSeed ^ generationSettings.StructureSeed;
                 _fallingBlocks = new FallingBlockSystem(this);
 

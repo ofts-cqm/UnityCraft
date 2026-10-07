@@ -27,7 +27,7 @@ namespace world.generation
             _plainNoise = new PerlinNoise(settings.FeatureSeed, PlainFrequency, new[] { 10, 2, 2, 1, 1 });
             _hillNoise = new PerlinNoise(settings.HeightSeed, HillFrequency, new[] { 10, 5, 3, 1 });
             _continentalityNoise = new PerlinNoise(settings.ContinentalSeed, ContinentalityFrequency, new[] { 4, 1, 2 });
-            _temperatureNoise = new PerlinNoise(settings.TemperatureSeed, TemperatureFrequency, new[] { 5, 3, 2 });
+            _temperatureNoise = new PerlinNoise(settings.TemperatureSeed, TemperatureFrequency, new[] { 5, 3, 2, 4 });
         }
 
         private int SampleOcean(int worldX, int worldZ)
