@@ -106,7 +106,7 @@ namespace render.screens
                 new Vector2(-229, 32), new Vector2(-1, 88));
             _deleteButton.interactable = false;
 
-            Button createButton = MenuUiFactory.CreateButton(canvas.transform, "Create World", "CREATE NEW WORLD", OpenCreate);
+            Button createButton = MenuUiFactory.CreateButton(canvas.transform, "Create World", "NEW WORLD", OpenCreate);
             MenuUiFactory.SetAnchoredRect(createButton.GetComponent<RectTransform>(), new Vector2(0.5f, 0), new Vector2(0.5f, 0),
                 new Vector2(7, 32), new Vector2(235, 88));
 
@@ -340,9 +340,8 @@ namespace render.screens
 
         private void UpdateNoiseButton()
         {
-            int seaLevel = _createNoiseProvider == NoiseProviderKind.Legacy ? 64 : 32;
             _noiseButton.GetComponentInChildren<TextMeshProUGUI>().text =
-                $"TERRAIN: {_createNoiseProvider.ToString().ToUpperInvariant()}  ·  SEA LEVEL {seaLevel}";
+                $"TERRAIN: {_createNoiseProvider.ToString().ToUpperInvariant()}";
         }
 
         private void CreateWorld()
