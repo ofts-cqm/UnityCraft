@@ -1,5 +1,6 @@
 using UnityEngine;
 using world.blocks;
+using World.blocks;
 
 namespace World
 {
@@ -23,7 +24,7 @@ namespace World
         internal byte Resolve(World world, Vector3Int position)
         {
             if (!world.TryGetLoadedBlock(position, out BlockState origin) ||
-                origin.Block.BlockId != Blocks.OakLeave.BlockId) return Disconnected;
+                origin.Block is not LeavesBlock) return Disconnected;
 
             Chunk chunk = world.GetChunk(ChunkCoord.ToChunkCoord(position.x, position.z));
             Vector3Int local = World.ToCoordInChunk(position);
@@ -48,14 +49,14 @@ namespace World
                         touchesUnavailableData = true;
                         continue;
                     }
-                    if (neighbor.Block.BlockId == Blocks.Log.Oak.BlockId)
+                    if (neighbor.Block is Log)
                     {
                         byte result = (byte)(depth + 1);
                         chunk.Data.SetLeafDistanceUnchecked(local.x, local.y, local.z, result);
                         return result;
                     }
                     if (depth + 1 >= MaximumDistance ||
-                        neighbor.Block.BlockId != Blocks.OakLeave.BlockId ||
+                        neighbor.Block is not LeavesBlock ||
                         Contains(neighborPosition, tail)) continue;
                     _positions[tail] = neighborPosition;
                     _depths[tail] = (byte)(depth + 1);
@@ -77,7 +78,7 @@ namespace World
                 if (Mathf.Abs(x) + Mathf.Abs(y) + Mathf.Abs(z) > MaximumDistance) continue;
                 Vector3Int candidate = position + new Vector3Int(x, y, z);
                 if (!world.TryGetLoadedBlock(candidate, out BlockState block) ||
-                    block.Block.BlockId != Blocks.OakLeave.BlockId) continue;
+                    block.Block is not LeavesBlock) continue;
                 SetUnknown(world, candidate);
             }
         }
@@ -101,7 +102,7 @@ namespace World
             {
                 int x = xBand ? start + depth : across;
                 int z = xBand ? across : start + depth;
-                if (chunk.Data.GetBlockIdUnchecked(x, y, z) == Blocks.OakLeave.BlockId)
+                if (Blocks.GetByCompactId(chunk.Data.GetBlockIdUnchecked(x, y, z)) is LeavesBlock)
                     chunk.Data.SetLeafDistanceUnchecked(x, y, z, Unknown);
             }
         }

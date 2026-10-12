@@ -533,13 +533,9 @@ namespace World
             }
         }
 
-        // Todo: make no longer restricted to oak. 
         internal void NotifyBlockChanged(Vector3Int position, Block previous, Block next)
         {
-            bool leafTopologyChanged = previous.BlockId == Blocks.Log.Oak.BlockId ||
-                                       previous.BlockId == Blocks.OakLeave.BlockId ||
-                                       next.BlockId == Blocks.Log.Oak.BlockId ||
-                                       next.BlockId == Blocks.OakLeave.BlockId;
+            bool leafTopologyChanged = previous is Log or LeavesBlock || next is Log or LeavesBlock;
             if (leafTopologyChanged) _leafDistanceCache.InvalidateAround(this, position);
 
             foreach (var t in BlockUpdateDirections)
