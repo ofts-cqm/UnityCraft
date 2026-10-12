@@ -80,7 +80,7 @@ namespace world.generation
             for (int z = 0; z < Chunk.ChunkSize; z++)
             {
                 _currentProvider.SampleColumn(worldX + x, worldZ + z, out int columnHeight, out BiomeEnum biome,
-                    out float continental, out float temperature);
+                    out float continental, out float temperature, out _);
                 heightMap[x, z] = columnHeight;
                 continentalMap[x, z] = continental;
                 temperatureMap[x, z] = temperature;
@@ -216,14 +216,23 @@ namespace world.generation
         
         internal static void SampleColumn(int worldX, int worldZ, out int height, out BiomeEnum biome)
         {
-            _currentProvider.SampleColumn(worldX, worldZ, out height, out biome, out _, out _);
+            _currentProvider.SampleColumn(worldX, worldZ, out height, out biome, out _, out _, out _);
         }
 
         public static void SampleClimate(int worldX, int worldZ, out float continentality, out float temperature)
         {
             if (!_initialized)
                 throw new InvalidOperationException("ChunkGenerator must be initialized with the selected world's generation settings.");
-            _currentProvider.SampleColumn(worldX, worldZ, out _, out _, out continentality, out temperature);
+            _currentProvider.SampleColumn(worldX, worldZ, out _, out _, out continentality, out temperature, out _);
+        }
+
+        public static void SampleClimate(int worldX, int worldZ, out BiomeEnum biome,
+            out float continentality, out float temperature, out float humidity)
+        {
+            if (!_initialized)
+                throw new InvalidOperationException("ChunkGenerator must be initialized with the selected world's generation settings.");
+            _currentProvider.SampleColumn(worldX, worldZ, out _, out biome, out continentality,
+                out temperature, out humidity);
         }
 
         private static int ModChunk(int coordinate)

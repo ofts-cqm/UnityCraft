@@ -20,7 +20,7 @@ namespace render.ui
             _values = MenuUiFactory.CreateText(transform, "World Generation Values", string.Empty, 20,
                 TextAlignmentOptions.TopLeft);
             MenuUiFactory.SetAnchoredRect(_values.rectTransform, new Vector2(0, 1), new Vector2(0, 1),
-                new Vector2(16, -76), new Vector2(500, -16));
+                new Vector2(16, -136), new Vector2(500, -16));
             _values.raycastTarget = false;
             RefreshVisibility();
         }
@@ -52,9 +52,14 @@ namespace render.ui
             int worldZ = Mathf.FloorToInt(position.z);
             if (_hasSample && worldX == _sampleX && worldZ == _sampleZ) return;
 
-            ChunkGenerator.SampleClimate(worldX, worldZ, out float continentality, out float temperature);
-            _values.text = "Continentality: " + continentality.ToString("+0.00;-0.00;0.00", CultureInfo.InvariantCulture)
-                + "\nTemperature: " + temperature.ToString("+0.00;-0.00;0.00", CultureInfo.InvariantCulture);
+            ChunkGenerator.SampleClimate(worldX, worldZ, out ChunkGenerator.BiomeEnum biome,
+                out float continentality, out float temperature, out float humidity);
+            _values.text = "Biome: " + biome
+                + "\nContinentality: " + continentality.ToString("+0.00;-0.00;0.00", CultureInfo.InvariantCulture)
+                + "\nTemperature: " + temperature.ToString("+0.00;-0.00;0.00", CultureInfo.InvariantCulture)
+                + "\nHumidity: " + (float.IsNaN(humidity)
+                    ? "N/A"
+                    : humidity.ToString("+0.00;-0.00;0.00", CultureInfo.InvariantCulture));
             _sampleX = worldX;
             _sampleZ = worldZ;
             _hasSample = true;

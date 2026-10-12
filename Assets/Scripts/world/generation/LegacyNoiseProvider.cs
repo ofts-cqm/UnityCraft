@@ -22,8 +22,9 @@ namespace world.generation
         }
 
         public void SampleColumn(int worldX, int worldZ, out int height, out ChunkGenerator.BiomeEnum biome,
-            out float continental, out float temperature)
+            out float continental, out float temperature, out float humidity)
         {
+            humidity = float.NaN;
             float firstLevel = BiasNoise(_continentalNoise.At(worldX, worldZ)) / 2;
             float secondLevel = BiasNoise(_heightNoise.At(worldX, worldZ)) / 4;
             continental = firstLevel + secondLevel;

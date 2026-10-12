@@ -130,12 +130,11 @@ namespace world.generation
         }
 
         public void SampleColumn(int worldX, int worldZ, out int height, out ChunkGenerator.BiomeEnum biome, 
-            out float continental, out float temperature)
+            out float continental, out float temperature, out float humidity)
         {
-            biome = ChunkGenerator.BiomeEnum.Plain;
             temperature = _temperatureNoise.At(worldX, worldZ);
             continental = _continentalityNoise.At(worldX, worldZ);
-            float humidity = _humidityNoise.At(worldX, worldZ);
+            humidity = _humidityNoise.At(worldX, worldZ);
 
             biome = continental switch
             {

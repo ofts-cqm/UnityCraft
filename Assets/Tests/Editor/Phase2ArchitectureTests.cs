@@ -375,16 +375,33 @@ namespace Tests.Editor
         [TestCase(-17, 3)]
         public void ClimateSamplingMatchesGeneratedColumn(int worldX, int worldZ)
         {
-            ChunkGenerator.Initialize(WorldGenerationSettings.FromSeed("climate-hud-sampling"));
+            WorldGenerationSettings settings = WorldGenerationSettings.FromSeed("climate-hud-sampling");
+            ChunkGenerator.Initialize(settings);
             ChunkCoord chunk = ChunkCoord.ToChunkCoord(worldX, worldZ);
             ChunkGenerator.ChunkGenerationContext context = ChunkGenerator.GenerateNoise(chunk.X, chunk.Z);
             int localX = worldX - chunk.X * Chunk.ChunkSize;
             int localZ = worldZ - chunk.Z * Chunk.ChunkSize;
 
-            ChunkGenerator.SampleClimate(worldX, worldZ, out float continentality, out float temperature);
+            ChunkGenerator.SampleClimate(worldX, worldZ, out ChunkGenerator.BiomeEnum biome,
+                out float continentality, out float temperature, out float humidity);
+            MagnifiedNoiseProvider provider = new MagnifiedNoiseProvider();
+            provider.Initialize(settings);
+            provider.SampleColumn(worldX, worldZ, out _, out _, out _, out _, out float expectedHumidity);
 
             Assert.AreEqual(context.Continental[localX, localZ], continentality);
             Assert.AreEqual(context.Temperature[localX, localZ], temperature);
+            Assert.AreEqual(context.Biome[localX, localZ], biome);
+            Assert.AreEqual(expectedHumidity, humidity);
+        }
+
+        [Test]
+        public void LegacyClimateSamplingHasNoHumidity()
+        {
+            ChunkGenerator.Initialize(WorldGenerationSettings.FromSeed("legacy-climate-hud"), NoiseProviderKind.Legacy);
+
+            ChunkGenerator.SampleClimate(-1, 16, out _, out _, out _, out float humidity);
+
+            Assert.IsTrue(float.IsNaN(humidity));
         }
 
         [Test]
