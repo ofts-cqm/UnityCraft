@@ -85,6 +85,7 @@ namespace world.items
             new BlockItem(66, "Snow Block", Blocks.SnowBlock).RegisterNatureItem();
             new BlockItem(67, "Snow", Blocks.Snow).RegisterNatureItem();
             new BlockItem(68, "Ice", Blocks.Ice).RegisterNatureItem();
+            new BlockItem(69, "Sandstone", Blocks.Sandstone).RegisterBuildingItem();
             
             FinalizeItemInventory(NatureBlockList);
             FinalizeItemInventory(BuildingBlockList);

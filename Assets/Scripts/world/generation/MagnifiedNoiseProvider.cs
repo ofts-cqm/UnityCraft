@@ -9,12 +9,14 @@ namespace world.generation
         private const float HillFrequency = 0.01f;
         private const float TemperatureFrequency = 0.002f;
         private const float ContinentalityFrequency = 0.003f;
+        private const float HumidityFrequency = 0.003f;
         
         private static PerlinNoise _oceanNoise;
         private static PerlinNoise _plainNoise;
         private static PerlinNoise _hillNoise;
         private static PerlinNoise _continentalityNoise;
         private static PerlinNoise _temperatureNoise;
+        private static PerlinNoise _humidityNoise;
 
         private const float OceanPlainBound = -0.15f;
         private const float PlainHillBound = 0.1f;
@@ -23,11 +25,12 @@ namespace world.generation
         
         public void Initialize(WorldGenerationSettings settings)
         {
-            _oceanNoise = new PerlinNoise(settings.ContinentalSeed, OceanFrequency, new[] { 4, 3, 2, 1 });
+            _oceanNoise = new PerlinNoise(settings.OceanSeed, OceanFrequency, new[] { 4, 3, 2, 1 });
             _plainNoise = new PerlinNoise(settings.FeatureSeed, PlainFrequency, new[] { 10, 2, 2, 1, 1 });
             _hillNoise = new PerlinNoise(settings.HeightSeed, HillFrequency, new[] { 10, 5, 3, 1 });
             _continentalityNoise = new PerlinNoise(settings.ContinentalSeed, ContinentalityFrequency, new[] { 4, 1, 2 });
             _temperatureNoise = new PerlinNoise(settings.TemperatureSeed, TemperatureFrequency, new[] { 5, 3, 2, 4 });
+            _humidityNoise = new PerlinNoise(settings.HumiditySeed, HumidityFrequency, new[] { 5, 3, 2, 4 });
         }
 
         private float SampleOcean(int worldX, int worldZ)
@@ -84,20 +87,66 @@ namespace world.generation
             return (int)Mathf.Clamp(noise, 0, 128);
         }
 
+        private static ChunkGenerator.BiomeEnum GetPlainBiome(float temperature, float humidity)
+        {
+            return temperature switch
+            {
+                > 0.2f => humidity switch
+                {
+                    > 0.1f => ChunkGenerator.BiomeEnum.Jungle,
+                    > -0f => ChunkGenerator.BiomeEnum.Plain,
+                    > -0.15f => ChunkGenerator.BiomeEnum.Savanna,
+                    _ => ChunkGenerator.BiomeEnum.Desert
+                },
+                < ChunkGenerator.SnowyTemperature => ChunkGenerator.BiomeEnum.Plain,
+                _ => humidity switch
+                {
+                    > 0f => ChunkGenerator.BiomeEnum.Plain,
+                    > -0.1f => ChunkGenerator.BiomeEnum.Forest,
+                    _ => ChunkGenerator.BiomeEnum.BirchForest
+                }
+            };
+        }
+
+        private static ChunkGenerator.BiomeEnum GetHillBiome(float temperature, float humidity)
+        {
+            return temperature switch
+            {
+                > 0.2f => humidity switch
+                {
+                    > 0.1f => ChunkGenerator.BiomeEnum.Forest,
+                    > -0f => ChunkGenerator.BiomeEnum.Plain,
+                    > -0.15f => ChunkGenerator.BiomeEnum.Savanna,
+                    _ => ChunkGenerator.BiomeEnum.DesertHill
+                },
+                < ChunkGenerator.SnowyTemperature => humidity > 0 ? ChunkGenerator.BiomeEnum.Taiga : ChunkGenerator.BiomeEnum.Mountain,
+                _ => humidity switch
+                {
+                    > 0.1f => ChunkGenerator.BiomeEnum.Forest,
+                    > 0f => ChunkGenerator.BiomeEnum.Taiga,
+                    _ => ChunkGenerator.BiomeEnum.Mountain
+                }
+            };
+        }
+
         public void SampleColumn(int worldX, int worldZ, out int height, out ChunkGenerator.BiomeEnum biome, 
             out float continental, out float temperature)
         {
             biome = ChunkGenerator.BiomeEnum.Plain;
             temperature = _temperatureNoise.At(worldX, worldZ);
             continental = _continentalityNoise.At(worldX, worldZ);
+            float humidity = _humidityNoise.At(worldX, worldZ);
 
-            if (continental < OceanPlainBound) biome = ChunkGenerator.BiomeEnum.Ocean;
-            else if (continental < PlainHillBound)
-                biome = temperature > 0.2f ? ChunkGenerator.BiomeEnum.Desert : ChunkGenerator.BiomeEnum.Plain;
-            else if (continental < HillMountainBound)
-                biome = temperature > -0.2f ? ChunkGenerator.BiomeEnum.Forest : ChunkGenerator.BiomeEnum.Mountain;
-            else biome = ChunkGenerator.BiomeEnum.Mountain;
-            
+            biome = continental switch
+            {
+                < OceanPlainBound => ChunkGenerator.BiomeEnum.Ocean,
+                < PlainHillBound => GetPlainBiome(temperature, humidity),
+                < HillMountainBound => GetHillBiome(temperature, humidity),
+                _ => temperature < ChunkGenerator.SnowyTemperature
+                    ? ChunkGenerator.BiomeEnum.FrostMountain
+                    : ChunkGenerator.BiomeEnum.Mountain
+            };
+
             height = ClampNoise(SampleLevel(worldX, worldZ, continental));
         }
 

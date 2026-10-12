@@ -19,7 +19,13 @@ namespace world.generation
             Plain,
             Desert,
             Mountain,
-            Forest
+            Forest,
+            BirchForest,
+            DesertHill,
+            Savanna,
+            FrostMountain,
+            Taiga,
+            Jungle
         }
 
         public sealed class ChunkGenerationContext
@@ -96,9 +102,10 @@ namespace world.generation
                 {
                     Block block = context.Biome[x, z] switch
                     {
-                        BiomeEnum.Forest => PlacePlainBlocks(y, height),
                         BiomeEnum.Desert => PlaceDesertBlocks(y, height),
+                        BiomeEnum.DesertHill => PlaceDesertHillBlocks(y, height),
                         BiomeEnum.Mountain => PlaceMountainBlocks(y, height),
+                        BiomeEnum.FrostMountain => PlaceFrostMountainBlocks(y, height),
                         BiomeEnum.Ocean => PlaceOceanBlocks(y, height),
                         _ => PlacePlainBlocks(y, height)
                     };
@@ -133,14 +140,30 @@ namespace world.generation
             return y < _seaLevel ? Blocks.GenerationWater : Blocks.Air;
         }
 
+        private static Block PlaceFrostMountainBlocks(int y, int height)
+        {
+            if (y <= height - 3) return Blocks.Stone;
+            if (y <= height - 1) return Blocks.Ice;
+            if (y == height) return Blocks.Snow;
+            return y < _seaLevel ? Blocks.GenerationWater : Blocks.Air;
+        }
+
         private static Block PlaceDesertBlocks(int y, int height)
         {
-            if (y < height - 3) return Blocks.Stone;
+            if (y < height - 6) return Blocks.Stone;
+            if (y < height - 3) return Blocks.Sandstone;
             if (y <= height) return Blocks.Sand;
             return y < _seaLevel ? Blocks.GenerationWater : Blocks.Air;
         }
 
-        private const float SnowyTemperature = -0.2f;
+        private static Block PlaceDesertHillBlocks(int y, int height)
+        {
+            if (y < height - 6) return Blocks.Stone;
+            if (y <= height) return Blocks.Sandstone;
+            return y < _seaLevel ? Blocks.GenerationWater : Blocks.Air;
+        }
+
+        public const float SnowyTemperature = -0.2f;
 
         private static void PlaceGroundSnow(ChunkGenerationContext context)
         {
@@ -173,7 +196,7 @@ namespace world.generation
                 blockState.Block.EncodeStateCompact(blockState.Data));
             if (generatedWater) context.Data.SetFluidRaw(x, blockState.Position.y, z, 0);
             
-            context.HeightAfterFeaturePlacement[x, z] =
+            if (blockState.Block.Collide) context.HeightAfterFeaturePlacement[x, z] =
                 Math.Max(context.HeightAfterFeaturePlacement[x, z], blockState.Position.y);
         }
 
@@ -183,7 +206,7 @@ namespace world.generation
             {
                 NoiseProviderKind.Legacy => new LegacyNoiseProvider(),
                 NoiseProviderKind.Magnified => new MagnifiedNoiseProvider(),
-                _ => throw new System.ArgumentOutOfRangeException(nameof(provider))
+                _ => throw new ArgumentOutOfRangeException(nameof(provider))
             };
             _seaLevel = _currentProvider.GetSeaLevel();
             _currentProvider.Initialize(settings);
@@ -199,7 +222,7 @@ namespace world.generation
         public static void SampleClimate(int worldX, int worldZ, out float continentality, out float temperature)
         {
             if (!_initialized)
-                throw new System.InvalidOperationException("ChunkGenerator must be initialized with the selected world's generation settings.");
+                throw new InvalidOperationException("ChunkGenerator must be initialized with the selected world's generation settings.");
             _currentProvider.SampleColumn(worldX, worldZ, out _, out _, out continentality, out temperature);
         }
 
