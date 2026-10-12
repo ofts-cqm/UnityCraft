@@ -100,15 +100,7 @@ namespace world.generation
                 int lastWrittenY = Mathf.Min(Chunk.ChunkHeight - 1, Mathf.Max(height, _seaLevel - 1));
                 for (int y = 0; y <= lastWrittenY; y++)
                 {
-                    Block block = context.Biome[x, z] switch
-                    {
-                        BiomeEnum.Desert => PlaceDesertBlocks(y, height),
-                        BiomeEnum.DesertHill => PlaceDesertHillBlocks(y, height),
-                        BiomeEnum.Mountain => PlaceMountainBlocks(y, height),
-                        BiomeEnum.FrostMountain => PlaceFrostMountainBlocks(y, height),
-                        BiomeEnum.Ocean => PlaceOceanBlocks(y, height),
-                        _ => PlacePlainBlocks(y, height)
-                    };
+                    Block block = SampleTerrainBlock(y, height, context.Biome[x, z]);
 
                     if (block.BlockId == Blocks.GenerationWater.BlockId)
                         context.Data.SetFluidRaw(x, y, z, FluidState.Source.RawAmount);
@@ -116,6 +108,20 @@ namespace world.generation
                         context.Data.SetBlock(x, y, z, block, block.EncodeStateCompact(block.DefaultState));
                 }
             }
+        }
+
+        // Share terrain rules with structure support checks so neighboring chunks need not be loaded.
+        internal static Block SampleTerrainBlock(int y, int height, BiomeEnum biome)
+        {
+            return biome switch
+            {
+                BiomeEnum.Desert => PlaceDesertBlocks(y, height),
+                BiomeEnum.DesertHill => PlaceDesertHillBlocks(y, height),
+                BiomeEnum.Mountain => PlaceMountainBlocks(y, height),
+                BiomeEnum.FrostMountain => PlaceFrostMountainBlocks(y, height),
+                BiomeEnum.Ocean => PlaceOceanBlocks(y, height),
+                _ => PlacePlainBlocks(y, height)
+            };
         }
 
         private static Block PlaceOceanBlocks(int y, int height)
@@ -144,7 +150,7 @@ namespace world.generation
         {
             if (y <= height - 3) return Blocks.Stone;
             if (y <= height - 1) return Blocks.Ice;
-            if (y == height) return Blocks.Snow;
+            if (y == height) return Blocks.SnowBlock;
             return y < _seaLevel ? Blocks.GenerationWater : Blocks.Air;
         }
 

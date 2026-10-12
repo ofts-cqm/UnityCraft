@@ -16,7 +16,7 @@ namespace settings
         public const float MinimumSensitivity = 0.05f;
         public const float MaximumSensitivity = 1f;
         public const int MinimumViewDistance = 2;
-        public const int MaximumViewDistance = 12;
+        public const int MaximumViewDistance = 32;
         public const int MinimumAutosaveInterval = 10;
         public const int MaximumAutosaveInterval = 300;
 

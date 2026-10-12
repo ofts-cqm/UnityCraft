@@ -141,7 +141,7 @@ namespace world.generation
                 < OceanPlainBound => ChunkGenerator.BiomeEnum.Ocean,
                 < PlainHillBound => GetPlainBiome(temperature, humidity),
                 < HillMountainBound => GetHillBiome(temperature, humidity),
-                _ => temperature < ChunkGenerator.SnowyTemperature
+                _ => temperature < 0.1f
                     ? ChunkGenerator.BiomeEnum.FrostMountain
                     : ChunkGenerator.BiomeEnum.Mountain
             };
