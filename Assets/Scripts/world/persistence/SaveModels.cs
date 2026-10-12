@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using World;
+using world.generation;
 
 namespace world.persistence
 {
@@ -72,6 +73,8 @@ namespace world.persistence
         public string createdUtc;
         public string lastSavedUtc;
         public string worldSeed;
+        // Missing on older saves; keep their original terrain and water generation.
+        public string noiseProvider;
         // Optional additive metadata: old schema-1/2 descriptors initialize to morning.
         public DaylightSnapshot daylight;
 
@@ -80,6 +83,9 @@ namespace world.persistence
         public string DisplayName => displayName;
         public int SchemaVersion => schemaVersion;
         public int ContentVersion => contentVersion;
+        public NoiseProviderKind NoiseProvider => string.IsNullOrEmpty(noiseProvider)
+            ? NoiseProviderKind.Legacy
+            : Enum.Parse<NoiseProviderKind>(noiseProvider);
     }
 
     public sealed class WorldLoadAuthorization

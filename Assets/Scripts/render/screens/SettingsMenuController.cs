@@ -25,6 +25,9 @@ namespace render.screens
         private Slider _sensitivitySlider;
         private Slider _viewDistanceSlider;
         private Slider _autosaveSlider;
+        private Button _generationValuesButton;
+        private TextMeshProUGUI _generationValuesButtonLabel;
+        private bool _showWorldGenerationValues;
         private TextMeshProUGUI _sensitivityValue;
         private TextMeshProUGUI _viewDistanceValue;
         private TextMeshProUGUI _autosaveValue;
@@ -63,7 +66,9 @@ namespace render.screens
             _sensitivitySlider.SetValueWithoutNotify(GameSettings.Sensitivity);
             _viewDistanceSlider.SetValueWithoutNotify(GameSettings.ViewDistance);
             _autosaveSlider.SetValueWithoutNotify(GameSettings.AutosaveInterval);
+            _showWorldGenerationValues = GameSettings.ShowWorldGenerationValues;
             UpdateSliderLabels();
+            UpdateGenerationValuesButton();
             RebuildBindingRows();
             transform.SetAsLastSibling();
             gameObject.SetActive(true);
@@ -161,6 +166,25 @@ namespace render.screens
                 _autosaveSlider.SetValueWithoutNotify(normalized);
                 UpdateSliderLabels();
             });
+
+            Image generationValuesRow = MenuUiFactory.CreateThemedPanel(_content,
+                "Show World Generation Values", MenuPanelStyle.Row);
+            generationValuesRow.gameObject.AddComponent<LayoutElement>().preferredHeight = 62;
+            TextMeshProUGUI generationValuesLabel = MenuUiFactory.CreateText(generationValuesRow.transform,
+                "Label", "Show World Generation Values", 20, TextAlignmentOptions.MidlineLeft);
+            MenuUiFactory.SetAnchoredRect(generationValuesLabel.rectTransform, Vector2.zero,
+                new Vector2(0.75f, 1), new Vector2(16, 0), Vector2.zero);
+            MenuUiFactory.ApplyTextStyle(generationValuesLabel, MenuTextStyle.Secondary);
+            _generationValuesButton = MenuUiFactory.CreateButton(generationValuesRow.transform,
+                "Toggle", string.Empty, () =>
+                {
+                    _showWorldGenerationValues = !_showWorldGenerationValues;
+                    UpdateGenerationValuesButton();
+                });
+            MenuUiFactory.SetAnchoredRect(_generationValuesButton.GetComponent<RectTransform>(),
+                new Vector2(0.78f, 0), Vector2.one, new Vector2(8, 5), new Vector2(-8, -5));
+            _generationValuesButtonLabel = _generationValuesButton.GetComponentInChildren<TextMeshProUGUI>();
+            _generationValuesButtonLabel.fontSize = 18;
 
             TextMeshProUGUI controls = MenuUiFactory.CreateText(_content, "Controls Heading", "KEY BINDINGS", 24,
                 TextAlignmentOptions.MidlineLeft);
@@ -318,7 +342,9 @@ namespace render.screens
             _sensitivitySlider.SetValueWithoutNotify(GameSettings.DefaultSensitivity);
             _viewDistanceSlider.SetValueWithoutNotify(GameSettings.DefaultViewDistance);
             _autosaveSlider.SetValueWithoutNotify(GameSettings.DefaultAutosaveInterval);
+            _showWorldGenerationValues = GameSettings.DefaultShowWorldGenerationValues;
             UpdateSliderLabels();
+            UpdateGenerationValuesButton();
             RebuildBindingRows();
         }
 
@@ -326,7 +352,7 @@ namespace render.screens
         {
             CancelActiveRebind();
             GameSettings.Apply(_sensitivitySlider.value, Mathf.RoundToInt(_viewDistanceSlider.value),
-                Mathf.RoundToInt(_autosaveSlider.value), _draftActions);
+                Mathf.RoundToInt(_autosaveSlider.value), _showWorldGenerationValues, _draftActions);
             CloseWithoutApplying();
         }
 
@@ -360,6 +386,12 @@ namespace render.screens
             _sensitivityValue.text = GameSettings.NormalizeSensitivity(_sensitivitySlider.value).ToString("0.00");
             _viewDistanceValue.text = Mathf.RoundToInt(_viewDistanceSlider.value).ToString();
             _autosaveValue.text = $"{GameSettings.NormalizeAutosave(Mathf.RoundToInt(_autosaveSlider.value))} s";
+        }
+
+        private void UpdateGenerationValuesButton()
+        {
+            _generationValuesButtonLabel.text = _showWorldGenerationValues ? "ON" : "OFF";
+            MenuUiFactory.SetButtonSelected(_generationValuesButton, _showWorldGenerationValues);
         }
 
         private void Update()

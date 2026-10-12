@@ -11,6 +11,7 @@ namespace Tests.Editor
         private const string SensitivityKey = "settings.player.sensitivity";
         private const string ViewDistanceKey = "settings.world.viewDistance";
         private const string AutosaveIntervalKey = "settings.world.autosaveInterval";
+        private const string ShowWorldGenerationValuesKey = "settings.world.showGenerationValues";
         private const string BindingOverridesKey = "settings.player.bindingOverrides";
 
         private float _originalSensitivity;
@@ -20,6 +21,8 @@ namespace Tests.Editor
         private bool _hadSensitivity;
         private bool _hadViewDistance;
         private bool _hadAutosaveInterval;
+        private bool _hadShowWorldGenerationValues;
+        private int _originalShowWorldGenerationValues;
         private bool _hadOverrides;
 
         [SetUp]
@@ -28,15 +31,18 @@ namespace Tests.Editor
             _hadSensitivity = PlayerPrefs.HasKey(SensitivityKey);
             _hadViewDistance = PlayerPrefs.HasKey(ViewDistanceKey);
             _hadAutosaveInterval = PlayerPrefs.HasKey(AutosaveIntervalKey);
+            _hadShowWorldGenerationValues = PlayerPrefs.HasKey(ShowWorldGenerationValuesKey);
             _hadOverrides = PlayerPrefs.HasKey(BindingOverridesKey);
             _originalSensitivity = PlayerPrefs.GetFloat(SensitivityKey);
             _originalViewDistance = PlayerPrefs.GetInt(ViewDistanceKey);
             _originalAutosaveInterval = PlayerPrefs.GetInt(AutosaveIntervalKey);
+            _originalShowWorldGenerationValues = PlayerPrefs.GetInt(ShowWorldGenerationValuesKey);
             _originalOverrides = PlayerPrefs.GetString(BindingOverridesKey);
 
             PlayerPrefs.DeleteKey(SensitivityKey);
             PlayerPrefs.DeleteKey(ViewDistanceKey);
             PlayerPrefs.DeleteKey(AutosaveIntervalKey);
+            PlayerPrefs.DeleteKey(ShowWorldGenerationValuesKey);
             PlayerPrefs.DeleteKey(BindingOverridesKey);
             InputSystem.actions?.RemoveAllBindingOverrides();
             ResetSettingsState();
@@ -48,6 +54,8 @@ namespace Tests.Editor
             RestoreFloat(SensitivityKey, _hadSensitivity, _originalSensitivity);
             RestoreInt(ViewDistanceKey, _hadViewDistance, _originalViewDistance);
             RestoreInt(AutosaveIntervalKey, _hadAutosaveInterval, _originalAutosaveInterval);
+            RestoreInt(ShowWorldGenerationValuesKey, _hadShowWorldGenerationValues,
+                _originalShowWorldGenerationValues);
             RestoreString(BindingOverridesKey, _hadOverrides, _originalOverrides);
             PlayerPrefs.Save();
 
@@ -63,6 +71,7 @@ namespace Tests.Editor
             Assert.AreEqual(0.3f, GameSettings.Sensitivity);
             Assert.AreEqual(8, GameSettings.ViewDistance);
             Assert.AreEqual(30, GameSettings.AutosaveInterval);
+            Assert.IsFalse(GameSettings.ShowWorldGenerationValues);
         }
 
         [Test]
@@ -89,11 +98,16 @@ namespace Tests.Editor
                     .FindAction("Pause", true).bindings[0].effectivePath,
                     "Editing the draft must not change live bindings before Apply.");
 
-                GameSettings.Apply(0.53f, 99, 26, draft);
+                GameSettings.Apply(0.53f, 99, 26, true, draft);
 
                 Assert.AreEqual(0.55f, PlayerPrefs.GetFloat(SensitivityKey));
                 Assert.AreEqual(12, PlayerPrefs.GetInt(ViewDistanceKey));
                 Assert.AreEqual(30, PlayerPrefs.GetInt(AutosaveIntervalKey));
+                Assert.AreEqual(1, PlayerPrefs.GetInt(ShowWorldGenerationValuesKey));
+                Assert.IsTrue(GameSettings.ShowWorldGenerationValues);
+                ResetSettingsState();
+                GameSettings.EnsureLoaded();
+                Assert.IsTrue(GameSettings.ShowWorldGenerationValues);
                 Assert.IsFalse(string.IsNullOrWhiteSpace(PlayerPrefs.GetString(BindingOverridesKey)));
                 Assert.AreEqual("<Keyboard>/f10", InputSystem.actions.FindActionMap("Player", true)
                     .FindAction("Pause", true).bindings[0].effectivePath);

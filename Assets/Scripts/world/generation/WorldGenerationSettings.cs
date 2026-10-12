@@ -14,6 +14,8 @@ namespace world.generation
         public int TemperatureSeed { get; }
         public int StructureSeed { get; }
         public int StructureReplaceSeed { get; }
+        public int OceanSeed { get; }
+        public int HumiditySeed { get; }
 
         private WorldGenerationSettings(string worldSeed, ulong root)
         {
@@ -25,6 +27,8 @@ namespace world.generation
             TemperatureSeed = NextSeed(ref state);
             StructureSeed = NextSeed(ref state);
             StructureReplaceSeed = NextSeed(ref state);
+            OceanSeed = NextSeed(ref state);
+            HumiditySeed = NextSeed(ref state);
         }
 
         public static WorldGenerationSettings FromSeed(string seed)

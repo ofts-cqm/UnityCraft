@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using World;
 using world.blocks;
@@ -5,19 +6,11 @@ using World.blocks;
 
 namespace world.generation
 {
+    public enum NoiseProviderKind { Legacy, Magnified }
+
     public static class ChunkGenerator
     {
-        private const float FirstLevelFrequency = 0.001f;
-        private const float SecondLevelFrequency = 0.002f;
-        private const float FeatureFrequency = 0.01f;
-        private const float TemperatureFrequency = 0.002f;
-        private const float Root = 1 / 5f;
-        internal const int SeaLevel = 64;
-
-        private static PerlinNoise _continentalNoise;
-        private static PerlinNoise _heightNoise;
-        private static PerlinNoise _featureNoise;
-        private static PerlinNoise _temperatureNoise;
+        private static int _seaLevel = 32;
         private static bool _initialized;
 
         public enum BiomeEnum
@@ -26,44 +19,37 @@ namespace world.generation
             Plain,
             Desert,
             Mountain,
-            Forest
+            Forest,
+            BirchForest,
+            DesertHill,
+            Savanna,
+            FrostMountain,
+            Taiga,
+            Jungle
         }
 
         public sealed class ChunkGenerationContext
         {
             public ChunkData Data { get; }
             public int[,] HeightMap { get; }
-            public float[,] Height { get; }
             public float[,] Continental { get; }
             public float[,] Temperature { get; }
             public BiomeEnum[,] Biome { get; }
+            public int[,] HeightAfterFeaturePlacement { get; }
 
-            internal ChunkGenerationContext(ChunkData data, int[,] heightMap, float[,] height,
+            internal ChunkGenerationContext(ChunkData data, int[,] heightMap, 
                 float[,] continental, float[,] temperature, BiomeEnum[,] biome)
             {
                 Data = data;
                 HeightMap = heightMap;
-                Height = height;
                 Continental = continental;
                 Temperature = temperature;
                 Biome = biome;
+                HeightAfterFeaturePlacement = (int[,])heightMap.Clone();
             }
         }
 
-        public static void Initialize(WorldGenerationSettings settings)
-        {
-            _continentalNoise = new PerlinNoise(settings.ContinentalSeed, FirstLevelFrequency, new[] { 3, 1, 0, 0, 1 });
-            _heightNoise = new PerlinNoise(settings.HeightSeed, SecondLevelFrequency, new[] { 3, 1, 0, 0, 1 });
-            _featureNoise = new PerlinNoise(settings.FeatureSeed, FeatureFrequency, new[] { 1, 1, 4, 2 });
-            _temperatureNoise = new PerlinNoise(settings.TemperatureSeed, TemperatureFrequency, new[] { 5, 3, 0, 0, 1, 1, 1 });
-            StructureGenerator.Initialize(settings);
-            _initialized = true;
-        }
-
-        private static float BiasNoise(float noise)
-        {
-            return noise > 0 ? Mathf.Pow(noise, Root) : -Mathf.Pow(-noise, Root);
-        }
+        private static INoiseProvider _currentProvider = new MagnifiedNoiseProvider();
 
         /// <summary>
         /// Generates directly into the compact buffers used by the live chunk. No full-volume
@@ -71,18 +57,18 @@ namespace world.generation
         /// </summary>
         public static ChunkData GenerateChunk(ChunkCoord chunk)
         {
-            if (!_initialized)
-                throw new System.InvalidOperationException("ChunkGenerator must be initialized with the selected world's generation settings.");
-
             ChunkGenerationContext context = GenerateNoise(chunk.X, chunk.Z);
             GenerateFromHeightMap(context);
             StructureGenerator.GenerateTrees(chunk, context);
+            PlaceGroundSnow(context);
             return context.Data;
         }
-
-        private static ChunkGenerationContext GenerateNoise(int chunkX, int chunkZ)
+        
+        public static ChunkGenerationContext GenerateNoise(int chunkX, int chunkZ)
         {
-            float[,] height = new float[Chunk.ChunkSize, Chunk.ChunkSize];
+            if (!_initialized)
+                throw new InvalidOperationException("ChunkGenerator must be initialized with the selected world's generation settings.");
+            
             int[,] heightMap = new int[Chunk.ChunkSize, Chunk.ChunkSize];
             float[,] continentalMap = new float[Chunk.ChunkSize, Chunk.ChunkSize];
             float[,] temperatureMap = new float[Chunk.ChunkSize, Chunk.ChunkSize];
@@ -93,40 +79,16 @@ namespace world.generation
             for (int x = 0; x < Chunk.ChunkSize; x++)
             for (int z = 0; z < Chunk.ChunkSize; z++)
             {
-                SampleColumn(worldX + x, worldZ + z, out int columnHeight, out BiomeEnum biome,
-                    out float preciseHeight, out float continental, out float temperature);
-                height[x, z] = preciseHeight;
+                _currentProvider.SampleColumn(worldX + x, worldZ + z, out int columnHeight, out BiomeEnum biome,
+                    out float continental, out float temperature, out _);
                 heightMap[x, z] = columnHeight;
                 continentalMap[x, z] = continental;
                 temperatureMap[x, z] = temperature;
                 biomeMap[x, z] = biome;
             }
 
-            return new ChunkGenerationContext(new ChunkData(), heightMap, height, continentalMap,
+            return new ChunkGenerationContext(new ChunkData(), heightMap, continentalMap,
                 temperatureMap, biomeMap);
-        }
-
-        internal static void SampleColumn(int worldX, int worldZ, out int height, out BiomeEnum biome)
-        {
-            SampleColumn(worldX, worldZ, out height, out biome, out _, out _, out _);
-        }
-
-        private static void SampleColumn(int worldX, int worldZ, out int height, out BiomeEnum biome,
-            out float preciseHeight, out float continental, out float temperature)
-        {
-            float firstLevel = BiasNoise(_continentalNoise.At(worldX, worldZ)) / 2;
-            float secondLevel = BiasNoise(_heightNoise.At(worldX, worldZ)) / 4;
-            continental = firstLevel + secondLevel;
-            float featureLevel = _featureNoise.At(worldX, worldZ);
-            featureLevel *= Mathf.Clamp(continental / 2 + 0.5f, 0, 1) * 0.25f;
-            preciseHeight = continental + featureLevel;
-            temperature = _temperatureNoise.At(worldX, worldZ);
-            height = (int)(preciseHeight * 40) + 60;
-            biome = continental < 0
-                ? BiomeEnum.Ocean
-                : continental < 0.5f
-                    ? temperature > 0 ? BiomeEnum.Plain : BiomeEnum.Desert
-                    : temperature > 0 ? BiomeEnum.Forest : BiomeEnum.Mountain;
         }
 
         private static void GenerateFromHeightMap(ChunkGenerationContext context)
@@ -135,17 +97,10 @@ namespace world.generation
             for (int z = 0; z < Chunk.ChunkSize; z++)
             {
                 int height = context.HeightMap[x, z];
-                int lastWrittenY = Mathf.Min(Chunk.ChunkHeight - 1, Mathf.Max(height, SeaLevel - 1));
+                int lastWrittenY = Mathf.Min(Chunk.ChunkHeight - 1, Mathf.Max(height, _seaLevel - 1));
                 for (int y = 0; y <= lastWrittenY; y++)
                 {
-                    Block block = context.Biome[x, z] switch
-                    {
-                        BiomeEnum.Forest => PlacePlainBlocks(y, height),
-                        BiomeEnum.Desert => PlaceDesertBlocks(y, height),
-                        BiomeEnum.Mountain => PlaceMountainBlocks(y, height),
-                        BiomeEnum.Ocean => PlaceOceanBlocks(y, height),
-                        _ => PlacePlainBlocks(y, height)
-                    };
+                    Block block = SampleTerrainBlock(y, height, context.Biome[x, z]);
 
                     if (block.BlockId == Blocks.GenerationWater.BlockId)
                         context.Data.SetFluidRaw(x, y, z, FluidState.Source.RawAmount);
@@ -155,33 +110,80 @@ namespace world.generation
             }
         }
 
+        // Share terrain rules with structure support checks so neighboring chunks need not be loaded.
+        internal static Block SampleTerrainBlock(int y, int height, BiomeEnum biome)
+        {
+            return biome switch
+            {
+                BiomeEnum.Desert => PlaceDesertBlocks(y, height),
+                BiomeEnum.DesertHill => PlaceDesertHillBlocks(y, height),
+                BiomeEnum.Mountain => PlaceMountainBlocks(y, height),
+                BiomeEnum.FrostMountain => PlaceFrostMountainBlocks(y, height),
+                BiomeEnum.Ocean => PlaceOceanBlocks(y, height),
+                _ => PlacePlainBlocks(y, height)
+            };
+        }
+
         private static Block PlaceOceanBlocks(int y, int height)
         {
-            if (y < height && y > height - 3 && y > SeaLevel - 3) return Blocks.Gravel;
+            if (y < height && y > height - 3 && y > _seaLevel - 3) return Blocks.Gravel;
             if (y < height) return Blocks.Stone;
             if (y == height) return Blocks.Gravel;
-            return y < SeaLevel ? Blocks.GenerationWater : Blocks.Air;
+            return y < _seaLevel ? Blocks.GenerationWater : Blocks.Air;
         }
 
         private static Block PlacePlainBlocks(int y, int height)
         {
             if (y < height - 3) return Blocks.Stone;
             if (y < height) return Blocks.Dirt;
-            if (y == height) return y < SeaLevel ? Blocks.Sand : Blocks.GrassBlock;
-            return y < SeaLevel ? Blocks.GenerationWater : Blocks.Air;
+            if (y == height) return y < _seaLevel ? Blocks.Sand : Blocks.GrassBlock;
+            return y < _seaLevel ? Blocks.GenerationWater : Blocks.Air;
         }
 
         private static Block PlaceMountainBlocks(int y, int height)
         {
             if (y <= height) return Blocks.Stone;
-            return y < SeaLevel ? Blocks.GenerationWater : Blocks.Air;
+            return y < _seaLevel ? Blocks.GenerationWater : Blocks.Air;
+        }
+
+        private static Block PlaceFrostMountainBlocks(int y, int height)
+        {
+            if (y <= height - 3) return Blocks.Stone;
+            if (y <= height - 1) return Blocks.Ice;
+            if (y == height) return Blocks.SnowBlock;
+            return y < _seaLevel ? Blocks.GenerationWater : Blocks.Air;
         }
 
         private static Block PlaceDesertBlocks(int y, int height)
         {
-            if (y < height - 3) return Blocks.Stone;
+            if (y < height - 6) return Blocks.Stone;
+            if (y < height - 3) return Blocks.Sandstone;
             if (y <= height) return Blocks.Sand;
-            return y < SeaLevel ? Blocks.GenerationWater : Blocks.Air;
+            return y < _seaLevel ? Blocks.GenerationWater : Blocks.Air;
+        }
+
+        private static Block PlaceDesertHillBlocks(int y, int height)
+        {
+            if (y < height - 6) return Blocks.Stone;
+            if (y <= height) return Blocks.Sandstone;
+            return y < _seaLevel ? Blocks.GenerationWater : Blocks.Air;
+        }
+
+        public const float SnowyTemperature = -0.2f;
+
+        private static void PlaceGroundSnow(ChunkGenerationContext context)
+        {
+            for (int i = 0; i < Chunk.ChunkSize; i++)
+            {
+                for (int j = 0; j < Chunk.ChunkSize; j++)
+                {
+                    if (context.Temperature[i, j] > SnowyTemperature) continue;
+                    int height = context.HeightAfterFeaturePlacement[i, j];
+                    
+                    if (height < _seaLevel) context.Data.SetBlock(i, _seaLevel, j, Blocks.Ice, 0);
+                    else context.Data.SetBlock(i, height + 1, j, Blocks.Snow, 0);
+                }
+            }
         }
 
         internal static void PlaceStructureBlock(BlockState blockState, ChunkCoord targetCoord,
@@ -199,6 +201,44 @@ namespace world.generation
             context.Data.SetBlock(x, blockState.Position.y, z, blockState.Block,
                 blockState.Block.EncodeStateCompact(blockState.Data));
             if (generatedWater) context.Data.SetFluidRaw(x, blockState.Position.y, z, 0);
+            
+            if (blockState.Block.Collide) context.HeightAfterFeaturePlacement[x, z] =
+                Math.Max(context.HeightAfterFeaturePlacement[x, z], blockState.Position.y);
+        }
+
+        public static void Initialize(WorldGenerationSettings settings, NoiseProviderKind provider = NoiseProviderKind.Magnified)
+        {
+            _currentProvider = provider switch
+            {
+                NoiseProviderKind.Legacy => new LegacyNoiseProvider(),
+                NoiseProviderKind.Magnified => new MagnifiedNoiseProvider(),
+                _ => throw new ArgumentOutOfRangeException(nameof(provider))
+            };
+            _seaLevel = _currentProvider.GetSeaLevel();
+            _currentProvider.Initialize(settings);
+            StructureGenerator.Initialize(settings);
+            _initialized = true;
+        }
+        
+        internal static void SampleColumn(int worldX, int worldZ, out int height, out BiomeEnum biome)
+        {
+            _currentProvider.SampleColumn(worldX, worldZ, out height, out biome, out _, out _, out _);
+        }
+
+        public static void SampleClimate(int worldX, int worldZ, out float continentality, out float temperature)
+        {
+            if (!_initialized)
+                throw new InvalidOperationException("ChunkGenerator must be initialized with the selected world's generation settings.");
+            _currentProvider.SampleColumn(worldX, worldZ, out _, out _, out continentality, out temperature, out _);
+        }
+
+        public static void SampleClimate(int worldX, int worldZ, out BiomeEnum biome,
+            out float continentality, out float temperature, out float humidity)
+        {
+            if (!_initialized)
+                throw new InvalidOperationException("ChunkGenerator must be initialized with the selected world's generation settings.");
+            _currentProvider.SampleColumn(worldX, worldZ, out _, out biome, out continentality,
+                out temperature, out humidity);
         }
 
         private static int ModChunk(int coordinate)

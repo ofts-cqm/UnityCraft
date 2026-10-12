@@ -76,6 +76,33 @@ namespace Tests.Editor
         }
 
         [Test]
+        public void NoiseProviderChoicePersistsAndOlderWorldsUseLegacy()
+        {
+            WorldDescriptor magnified = _storage.ReadWorldDescriptor("test-world");
+            Assert.AreEqual(NoiseProviderKind.Magnified, magnified.NoiseProvider);
+
+            WorldDescriptor legacy = _storage.CreateWorld("legacy-noise", "Legacy Noise", "123", NoiseProviderKind.Legacy);
+            Assert.AreEqual(NoiseProviderKind.Legacy, legacy.NoiseProvider);
+            Assert.AreEqual(NoiseProviderKind.Legacy, _storage.ReadWorldDescriptor("legacy-noise").NoiseProvider);
+
+            string path = Path.Combine(_temporaryRoot, "saves", "test-world", "world.json");
+            magnified.noiseProvider = null;
+            File.WriteAllText(path, JsonUtility.ToJson(magnified, true));
+            Assert.AreEqual(NoiseProviderKind.Legacy, _storage.ReadWorldDescriptor("test-world").NoiseProvider);
+        }
+
+        [Test]
+        public void DeleteWorldRemovesOnlyTheSelectedSave()
+        {
+            _storage.CreateWorld("keep-world", "Keep World");
+            _storage.DeleteWorld("test-world");
+
+            CollectionAssert.AreEqual(new[] { "keep-world" }, _storage.ListWorldIds());
+            Assert.Throws<FileNotFoundException>(() => _storage.ReadWorldDescriptor("test-world"));
+            Assert.AreEqual("Keep World", _storage.ReadWorldDescriptor("keep-world").DisplayName);
+        }
+
+        [Test]
         public void SeedExpansionIsStableAndSeparatesNoiseSources()
         {
             WorldGenerationSettings first = WorldGenerationSettings.FromSeed("same seed");

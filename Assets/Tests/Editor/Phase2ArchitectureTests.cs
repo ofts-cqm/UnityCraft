@@ -369,6 +369,106 @@ namespace Tests.Editor
             data.ValidateMetadata();
         }
 
+        [TestCase(0, 0)]
+        [TestCase(15, 16)]
+        [TestCase(-1, -16)]
+        [TestCase(-17, 3)]
+        public void ClimateSamplingMatchesGeneratedColumn(int worldX, int worldZ)
+        {
+            WorldGenerationSettings settings = WorldGenerationSettings.FromSeed("climate-hud-sampling");
+            ChunkGenerator.Initialize(settings);
+            ChunkCoord chunk = ChunkCoord.ToChunkCoord(worldX, worldZ);
+            ChunkGenerator.ChunkGenerationContext context = ChunkGenerator.GenerateNoise(chunk.X, chunk.Z);
+            int localX = worldX - chunk.X * Chunk.ChunkSize;
+            int localZ = worldZ - chunk.Z * Chunk.ChunkSize;
+
+            ChunkGenerator.SampleClimate(worldX, worldZ, out ChunkGenerator.BiomeEnum biome,
+                out float continentality, out float temperature, out float humidity);
+            MagnifiedNoiseProvider provider = new MagnifiedNoiseProvider();
+            provider.Initialize(settings);
+            provider.SampleColumn(worldX, worldZ, out _, out _, out _, out _, out float expectedHumidity);
+
+            Assert.AreEqual(context.Continental[localX, localZ], continentality);
+            Assert.AreEqual(context.Temperature[localX, localZ], temperature);
+            Assert.AreEqual(context.Biome[localX, localZ], biome);
+            Assert.AreEqual(expectedHumidity, humidity);
+        }
+
+        [Test]
+        public void LegacyClimateSamplingHasNoHumidity()
+        {
+            ChunkGenerator.Initialize(WorldGenerationSettings.FromSeed("legacy-climate-hud"), NoiseProviderKind.Legacy);
+
+            ChunkGenerator.SampleClimate(-1, 16, out _, out _, out _, out float humidity);
+
+            Assert.IsTrue(float.IsNaN(humidity));
+        }
+
+        [Test]
+        public void TreeProfilesHaveRequestedTrunksAndCrowns()
+        {
+            Block[,,] Shape(string name) => (Block[,,])typeof(StructureGenerator)
+                .GetField(name, BindingFlags.Static | BindingFlags.NonPublic).GetValue(null);
+            Block[,,] birch = Shape("BirchTreeStructure");
+            Assert.AreEqual(8, birch.GetLength(1));
+            for (int y = 0; y < 7; y++) Assert.AreSame(Blocks.Log.Birch, birch[2, y, 2]);
+            Block[,,] jungle = Shape("JungleTreeStructure");
+            Assert.AreEqual(20, jungle.GetLength(1));
+            for (int y = 0; y < 15; y++)
+            for (int x = 0; x < 12; x++)
+            for (int z = 0; z < 12; z++)
+                Assert.AreSame(x >= 5 && x <= 6 && z >= 5 && z <= 6 ? Blocks.Log.Jungle : Blocks.Void,
+                    jungle[x, y, z]);
+            Assert.AreSame(Blocks.JungleLeaves, jungle[0, 16, 0]);
+            Block[,,] spruce = Shape("SpruceTreeStructure");
+            Assert.AreEqual(22, spruce.GetLength(1));
+            for (int y = 0; y < 20; y++)
+            for (int x = 5; x <= 6; x++)
+            for (int z = 5; z <= 6; z++) Assert.AreSame(Blocks.Log.Spruce, spruce[x, y, z]);
+            Assert.AreSame(Blocks.SpruceLeaves, spruce[0, 7, 0]);
+            var acacias = (Block[][,,])typeof(StructureGenerator)
+                .GetField("AcaciaTreeStructures", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null);
+            Assert.AreEqual(4, acacias.Length);
+            foreach (Block[,,] acacia in acacias)
+            {
+                for (int y = 0; y < 3; y++) Assert.AreSame(Blocks.Log.Acacia, acacia[5, y, 5]);
+                int logs = 0;
+                foreach (Block block in acacia) if (block == Blocks.Log.Acacia) logs++;
+                Assert.AreEqual(6, logs);
+            }
+        }
+
+        [Test]
+        public void TreeOriginsRequireSoilUnderEveryTrunkBlock()
+        {
+            ChunkGenerator.Initialize(WorldGenerationSettings.FromSeed("tree-soil-footprints"));
+            MethodInfo origin = typeof(StructureGenerator).GetMethod("TryGetTreeOrigin",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            MethodInfo terrain = typeof(ChunkGenerator).GetMethod("SampleTerrainBlock",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            var provider = new MagnifiedNoiseProvider();
+            provider.Initialize(WorldGenerationSettings.FromSeed("tree-soil-footprints"));
+            int accepted = 0;
+            for (int x = -160; x < 160; x++)
+            for (int z = -160; z < 160; z++)
+            {
+                object[] args = { x, z, 0 };
+                if (!(bool)origin.Invoke(null, args)) continue;
+                accepted++;
+                int height = (int)args[2];
+                provider.SampleColumn(x, z, out _, out var biome, out _, out _, out _);
+                int width = biome == ChunkGenerator.BiomeEnum.Jungle || biome == ChunkGenerator.BiomeEnum.Taiga ? 2 : 1;
+                for (int dx = 0; dx < width; dx++)
+                for (int dz = 0; dz < width; dz++)
+                {
+                    provider.SampleColumn(x + dx, z + dz, out int ground, out var groundBiome, out _, out _, out _);
+                    Block support = (Block)terrain.Invoke(null, new object[] { height, ground, groundBiome });
+                    Assert.IsTrue(support == Blocks.Dirt || support == Blocks.GrassBlock);
+                }
+            }
+            Assert.Greater(accepted, 0);
+        }
+
         [Test]
         public void CrossBorderTreeGenerationIsIndependentOfChunkOrder()
         {

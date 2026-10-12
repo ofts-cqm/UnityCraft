@@ -17,6 +17,9 @@
     "10": "Core/torch_side.png",
     "11": "Core/torch_top.png",
     "12": "Core/torch_bottom.png",
+    "13": "Core/snow.png",
+    "14": "Core/grass_side_snow.png",
+    "15": "Core/ice.png",
     "16": "Core/stained_glass_white.png",
     "17": "Core/stained_glass_light_gray.png",
     "18": "Core/stained_glass_gray.png",
@@ -113,9 +116,5 @@
     "109": "Leaves/pale_oak_leaves.png",
     "110": "Leaves/spruce_leaves.png"
   },
-  "empty_indices": [
-    13,
-    14,
-    15
-  ]
+  "empty_indices": []
 }

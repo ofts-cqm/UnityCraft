@@ -11,17 +11,19 @@ namespace settings
         public const float DefaultSensitivity = 0.3f;
         public const int DefaultViewDistance = 8;
         public const int DefaultAutosaveInterval = 30;
+        public const bool DefaultShowWorldGenerationValues = false;
 
         public const float MinimumSensitivity = 0.05f;
         public const float MaximumSensitivity = 1f;
         public const int MinimumViewDistance = 2;
-        public const int MaximumViewDistance = 12;
+        public const int MaximumViewDistance = 32;
         public const int MinimumAutosaveInterval = 10;
         public const int MaximumAutosaveInterval = 300;
 
         private const string SensitivityKey = "settings.player.sensitivity";
         private const string ViewDistanceKey = "settings.world.viewDistance";
         private const string AutosaveIntervalKey = "settings.world.autosaveInterval";
+        private const string ShowWorldGenerationValuesKey = "settings.world.showGenerationValues";
         private const string BindingOverridesKey = "settings.player.bindingOverrides";
         private static readonly HashSet<string> ExcludedBindingActions = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -37,6 +39,7 @@ namespace settings
         public static float Sensitivity { get; private set; } = DefaultSensitivity;
         public static int ViewDistance { get; private set; } = DefaultViewDistance;
         public static int AutosaveInterval { get; private set; } = DefaultAutosaveInterval;
+        public static bool ShowWorldGenerationValues { get; private set; } = DefaultShowWorldGenerationValues;
         public static event Action Applied;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
@@ -50,6 +53,8 @@ namespace settings
             ViewDistance = Mathf.Clamp(PlayerPrefs.GetInt(ViewDistanceKey, DefaultViewDistance),
                 MinimumViewDistance, MaximumViewDistance);
             AutosaveInterval = NormalizeAutosave(PlayerPrefs.GetInt(AutosaveIntervalKey, DefaultAutosaveInterval));
+            ShowWorldGenerationValues = PlayerPrefs.GetInt(ShowWorldGenerationValuesKey,
+                DefaultShowWorldGenerationValues ? 1 : 0) != 0;
 
             string overrides = PlayerPrefs.GetString(BindingOverridesKey, string.Empty);
             if (_actions != null && !string.IsNullOrWhiteSpace(overrides))
@@ -86,7 +91,8 @@ namespace settings
             return draft;
         }
 
-        public static void Apply(float sensitivity, int viewDistance, int autosaveInterval, InputActionAsset draftActions)
+        public static void Apply(float sensitivity, int viewDistance, int autosaveInterval,
+            bool showWorldGenerationValues, InputActionAsset draftActions)
         {
             EnsureLoaded();
             if (_actions == null) throw new InvalidOperationException("The project input action asset is not available.");
@@ -95,6 +101,7 @@ namespace settings
             Sensitivity = NormalizeSensitivity(sensitivity);
             ViewDistance = Mathf.Clamp(viewDistance, MinimumViewDistance, MaximumViewDistance);
             AutosaveInterval = NormalizeAutosave(autosaveInterval);
+            ShowWorldGenerationValues = showWorldGenerationValues;
 
             SynchronizeDerivedBindings(draftActions);
             string overrides = draftActions.SaveBindingOverridesAsJson();
@@ -104,6 +111,7 @@ namespace settings
             PlayerPrefs.SetFloat(SensitivityKey, Sensitivity);
             PlayerPrefs.SetInt(ViewDistanceKey, ViewDistance);
             PlayerPrefs.SetInt(AutosaveIntervalKey, AutosaveInterval);
+            PlayerPrefs.SetInt(ShowWorldGenerationValuesKey, ShowWorldGenerationValues ? 1 : 0);
             PlayerPrefs.SetString(BindingOverridesKey, overrides);
             PlayerPrefs.Save();
             Applied?.Invoke();

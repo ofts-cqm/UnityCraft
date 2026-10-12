@@ -88,6 +88,32 @@ namespace Tests.Editor
         }
 
         [Test]
+        public void DifferentLeafTypesConnectToAnyLogAndRecheckWhenItIsRemoved()
+        {
+            Block otherLeaves = Blocks.TryGetById(60000, out Block registered)
+                ? registered
+                : new LeavesBlock(60000, Blocks.OakLeave.Property);
+            Assert.IsInstanceOf<LeavesBlock>(otherLeaves);
+            Vector3Int oakLeaf = new(6, 80, 8);
+            Vector3Int otherLeaf = oakLeaf + Vector3Int.right;
+            Vector3Int birchLog = otherLeaf + Vector3Int.right;
+            _world.SetBlock(oakLeaf, Blocks.OakLeave);
+            _world.SetBlock(otherLeaf, otherLeaves);
+            _world.SetBlock(birchLog, Blocks.Log.Birch);
+
+            Blocks.OakLeave.OnRandomTick(_world, _world.GetBlock(oakLeaf));
+            otherLeaves.OnRandomTick(_world, _world.GetBlock(otherLeaf));
+            Assert.AreEqual(Blocks.OakLeave.BlockId, _world.GetBlock(oakLeaf).Block.BlockId);
+            Assert.AreEqual(otherLeaves.BlockId, _world.GetBlock(otherLeaf).Block.BlockId);
+
+            _world.SetBlock(birchLog, Blocks.Air);
+            Blocks.OakLeave.OnRandomTick(_world, _world.GetBlock(oakLeaf));
+            otherLeaves.OnRandomTick(_world, _world.GetBlock(otherLeaf));
+            Assert.AreEqual(Blocks.Air.BlockId, _world.GetBlock(oakLeaf).Block.BlockId);
+            Assert.AreEqual(Blocks.Air.BlockId, _world.GetBlock(otherLeaf).Block.BlockId);
+        }
+
+        [Test]
         public void SupportedGravityBlockConsumesItsScheduledUpdateAfterTwoTicks()
         {
             Vector3Int position = new(8, 64, 8);

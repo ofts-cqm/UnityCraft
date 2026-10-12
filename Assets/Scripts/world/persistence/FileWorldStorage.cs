@@ -48,9 +48,12 @@ namespace world.persistence
             return result;
         }
 
-        public WorldDescriptor CreateWorld(string worldId, string displayName, string worldSeed = null)
+        public WorldDescriptor CreateWorld(string worldId, string displayName, string worldSeed = null,
+            NoiseProviderKind noiseProvider = NoiseProviderKind.Magnified)
         {
             ValidateWorldId(worldId);
+            if (!Enum.IsDefined(typeof(NoiseProviderKind), noiseProvider))
+                throw new ArgumentOutOfRangeException(nameof(noiseProvider));
             displayName = displayName?.Trim();
             if (string.IsNullOrWhiteSpace(displayName)) throw new ArgumentException("A display name is required.", nameof(displayName));
             string descriptorPath = DescriptorPath(worldId);
@@ -65,7 +68,8 @@ namespace world.persistence
                 contentVersion = SaveVersionPolicy.Current.Content,
                 createdUtc = now,
                 lastSavedUtc = now,
-                worldSeed = WorldGenerationSettings.NormalizeOrCreateSeed(worldSeed)
+                worldSeed = WorldGenerationSettings.NormalizeOrCreateSeed(worldSeed),
+                noiseProvider = noiseProvider.ToString()
             };
             WriteDescriptor(descriptor);
             return descriptor;
@@ -82,6 +86,10 @@ namespace world.persistence
                 if (descriptor == null || descriptor.magic != DescriptorMagic || descriptor.worldId != worldId ||
                     string.IsNullOrWhiteSpace(descriptor.displayName) || descriptor.schemaVersion <= 0 || descriptor.contentVersion <= 0)
                     throw new CorruptSaveException($"World descriptor '{path}' is invalid.");
+                if (!string.IsNullOrEmpty(descriptor.noiseProvider) &&
+                    (!Enum.TryParse(descriptor.noiseProvider, false, out NoiseProviderKind provider) ||
+                     !Enum.IsDefined(typeof(NoiseProviderKind), provider)))
+                    throw new CorruptSaveException($"World descriptor '{path}' has an unknown noise provider.");
 
                 if (string.IsNullOrWhiteSpace(descriptor.worldSeed))
                 {
@@ -111,6 +119,13 @@ namespace world.persistence
             descriptor.contentVersion = version.Content;
             descriptor.lastSavedUtc = DateTime.UtcNow.ToString("O");
             WriteDescriptor(descriptor);
+        }
+
+        public void DeleteWorld(string worldId)
+        {
+            string path = WorldPath(worldId);
+            if (!Directory.Exists(path)) throw new DirectoryNotFoundException($"World '{worldId}' does not exist.");
+            Directory.Delete(path, true);
         }
 
         public void SaveClock(string worldId, double elapsedSeconds)

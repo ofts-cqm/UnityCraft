@@ -32,7 +32,15 @@ namespace world.blocks
         public static readonly WoodBlocks WoodSlab;
         public static readonly WoodBlocks WoodStairs;
         public static readonly Torch Torch;
-
+        public static readonly Block SnowBlock;
+        public static readonly Snow Snow;
+        public static readonly Block Ice;
+        public static readonly Block Sandstone;
+        public static readonly LeavesBlock BirchLeaves;
+        public static readonly LeavesBlock SpruceLeaves;
+        public static readonly LeavesBlock JungleLeaves;
+        public static readonly LeavesBlock AcaciaLeaves;
+        
         static Blocks()
         {
             Air = new AirBlock();
@@ -51,6 +59,14 @@ namespace world.blocks
             WoodSlab = new WoodBlocks(56, new Slab(56, BlockProperty.Default(66).SetSolid(false)), 27);
             WoodStairs = new WoodBlocks(29, new Stair(29, 66), 28);
             Torch = new Torch(65);
+            SnowBlock = new Block(66, BlockProperty.Default(13));
+            Snow = new Snow(67);
+            Ice = new Block(68, BlockProperty.Default(15).SetTransparent(true));
+            Sandstone = new Block(69, BlockProperty.Pillar(8, 9, 6));
+            BirchLeaves = new LeavesBlock(70, BlockProperty.Of(OakLeave, 102));
+            SpruceLeaves = new LeavesBlock(71, BlockProperty.Of(OakLeave, 110));
+            JungleLeaves = new LeavesBlock(72, BlockProperty.Of(OakLeave, 106));
+            AcaciaLeaves = new LeavesBlock(73, BlockProperty.Of(OakLeave, 100));
         }
 
         internal static void Register(Block block)

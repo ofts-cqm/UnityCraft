@@ -1,3 +1,5 @@
+using World.blocks;
+
 namespace world.blocks
 {
     public record BlockProperty(
@@ -14,6 +16,19 @@ namespace world.blocks
         public static BlockProperty Pillar(int top, int bottom, int side) =>
             Default(new[] { top, bottom, side, side, side, side });
         
+        public static BlockProperty Of(Block block, int texture)
+        {
+            BlockProperty property = block.Property;
+            return Default(texture) with
+            {
+                IsSolid = property.IsSolid,
+                Collide = property.Collide,
+                ReplaceTerrain = property.ReplaceTerrain,
+                Transparent = property.Transparent,
+                AllowsLightPassThrough = property.AllowsLightPassThrough,
+                ReplaceByPlace = property.ReplaceByPlace
+            };
+        }
         private static BlockProperty Default(int[] uv) => new(
             true,
             uv,

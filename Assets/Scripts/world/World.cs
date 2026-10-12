@@ -120,7 +120,7 @@ namespace World
                 Lighting = new WorldLighting(this);
                 Daylight = new DaylightCycle(descriptor.daylight?.elapsedSeconds ?? DaylightCycle.MorningSeconds);
                 WorldGenerationSettings generationSettings = WorldGenerationSettings.FromSeed(descriptor.worldSeed);
-                ChunkGenerator.Initialize(generationSettings);
+                ChunkGenerator.Initialize(generationSettings, descriptor.NoiseProvider);
                 _randomTickSeed = generationSettings.FeatureSeed ^ generationSettings.StructureSeed;
                 _fallingBlocks = new FallingBlockSystem(this);
 
@@ -533,13 +533,9 @@ namespace World
             }
         }
 
-        // Todo: make no longer restricted to oak. 
         internal void NotifyBlockChanged(Vector3Int position, Block previous, Block next)
         {
-            bool leafTopologyChanged = previous.BlockId == Blocks.Log.Oak.BlockId ||
-                                       previous.BlockId == Blocks.OakLeave.BlockId ||
-                                       next.BlockId == Blocks.Log.Oak.BlockId ||
-                                       next.BlockId == Blocks.OakLeave.BlockId;
+            bool leafTopologyChanged = previous is Log or LeavesBlock || next is Log or LeavesBlock;
             if (leafTopologyChanged) _leafDistanceCache.InvalidateAround(this, position);
 
             foreach (var t in BlockUpdateDirections)
@@ -620,7 +616,7 @@ namespace World
         internal bool IsGrassBlocked(Vector3Int position)
         {
             BlockState block = GetBlock(position);
-            return !GetFluid(position).IsEmpty || block.Block.IsSolid(block, ChunkRenderObject.BottomFace);
+            return !GetFluid(position).IsEmpty || (block.Block.IsSolid(block, ChunkRenderObject.BottomFace) && block.Block.Collide);
         }
 
         internal byte ResolveLeafDistance(Vector3Int position) => _leafDistanceCache.Resolve(this, position);

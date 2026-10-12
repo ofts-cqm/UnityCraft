@@ -41,6 +41,8 @@ namespace world.blocks
         public static bool operator ==(BlockState left, BlockState right) => left.Equals(right);
         public static bool operator !=(BlockState left, BlockState right) => !left.Equals(right);
 
+        public bool Is(Block block) => Block == block;
+
         public void Deconstruct(out Vector3Int position, out Block block, out object data)
         {
             position = Position;
